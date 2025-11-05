@@ -1,6 +1,20 @@
-// app/dashboard/page.tsx
+"use client"; // 👈 (1) "use client"로 변경 (이벤트 핸들러, 라우터 사용)
+
+import { useRouter } from 'next/navigation'; // 👈 (2) useRouter 임포트
+import { createClient } from '../../lib/supabase/client'; // 👈 (3) Supabase 클라이언트 임포트 (경로 수정)
 
 export default function Home() {
+  const router = useRouter(); // 👈 (4) 라우터 기능 준비
+  const supabase = createClient(); // 👈 (5) Supabase 클라이언트 준비
+
+  // (6) 로그아웃 버튼 클릭 시 실행될 함수
+  const handleLogout = async () => {
+    // (7) Supabase에서 로그아웃 (쿠키/세션 삭제)
+    await supabase.auth.signOut();
+    // (8) 로그인 페이지로 강제 이동
+    router.push('/login');
+  };
+
   // 나중에는 이 데이터가 Spring Boot API로부터 오게 됩니다.
   const sampleTransactions = [
     { id: 1, date: "2025-11-04", description: "스타벅스 (커피)", amount: -5500 },
@@ -15,10 +29,14 @@ export default function Home() {
       {/* 1. 상단 헤더 (GNB) */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-sky-700"> {/* 로고 색상 변경 */}
+          <h1 className="text-2xl font-bold text-sky-700">
             FinTrack
           </h1>
-          <button className="bg-sky-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-sky-600 transition-colors"> {/* 버튼 색상 변경 */}
+          {/* (9) 로그아웃 버튼에 onClick 이벤트 핸들러 연결 */}
+          <button 
+            onClick={handleLogout} 
+            className="bg-sky-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-sky-600 transition-colors"
+          >
             로그아웃
           </button>
         </nav>
@@ -31,11 +49,11 @@ export default function Home() {
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-lg font-semibold text-gray-700 mb-2">총 수입</h2>
-            <p className="text-3xl font-bold text-sky-600">₩3,000,000</p> {/* 수입 색상 변경 */}
+            <p className="text-3xl font-bold text-sky-600">₩3,000,000</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-lg font-semibold text-gray-700 mb-2">총 지출</h2>
-            <p className="text-3xl font-bold text-red-500">-₩7,600</p> {/* 지출은 red 유지 */}
+            <p className="text-3xl font-bold text-red-500">-₩7,600</p>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-lg font-semibold text-gray-700 mb-2">잔액</h2>
@@ -49,7 +67,7 @@ export default function Home() {
             <h2 className="text-xl font-semibold text-gray-800">
               최근 거래 내역
             </h2>
-            <button className="bg-sky-500 text-white px-5 py-2 rounded-lg font-medium hover:bg-sky-600 transition-colors"> {/* 버튼 색상 변경 */}
+            <button className="bg-sky-500 text-white px-5 py-2 rounded-lg font-medium hover:bg-sky-600 transition-colors">
               + 새 거래 추가
             </button>
           </div>
@@ -69,7 +87,7 @@ export default function Home() {
                   <td className="p-4 text-gray-700">{item.date}</td>
                   <td className="p-4 text-gray-900 font-medium">{item.description}</td>
                   <td
-                    className={`p-4 font-medium text-right ${item.amount > 0 ? 'text-sky-600' : 'text-red-500' // 수입 색상 변경
+                    className={`p-4 font-medium text-right ${item.amount > 0 ? 'text-sky-600' : 'text-red-500'
                       }`}
                   >
                     {item.amount.toLocaleString()}원
@@ -81,7 +99,7 @@ export default function Home() {
 
           {/* 테이블 푸터 (더보기) */}
           <div className="p-4 text-center">
-            <a href="#" className="text-sky-600 font-medium hover:text-sky-500"> {/* 링크 색상 변경 */}
+            <a href="#" className="text-sky-600 font-medium hover:text-sky-500">
               모든 내역 보기
             </a>
           </div>
