@@ -35,7 +35,7 @@ export default function LoginPage() {
       }
 
       // (14) [2단계] 모든 것이 성공! 대시보드로 이동
-      router.push('/dashboard');
+      router.push('/home');
 
     } catch (err: any) {
       // (15) 12~14단계 중 에러 발생 시, 여기로 잡혀옴
