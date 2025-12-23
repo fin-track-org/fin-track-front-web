@@ -119,7 +119,7 @@ export default function HealthCheckPage() {
                         <h3 className="font-bold">🚨 CORS 에러가 발생했습니다!</h3>
                         <p className="text-sm mt-1">
                             Spring Boot 컨트롤러에 <strong>`@CrossOrigin("http://localhost:3000")`</strong> 어노테이션을 추가하거나,
-                            글로벌 <storng>`WebConfig`</storng> 파일을 만들어 `localhost:3000`을 허용해야 합니다.
+                            글로벌 <strong>`WebConfig`</strong> 파일을 만들어 `localhost:3000`을 허용해야 합니다.
                         </p>
                     </div>
                 )}
