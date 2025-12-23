@@ -12,7 +12,8 @@ export default function HealthCheckPage() {
     const [loadingPingDb, setLoadingPingDb] = useState(false);
 
     // Spring Boot 서버 주소
-    const springBootUrl = 'http://localhost:8080/fin-track';
+    // const springBootUrl = 'http://localhost:8080/fin-track';
+    const springBootUrl = 'https://fin-track-api-ralk.onrender.com/fin-track';
 
     // 1. /ping 테스트 핸들러
     const handlePing = async () => {
