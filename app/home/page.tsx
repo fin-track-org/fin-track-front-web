@@ -30,6 +30,7 @@ interface Summary {
 interface ChartData {
   name: string;
   value: number;
+  [key: string]: any;
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
@@ -168,7 +169,7 @@ export default function DashboardPage() {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <RechartsTooltip formatter={(value: number) => `${value.toLocaleString()}원`} />
+                <RechartsTooltip formatter={(value: any) => `${value.toLocaleString()}원`} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
