@@ -16,7 +16,7 @@ export default function LandingPage() {
             FinTrack
           </h1>
           {/* <Link>를 <a> 태그로 변경 (빌드 오류 해결) */}
-          <a href="/fin-track/login">
+          <a href="/login">
             {/* 요청하신 sky-500을 버튼 배경색으로 사용합니다.
               hover 시에는 살짝 더 진한 sky-600을 사용합니다.
             */}
@@ -39,7 +39,7 @@ export default function LandingPage() {
         </p>
 
         {/* <Link>를 <a> 태그로 변경 (빌드 오류 해결) */}
-        <a href="/fin-track/login">
+        <a href="/login">
           <span className="bg-sky-500 text-white px-6 py-3 rounded-lg font-bold text-lg hover:bg-sky-600 transition-colors cursor-pointer">
             로그인하고 시작하기
           </span>
