@@ -61,7 +61,7 @@ export default function DashboardPage() {
   const supabase = createClient();
 
   // 날짜
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 0, 29));
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const [summary, setSummary] = useState<Summary>({
     income: 0,
@@ -574,13 +574,13 @@ export default function DashboardPage() {
       </section>
 
       {/* 모바일 하단 플로팅 버튼 (빠른 입력 유도) */}
-      <div className="md:hidden fixed bottom-6 right-6">
+      {/* <div className="md:hidden fixed bottom-6 right-6">
         <Link href="/home/transactions">
           <button className="bg-sky-600 text-white p-4 rounded-full shadow-lg hover:bg-sky-700 transition-colors flex items-center justify-center">
             <span className="text-2xl font-bold">+</span>
           </button>
         </Link>
-      </div>
+      </div> */}
     </div>
   );
 }

@@ -80,12 +80,12 @@ export default function Sidebar() {
                 onClick={() => setIsOpen(false)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   active
-                    ? "bg-sky-50 text-sky-600"
+                    ? "bg-sky-50 text-sky-600 font-bold"
                     : "text-gray-700 hover:bg-gray-50"
                 }`}
               >
                 <Icon className="w-5 h-5" />
-                <span className="font-medium">{item.label}</span>
+                <span>{item.label}</span>
               </Link>
             );
           })}
