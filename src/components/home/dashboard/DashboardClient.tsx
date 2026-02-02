@@ -9,6 +9,9 @@ import SummaryCards from "./section/SummaryCards";
 import BalanceChart from "./section/BalanceChart";
 import CategoryChart from "./section/CategoryChart";
 import { createClient } from "@/src/lib/supabase/client";
+import BudgetBar from "./section/BudgetBar";
+import Analysis from "./section/Analysis";
+import RecentTransactions from "./section/RecentTransactions";
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
@@ -205,7 +208,7 @@ export default function DashboardPage() {
       <SummaryCards summary={summary} />
 
       {/* 2. Chart */}
-      <section className="flex flex-col md:flex-row gap-6">
+      <div className="flex flex-col md:flex-row gap-6">
         {/* Left - 이번 달 자산 변화 */}
         <BalanceChart data={barData} />
 
@@ -215,53 +218,19 @@ export default function DashboardPage() {
           viewType={viewType}
           onChangeView={setViewType}
         />
-      </section>
+      </div>
 
-      {/* 3. 예산 */}
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"></section>
+      {/* 3. 예산 및 소비 분석 */}
+      <div className="grid lg:grid-cols-3 gap-6 mb-8">
+        {/* 예산 Budget Bar */}
+        <BudgetBar />
+
+        {/* 소비 분석 Analysis */}
+        {/* <Analysis /> */}
+      </div>
 
       {/* 최근 거래 내역 테이블 */}
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-          <h3 className="text-lg font-bold text-gray-800">최근 거래 내역</h3>
-          <Link
-            href="/home/transactions"
-            className="text-sm text-sky-600 hover:underline"
-          >
-            더보기 &rarr;
-          </Link>
-        </div>
-        <table className="w-full">
-          <thead className="bg-gray-50 text-gray-500 text-sm">
-            <tr>
-              <th className="py-3 px-6 text-left">날짜</th>
-              <th className="py-3 px-6 text-left">카테고리</th>
-              <th className="py-3 px-6 text-left">내역</th>
-              <th className="py-3 px-6 text-right">금액</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {recentTransactions.map((t) => (
-              <tr key={t.id} className="hover:bg-gray-50 transition-colors">
-                <td className="py-4 px-6 text-gray-600">{t.date}</td>
-                <td className="py-4 px-6">
-                  <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
-                    {t.category}
-                  </span>
-                </td>
-                <td className="py-4 px-6 font-medium text-gray-800">
-                  {t.description}
-                </td>
-                <td
-                  className={`py-4 px-6 text-right font-bold ${t.amount > 0 ? "text-blue-600" : "text-red-500"}`}
-                >
-                  {t.amount.toLocaleString()}원
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      <RecentTransactions data={recentTransactions} />
     </div>
   );
 }

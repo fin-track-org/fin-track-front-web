@@ -20,7 +20,6 @@ export default function RecentTransactions({ data }: { data: Transaction[] }) {
           더보기 &rarr;
         </Link>
       </div>
-
       <table className="w-full">
         <thead className="bg-gray-50 text-gray-500 text-sm">
           <tr>
@@ -31,35 +30,24 @@ export default function RecentTransactions({ data }: { data: Transaction[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {data.length === 0 ? (
-            <tr>
-              <td colSpan={4} className="py-8 text-center text-gray-400">
-                거래 내역이 없습니다.
+          {data.map((t) => (
+            <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+              <td className="py-4 px-6 text-gray-600">{t.date}</td>
+              <td className="py-4 px-6">
+                <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
+                  {t.category}
+                </span>
+              </td>
+              <td className="py-4 px-6 font-medium text-gray-800">
+                {t.description}
+              </td>
+              <td
+                className={`py-4 px-6 text-right font-bold ${t.amount > 0 ? "text-blue-600" : "text-red-500"}`}
+              >
+                {t.amount.toLocaleString()}원
               </td>
             </tr>
-          ) : (
-            data.map((t) => (
-              <tr key={t.id} className="hover:bg-gray-50 transition-colors">
-                <td className="py-4 px-6 text-gray-600">{t.date}</td>
-                <td className="py-4 px-6">
-                  <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
-                    {t.category}
-                  </span>
-                </td>
-                <td className="py-4 px-6 font-medium text-gray-800">
-                  {t.description}
-                </td>
-                <td
-                  className={`py-4 px-6 text-right font-bold ${
-                    t.amount > 0 ? "text-blue-600" : "text-red-500"
-                  }`}
-                >
-                  {t.amount > 0 ? "+" : ""}
-                  {t.amount.toLocaleString()}원
-                </td>
-              </tr>
-            ))
-          )}
+          ))}
         </tbody>
       </table>
     </section>

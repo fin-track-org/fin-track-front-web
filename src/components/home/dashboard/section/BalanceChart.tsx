@@ -11,7 +11,7 @@ import {
 
 export default function BalanceChart({ data }: { data: GraphData[] }) {
   return (
-    <div className="md:flex-1 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+    <section className="md:flex-1 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">
         이번 달 자산 변화
       </h3>
@@ -77,6 +77,6 @@ export default function BalanceChart({ data }: { data: GraphData[] }) {
           />
         </AreaChart>
       </ResponsiveContainer>
-    </div>
+    </section>
   );
 }

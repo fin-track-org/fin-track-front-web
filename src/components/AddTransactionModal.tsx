@@ -142,7 +142,7 @@ export default function AddTransactionModal({
             <button
               type="button"
               onClick={() => setIsExpense(true)}
-              className={`cursor-pointer flex-1 px-4 py-2 rounded-l-md transition-colors ${
+              className={` flex-1 px-4 py-2 rounded-l-md transition-colors ${
                 isExpense
                   ? "bg-red-500 text-white"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -154,7 +154,7 @@ export default function AddTransactionModal({
             <button
               type="button"
               onClick={() => setIsExpense(false)}
-              className={`cursor-pointer flex-1 px-4 py-2 rounded-r-md transition-colors ${
+              className={` flex-1 px-4 py-2 rounded-r-md transition-colors ${
                 !isExpense
                   ? "bg-sky-500 text-white"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -253,7 +253,7 @@ export default function AddTransactionModal({
           <div className="flex justify-end gap-3 pt-4">
             <button
               type="button"
-              className="cursor-pointer px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              className=" px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
               onClick={onClose}
               disabled={loading}
             >
@@ -261,7 +261,7 @@ export default function AddTransactionModal({
             </button>
             <button
               type="submit"
-              className={`cursor-pointer px-4 py-2 bg-sky-500 text-white rounded-md hover:bg-sky-600 ${
+              className={` px-4 py-2 bg-sky-500 text-white rounded-md hover:bg-sky-600 ${
                 loading ? "opacity-50 cursor-not-allowed" : ""
               }`}
               disabled={loading}

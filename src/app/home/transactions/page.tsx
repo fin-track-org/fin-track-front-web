@@ -149,7 +149,7 @@ export default function LedgerPage() {
               setEditingTransaction(null);
               setIsModalOpen(true);
             }}
-            className="cursor-pointer bg-sky-500 text-white px-5 py-2 rounded-lg font-medium hover:bg-sky-600 transition-colors"
+            className=" bg-sky-500 text-white px-5 py-2 rounded-lg font-medium hover:bg-sky-600 transition-colors"
           >
             + 새 거래 추가
           </button>
@@ -231,13 +231,13 @@ export default function LedgerPage() {
                   {/* ⬇️ (E) 수정 버튼 클릭 시 handleEdit 호출 */}
                   <button
                     onClick={() => handleEdit(item)}
-                    className="cursor-pointer text-yellow-600 hover:underline px-2"
+                    className=" text-yellow-600 hover:underline px-2"
                   >
                     수정
                   </button>
                   <button
                     onClick={() => handleDelete(item.id)}
-                    className="cursor-pointer text-red-600 hover:underline px-2"
+                    className=" text-red-600 hover:underline px-2"
                   >
                     삭제
                   </button>
