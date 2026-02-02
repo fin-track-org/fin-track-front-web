@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import {
   Home,
   BookOpen,
@@ -16,6 +15,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import { createClient } from "@/src/lib/supabase/client";
 
 export default function Sidebar() {
   const router = useRouter();

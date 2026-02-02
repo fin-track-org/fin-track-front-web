@@ -1,9 +1,9 @@
 "use client";
 
+import AddTransactionModal from "@/src/components/AddTransactionModal";
+import { createClient } from "@/src/lib/supabase/client";
 import { useState, useEffect } from "react";
 // ⬇️ 임포트 경로를 상대 경로로 수정했습니다.
-import { createClient } from "../../../lib/supabase/client";
-import AddTransactionModal from "../../../components/AddTransactionModal";
 
 // (3) .env.local에서 Spring Boot URL을 읽어옵니다. (서버 재시작 필수!)
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
@@ -149,7 +149,7 @@ export default function LedgerPage() {
               setEditingTransaction(null);
               setIsModalOpen(true);
             }}
-            className="bg-sky-500 text-white px-5 py-2 rounded-lg font-medium hover:bg-sky-600 transition-colors"
+            className="cursor-pointer bg-sky-500 text-white px-5 py-2 rounded-lg font-medium hover:bg-sky-600 transition-colors"
           >
             + 새 거래 추가
           </button>
@@ -231,13 +231,13 @@ export default function LedgerPage() {
                   {/* ⬇️ (E) 수정 버튼 클릭 시 handleEdit 호출 */}
                   <button
                     onClick={() => handleEdit(item)}
-                    className="text-yellow-600 hover:underline px-2"
+                    className="cursor-pointer text-yellow-600 hover:underline px-2"
                   >
                     수정
                   </button>
                   <button
                     onClick={() => handleDelete(item.id)}
-                    className="text-red-600 hover:underline px-2"
+                    className="cursor-pointer text-red-600 hover:underline px-2"
                   >
                     삭제
                   </button>
