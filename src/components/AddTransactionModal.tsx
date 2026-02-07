@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState } from "react";
 import { createClient } from "../lib/supabase/client";
-// ⬇️ '@/' 별칭 사용 유지
 
 // (4) API 응답 데이터의 타입 정의
 interface Transaction {
@@ -19,6 +19,20 @@ interface AddTransactionModalProps {
   onSaveSuccess: () => void; // 부모의 목록을 새로고침하기 위한 함수
   currentTransaction?: Transaction; // 수정할 데이터 (옵셔널)
 }
+
+const CATEGORIES = [
+  "전체",
+  "식비",
+  "교통/차량",
+  "주거/공과금",
+  "쇼핑/생활",
+  "문화/여가",
+  "의료/건강",
+  "교육/자기계발",
+  "금융",
+  "수입",
+  "기타",
+];
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;

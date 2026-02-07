@@ -1,9 +1,9 @@
-import DashboardClient from "@/src/components/home/dashboard/DashboardClient";
+import DashboardPage from "@/src/components/home/dashboard/DashboardPage";
 
 export default function Homepage() {
   return (
     <>
-      <DashboardClient />
+      <DashboardPage />
     </>
   );
 }

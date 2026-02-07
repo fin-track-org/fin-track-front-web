@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState } from "react"; // (2) 리액트 "상태" 관리
 // (3) Supabase 접속기 (경로 수정: '@/' 별칭 대신 상대 경로 사용)
-import { createClient } from "../../src/supabase/client";
 import { useRouter } from "next/navigation"; // (4) 페이지 이동 기능
+import { createClient } from "@/src/lib/supabase/client";
 
 export default function LoginPage() {
   // (5) 이메일, 비밀번호, 에러, 로딩 상태를 관리할 "메모리 박스"
