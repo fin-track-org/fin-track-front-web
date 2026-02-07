@@ -192,8 +192,8 @@ export default function TransactionPage() {
 
         {/* 필터 및 검색 (선택 사항) */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
-          <div className="flex flex-col md:flex-row items-center gap-4">
-            <div className="flex-1 relative">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-full relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
@@ -203,7 +203,7 @@ export default function TransactionPage() {
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <div className="flex gap-2 overflow-x-auto">
+            <div className="w-full flex flex-wrap gap-2 overflow-x-auto">
               {CATEGORIES.map((category) => (
                 <button
                   key={category}

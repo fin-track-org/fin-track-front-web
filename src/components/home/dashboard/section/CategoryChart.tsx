@@ -13,7 +13,7 @@ export default function CategoryChart({
   onChangeView: (v: "chart" | "table") => void;
 }) {
   return (
-    <section className="md:flex-1 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+    <section className="lg:flex-1 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-gray-900">카테고리별 지출</h3>
         <div className="flex gap-2">
@@ -43,15 +43,15 @@ export default function CategoryChart({
       <div>
         {viewType === "chart" ? (
           <div className="flex items-center gap-8">
-            <div className="shrink-0">
-              <ResponsiveContainer width={280} height={280}>
+            <div className="shrink-0 w-full max-w-[260px] lg:max-w-[300px] h-[260px] lg:h-[300px] aspect-square">
+              <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={data}
                     cx="50%"
                     cy="50%"
-                    innerRadius={80}
-                    outerRadius={130}
+                    innerRadius="60%"
+                    outerRadius="90%"
                     paddingAngle={2}
                     dataKey="value"
                   >
@@ -70,7 +70,8 @@ export default function CategoryChart({
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex-1 space-y-3">
+
+            <div className="flex-1 space-y-3 w-full">
               {data.map((item) => (
                 <div
                   key={item.name}
@@ -78,7 +79,7 @@ export default function CategoryChart({
                 >
                   <div className="flex items-center gap-2">
                     <div
-                      className="w-3 h-3 rounded-full"
+                      className="w-3 h-3 rounded-full shrink-0 aspect-square"
                       style={{ backgroundColor: item.color }}
                     />
                     <span className="text-sm text-gray-700">{item.name}</span>
@@ -96,7 +97,7 @@ export default function CategoryChart({
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 h-[260px] lg:h-[300px]">
             {data.map((item, index) => (
               <div
                 key={item.name}

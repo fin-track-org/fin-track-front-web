@@ -46,7 +46,7 @@ export default function Sidebar() {
   const SidebarContent = (
     <aside className="w-64 flex-1 bg-white flex flex-col">
       {/* Logo */}
-      <div className="hidden md:block p-6 border-b border-gray-200">
+      <div className="hidden lg:block p-6 border-b border-gray-200">
         <h1 className="flex items-center gap-2 text-sky-700">
           <DollarSign className="w-8 h-8" />
           <span className="text-2xl font-bold">FinTrack</span>
@@ -108,33 +108,36 @@ export default function Sidebar() {
   return (
     <>
       {/* ===== 모바일 헤더 ===== */}
-      <header className="md:hidden h-15 flex items-center justify-between gap-2 p-4 border-b bg-white">
-        <span className="text-xl font-bold text-sky-700">FinTrack</span>
+      <header className="lg:hidden h-15 flex items-center justify-between gap-2 p-4 border-b border-gray-200 bg-white">
+        <h1 className="flex items-center gap-1 text-sky-700">
+          <DollarSign className="w-5 h-5" />
+          <span className="text-xl font-bold">FinTrack</span>
+        </h1>
         <button onClick={() => setIsOpen(true)}>
           <Menu className="text-gray-700" />
         </button>
       </header>
 
       {/* ===== 데스크톱 사이드바 ===== */}
-      <div className="hidden md:flex w-64 h-screen border-r border-gray-200 bg-white">
+      <div className="hidden lg:flex w-64 h-screen border-r border-gray-200 bg-white">
         {SidebarContent}
       </div>
 
       {/* ===== 모바일 오버레이 ===== */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/30 z-40 md:hidden"
+          className="fixed inset-0 bg-black/30 z-40 lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
 
       {/* ===== 모바일 슬라이드 사이드바 ===== */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col w-64 transform bg-white transition-transform duration-300 md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col w-64 transform bg-white transition-transform duration-300 lg:hidden ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="h-15 flex justify-end p-4 border-b">
+        <div className="h-15 flex justify-end p-4 border-b border-gray-200">
           <button onClick={() => setIsOpen(false)}>
             <X className="text-gray-600" />
           </button>
