@@ -30,7 +30,7 @@ export default function SummaryCards({
   const balanceChange =
     ((currentBalance - previousMonth.balance) / previousMonth.balance) * 100;
   return (
-    <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* 현재 잔액 (가장 중요하므로 첫 번째) */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
         <div className="flex items-center justify-between mb-2">
@@ -38,7 +38,7 @@ export default function SummaryCards({
           <Wallet size={16} />
         </div>
         <div
-          className={`text-xl md:text-2xl font-bold mb-2 ${
+          className={`text-xl lg:text-2xl font-bold mb-2 ${
             summary.balance >= 0 ? "text-gray-900" : "text-red-600"
           }`}
         >
@@ -58,7 +58,7 @@ export default function SummaryCards({
       </div>
 
       {/* 수입/지출 (모바일에서는 작게 보임) */}
-      <div className="grid grid-cols-2 gap-4 md:col-span-2">
+      <div className="grid grid-cols-2 gap-4 lg:col-span-2">
         {/* 수입 */}
         <div className="bg-green-50 shadow-sm shadow-green-800/15 p-6 rounded-xl border border-green-100">
           <div className="flex items-center justify-between mb-2">
@@ -67,7 +67,7 @@ export default function SummaryCards({
             </span>
             <ArrowUpRight className="w-4 h-4 text-green-600" />
           </div>
-          <div className="text-xl md:text-2xl font-semibold text-green-800 mb-2">
+          <div className="text-xl lg:text-2xl font-semibold text-green-800 mb-2">
             {summary.income.toLocaleString()}
           </div>
           <div
@@ -95,7 +95,7 @@ export default function SummaryCards({
             </span>
             <ArrowDownRight className="w-4 h-4 text-red-600" />
           </div>
-          <div className="text-xl md:text-2xl font-semibold text-red-800 mb-2">
+          <div className="text-xl lg:text-2xl font-semibold text-red-800 mb-2">
             {summary.expense.toLocaleString()}
           </div>
           <div

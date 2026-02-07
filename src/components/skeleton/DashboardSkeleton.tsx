@@ -21,7 +21,7 @@ export default function DashboardSkeleton() {
         </div>
 
         {/* 1. 공통 요약 카드 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* 현재 잔액 */}
           <div className="bg-gray-50 p-6 rounded-xl shadow-sm border border-gray-100">
             <Skeleton className="h-4 w-24 mb-4" />
@@ -30,7 +30,7 @@ export default function DashboardSkeleton() {
           </div>
 
           {/* 수입 / 지출 */}
-          <div className="grid grid-cols-2 gap-4 md:col-span-2">
+          <div className="grid grid-cols-2 gap-4 lg:col-span-2">
             {[1, 2].map((i) => (
               <div
                 key={i}
@@ -45,9 +45,9 @@ export default function DashboardSkeleton() {
         </div>
 
         {/* 2. Chart */}
-        <div className="flex flex-col md:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Left - 이번 달 자산 변화 */}
-          <div className="md:flex-1 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+          <div className="lg:flex-1 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <Skeleton className="h-5 w-40 mb-6" />
 
             {/* 차트 영역 */}
@@ -59,7 +59,7 @@ export default function DashboardSkeleton() {
           </div>
 
           {/* Right - 카테고리별 지출 */}
-          <section className="md:flex-1 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+          <section className="lg:flex-1 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             {/* 헤더 */}
             <div className="flex items-center justify-between mb-6">
               <Skeleton className="h-5 w-36" />

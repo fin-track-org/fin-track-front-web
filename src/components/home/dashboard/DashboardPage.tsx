@@ -200,7 +200,7 @@ export default function DashboardPage() {
       <SummaryCards summary={summary} />
 
       {/* 2. Chart */}
-      <div className="flex flex-col md:flex-row gap-6">
+      <div className="flex flex-col xl:flex-row gap-6">
         {/* Left - 이번 달 자산 변화 */}
         <BalanceChart data={barData} />
 
