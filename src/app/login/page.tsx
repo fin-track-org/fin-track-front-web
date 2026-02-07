@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"; // 👈 (1) "이 파일은 브라우저에서 동작해야 합니다!"
 
 import Link from "next/link";

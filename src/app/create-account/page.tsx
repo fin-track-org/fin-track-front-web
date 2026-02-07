@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import Link from "next/link";
 import { useState } from "react";
-import { createClient } from "@/src/supabase/client";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/src/lib/supabase/client";
 
 export default function CreateAccountPage() {
   const [nickname, setNickname] = useState("");
