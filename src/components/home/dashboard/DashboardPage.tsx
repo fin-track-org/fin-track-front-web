@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/immutability */
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import MonthSelector from "./section/MonthSelector";
 import SummaryCards from "./section/SummaryCards";
 import BalanceChart from "./section/BalanceChart";
@@ -11,6 +11,7 @@ import BudgetBar from "./section/BudgetBar";
 import RecentTransactions from "./section/RecentTransactions";
 import { useQuery } from "@tanstack/react-query";
 import DashboardSkeleton from "../../skeleton/DashboardSkeleton";
+import { useRouter } from "next/navigation";
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
@@ -23,8 +24,16 @@ const CATEGORY_COLORS: Record<string, string> = {
   기타: "#f59e0b",
 };
 
+class AuthError extends Error {
+  constructor(message = "로그인이 필요합니다.") {
+    super(message);
+    this.name = "AuthError";
+  }
+}
+
 export default function DashboardPage() {
   const supabase = createClient();
+  const router = useRouter();
 
   // 날짜
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -44,13 +53,19 @@ export default function DashboardPage() {
       data: { session },
     } = await supabase.auth.getSession();
 
-    if (!session) throw new Error("로그인이 필요합니다.");
+    if (!session) {
+      throw new AuthError();
+    }
 
     const response = await fetch(`${SPRING_BOOT_URL}/api/v1/transactions`, {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
       },
     });
+
+    if (response.status === 401) {
+      throw new AuthError();
+    }
 
     if (!response.ok) {
       throw new Error("데이터를 불러오는데 실패했습니다.");
@@ -66,10 +81,16 @@ export default function DashboardPage() {
     isError,
     error,
   } = useQuery({
-    queryKey: ["dashboard-transactions"],
+    queryKey: ["transactions"],
     queryFn: fetchTransactions,
-    staleTime: 1000 * 60 * 5, // 5분 캐시
+    retry: false,
   });
+
+  useEffect(() => {
+    if (error instanceof AuthError) {
+      router.replace("/login");
+    }
+  }, [error, router]);
 
   /* currentMonth 데이터 */
   const monthTransactions = allTransactions.filter((t) =>
