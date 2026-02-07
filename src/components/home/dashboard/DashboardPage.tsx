@@ -89,13 +89,6 @@ export default function DashboardPage() {
     );
   }, [monthTransactions]);
 
-  /* 최근 거래 내역 */
-  const recentTransactions = useMemo(() => {
-    return [...monthTransactions]
-      .sort((a, b) => b.date.localeCompare(a.date))
-      .slice(0, 5);
-  }, [monthTransactions]);
-
   /* 카테고리 파이 차트 */
   const pieData = useMemo(() => {
     const categoryMap: Record<string, number> = {};
@@ -205,7 +198,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 최근 거래 내역 테이블 */}
-      <RecentTransactions data={recentTransactions} />
+      <RecentTransactions data={allTransactions} />
     </div>
   );
 }
