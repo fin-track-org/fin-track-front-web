@@ -17,13 +17,7 @@ export default function LedgerRow({ transaction, onEdit, onDelete }: Props) {
         {transaction.date}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            transaction.amount > 0
-              ? "bg-green-100 text-green-800"
-              : "bg-blue-100 text-blue-800"
-          }`}
-        >
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-600">
           {transaction.category}
         </span>
       </td>
@@ -35,11 +29,11 @@ export default function LedgerRow({ transaction, onEdit, onDelete }: Props) {
       </td>
       <td
         className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${
-          transaction.amount > 0 ? "text-green-600" : "text-gray-900"
+          transaction.amount > 0 ? "text-green-600" : "text-red-600"
         }`}
       >
-        {transaction.amount > 0 ? "+" : ""}₩
-        {Math.abs(transaction.amount).toLocaleString()}
+        {transaction.amount > 0 ? "+" : "-"}
+        {Math.abs(transaction.amount).toLocaleString()}원
       </td>
       <td className="px-6 py-4 text-right">
         {/* ================= Desktop (md 이상) ================= */}
