@@ -50,7 +50,9 @@ export interface CreateTransactionPayload {
   amount: number; // ✅ 서버에 보낼 최종 amount(지출 음수, 수입 양수)
 
   category: string; // (현재 서버 DTO 기준 문자열)
-  paymentMethodId: string;
+
+  paymentType: "cash" | "credit_card" | "debit_card"; // ✅ 1차
+  cardProvider?: string | null; // ✅ 2차 (카드일 때만)
 
   // 아래는 지금 당장 서버에 안 보내도 됨.
   // TODO(api 확장): 서버 DTO에 추가되면 body에 포함시키면 됨.
@@ -73,6 +75,17 @@ export interface AddTransactionModalProps {
   mode: "create" | "edit";
 }
 
+const CARD_PROVIDERS = [
+  { id: "SAMSUNG", name: "삼성" },
+  { id: "KB", name: "국민" },
+  { id: "HYUNDAI", name: "현대" },
+  { id: "SHINHAN", name: "신한" },
+  { id: "WOORI", name: "우리" },
+  { id: "HANA", name: "하나" },
+  { id: "LOTTE", name: "롯데" },
+  { id: "NH", name: "NH" },
+] as const;
+
 function todayISODateSeoul(): string {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -87,15 +100,8 @@ function toNumberOrNaN(v: string): number {
 }
 
 export default function AddTransactionModal(props: AddTransactionModalProps) {
-  const {
-    open,
-    onOpenChange,
-    categories,
-    paymentMethods,
-    onSubmit,
-    defaultValues,
-    mode,
-  } = props;
+  const { open, onOpenChange, categories, onSubmit, defaultValues, mode } =
+    props;
 
   const initialDate = defaultValues?.date ?? todayISODateSeoul();
 
@@ -109,8 +115,13 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   const [category, setCategory] = useState<string>(
     defaultValues?.category ?? "",
   );
-  const [paymentMethodId, setPaymentMethodId] = useState<string>(
-    defaultValues?.paymentMethodId ?? "",
+
+  const [paymentType, setPaymentType] = useState<
+    "cash" | "credit_card" | "debit_card"
+  >(defaultValues?.paymentType ?? "cash");
+
+  const [cardProvider, setCardProvider] = useState<string>(
+    defaultValues?.cardProvider ?? "",
   );
 
   // 소분류(자유 텍스트)
@@ -157,8 +168,6 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
     try {
       setCategory((prev) => prev);
-      setPaymentMethodId((prev) => prev);
-
       setDate(todayISODateSeoul());
     } catch {
       // ignore
@@ -166,17 +175,22 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  useEffect(() => {
+    if (paymentType === "cash") setCardProvider("");
+  }, [paymentType]);
+
   const categoryOptions = useMemo(() => categories, [categories]);
 
   const amountAbs = useMemo(() => toNumberOrNaN(amountText), [amountText]);
   const isAmountValid = Number.isFinite(amountAbs) && amountAbs > 0;
 
+  const needCardProvider = paymentType !== "cash";
   const canSubmit =
     Boolean(date) &&
     Boolean(category) &&
-    Boolean(paymentMethodId) &&
     isAmountValid &&
-    !isSaving;
+    !isSaving &&
+    (!needCardProvider || Boolean(cardProvider));
 
   async function handleSubmit() {
     setError("");
@@ -192,7 +206,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       type,
       amount: Math.round(signedAmount),
       category,
-      paymentMethodId,
+      paymentType,
+      cardProvider: paymentType === "cash" ? null : cardProvider,
 
       // TODO(api 확장): 서버 DTO에 필드 추가되면 body에 포함
       subcategoryText: subcategoryText.trim() ? subcategoryText.trim() : null,
@@ -218,7 +233,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl rounded-2xl">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-xl rounded-2xl px-6">
         <DialogHeader>
           <DialogTitle className="text-xl">
             {mode === "edit" ? "거래 수정" : "거래 추가"}
@@ -226,26 +241,15 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
         </DialogHeader>
 
         <div className="space-y-5">
-          {/* 날짜 + 거래유형 */}
+          {/* 1) 거래유형 + 금액 (가장 먼저) */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="date">날짜</Label>
-              <Input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>거래유형</Label>
+              <Label className="ml-1">거래유형</Label>
               <Select
                 value={type}
                 onValueChange={(v) => setType(v as TransactionType)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="선택" />
                 </SelectTrigger>
                 <SelectContent>
@@ -255,12 +259,11 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          {/* 금액 + 결제수단 */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="amount">금액</Label>
+              <Label htmlFor="amount" className="ml-1">
+                금액
+              </Label>
               <Input
                 id="amount"
                 inputMode="numeric"
@@ -275,38 +278,14 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                 </p>
               )}
             </div>
-
-            <div className="space-y-2">
-              <Label>결제수단(추가 예정)</Label>
-              <Select
-                value={paymentMethodId}
-                onValueChange={setPaymentMethodId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="결제수단 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethods
-                    .filter((p) => p.isActive !== false)
-                    .map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-
-              {/* TODO(api 확장): paymentMethodId를 서버 DTO에 추가해서 저장하면
-                  결제수단별 리포트 만들 수 있음 */}
-            </div>
           </div>
 
-          {/* 대분류 + 소분류(텍스트) */}
+          {/* 2) 카테고리 + 세부항목 */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>카테고리</Label>
+              <Label className="ml-1">카테고리</Label>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="카테고리 선택" />
                 </SelectTrigger>
                 <SelectContent>
@@ -320,7 +299,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>세부 항목(추가 예정)</Label>
+              <Label className="ml-1">세부 항목(기능 추가 예정)</Label>
               <Input
                 placeholder="예: 술, 카페, 배달"
                 value={subcategoryText}
@@ -331,10 +310,81 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
             </div>
           </div>
 
-          {/* 메모 */}
+          {/* 3) 결제수단 + 카드사 (조건부) */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="ml-1">결제수단(기능 추가 예정)</Label>
+              <Select
+                value={paymentType}
+                onValueChange={(v) => setPaymentType(v as any)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="결제수단 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">현금</SelectItem>
+                  <SelectItem value="credit_card">신용카드</SelectItem>
+                  <SelectItem value="debit_card">체크카드</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
+            <div className="space-y-2">
+              <Label
+                className={`ml-1 ${paymentType === "cash" ? "text-gray-300" : ""}`}
+              >
+                카드사(기능 추가 예정)
+              </Label>
+              <Select
+                value={cardProvider}
+                onValueChange={setCardProvider}
+                disabled={paymentType === "cash"}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue
+                    placeholder={
+                      paymentType === "cash"
+                        ? "현금 선택 시 비활성화"
+                        : "카드사 선택"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {CARD_PROVIDERS.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {paymentType !== "cash" && !cardProvider && (
+                <p className="text-xs text-gray-500 ml-1">
+                  카드사를 선택해주세요.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* 4) 날짜 (마지막 확인용) */}
           <div className="space-y-2">
-            <Label htmlFor="description">메모</Label>
+            <Label htmlFor="date" className="ml-1">
+              날짜
+            </Label>
+            <Input
+              id="date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
+            />
+          </div>
+
+          {/* 5) 메모 (마지막) */}
+          <div className="space-y-2">
+            <Label htmlFor="description" className="ml-1">
+              메모
+            </Label>
             <Textarea
               id="description"
               placeholder="선택사항"

@@ -37,8 +37,8 @@ const categories = [
 
 const paymentMethods = [
   { id: "CASH", type: "cash", name: "현금" },
-  { id: "SAMSUNG_CREDIT", type: "credit_card", name: "삼성카드 (신용)" },
-  { id: "KB_DEBIT", type: "debit_card", name: "국민카드 (체크)" },
+  { id: "SAMSUNG_CREDIT", type: "credit_card", name: "신용카드" },
+  { id: "KB_DEBIT", type: "debit_card", name: "체크카드" },
 ];
 
 export default function TransactionPage() {
@@ -186,11 +186,9 @@ export default function TransactionPage() {
       category: payload.category,
       description: payload.description ?? "",
 
-      // TODO(api 확장 예시):
-      // subcategoryText: payload.subcategoryText,
-      // merchantText: payload.merchantText,
-      // paymentMethodId: payload.paymentMethodId,
-      // type: payload.type,
+      // TODO(api 확장):
+      // paymentType: payload.paymentType,
+      // cardProvider: payload.cardProvider,
     };
 
     const res = await fetch(apiUrl, {
@@ -255,7 +253,7 @@ export default function TransactionPage() {
                 date: new Date().toISOString().split("T")[0],
                 type: "expense",
                 category: "식비",
-                paymentMethodId: "CASH",
+                paymentType: "cash",
               });
               setIsModalOpen(true);
             }}
