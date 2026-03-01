@@ -1,290 +1,371 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
-import { createClient } from "../lib/supabase/client";
+import React, { useEffect, useMemo, useState } from "react";
 
-// (4) API 응답 데이터의 타입 정의
-interface Transaction {
-  id?: number; // 수정 모드일 때만 존재
-  date: string;
-  category: string;
-  description: string;
-  amount: number;
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/src/components/ui/dialog";
+import { Button } from "@/src/components/ui/button";
+import { Input } from "@/src/components/ui/input";
+import { Label } from "@/src/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/src/components/ui/select";
+import { Textarea } from "@/src/components/ui/textarea";
+
+export type TransactionType = "expense" | "income" | "transfer";
+
+export interface Category {
+  id: string;
+  name: string;
 }
 
-// (5) Props 타입 정의: currentTransaction을 추가하여 수정 모드를 지원합니다.
-interface AddTransactionModalProps {
-  onClose: () => void;
-  onSaveSuccess: () => void; // 부모의 목록을 새로고침하기 위한 함수
-  currentTransaction?: Transaction; // 수정할 데이터 (옵셔널)
+export type PaymentMethodType =
+  | "cash"
+  | "credit_card"
+  | "debit_card"
+  | "account";
+
+export interface PaymentMethod {
+  id: string;
+  type: PaymentMethodType | string;
+  name: string;
+  provider?: string;
+  isActive?: boolean;
 }
 
-const CATEGORIES = [
-  "전체",
-  "식비",
-  "교통/차량",
-  "주거/공과금",
-  "쇼핑/생활",
-  "문화/여가",
-  "의료/건강",
-  "교육/자기계발",
-  "금융",
-  "수입",
-  "기타",
-];
+export interface CreateTransactionPayload {
+  date: string; // YYYY-MM-DD
+  type: TransactionType; // ✅ 모달에서 결정
 
-// .env.local에서 Spring Boot URL을 읽어옵니다.
-const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
+  amount: number; // ✅ 서버에 보낼 최종 amount(지출 음수, 수입 양수)
 
-export default function AddTransactionModal({
-  onClose,
-  onSaveSuccess,
-  currentTransaction,
-}: AddTransactionModalProps) {
-  const supabase = createClient();
+  category: string; // (현재 서버 DTO 기준 문자열)
+  paymentMethodId: string;
 
-  // (A) 초기 상태 설정: currentTransaction이 있으면 수정 모드로 초기화
-  const initialAmount = currentTransaction
-    ? Math.abs(currentTransaction.amount)
-    : 0;
-  const initialIsExpense = currentTransaction
-    ? currentTransaction.amount < 0
-    : true;
+  // 아래는 지금 당장 서버에 안 보내도 됨.
+  // TODO(api 확장): 서버 DTO에 추가되면 body에 포함시키면 됨.
+  subcategoryText?: string | null;
+  merchantText?: string | null;
+  description?: string | null;
+}
 
-  const [date, setDate] = useState(
-    currentTransaction?.date || new Date().toISOString().split("T")[0],
+export interface AddTransactionModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+
+  categories: Category[];
+  paymentMethods: PaymentMethod[];
+
+  onSubmit: (payload: CreateTransactionPayload) => Promise<void>;
+
+  defaultValues?: Partial<CreateTransactionPayload>;
+
+  mode: "create" | "edit";
+}
+
+function todayISODateSeoul(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function toNumberOrNaN(v: string): number {
+  const n = Number(v.replaceAll(",", ""));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+export default function AddTransactionModal(props: AddTransactionModalProps) {
+  const {
+    open,
+    onOpenChange,
+    categories,
+    paymentMethods,
+    onSubmit,
+    defaultValues,
+    mode,
+  } = props;
+
+  const initialDate = defaultValues?.date ?? todayISODateSeoul();
+
+  // ✅ 수정 모드에서 type 추정: defaultValues.amount는 "표시용 절대값"으로 들어오므로,
+  // type은 defaultValues.type이 있으면 그걸 쓰고, 없으면 expense로 기본.
+  const initialType: TransactionType = defaultValues?.type ?? "expense";
+
+  const [date, setDate] = useState<string>(initialDate);
+  const [type, setType] = useState<TransactionType>(initialType);
+
+  const [category, setCategory] = useState<string>(
+    defaultValues?.category ?? "",
   );
-  const [amount, setAmount] = useState(initialAmount);
-  const [category, setCategory] = useState(
-    currentTransaction?.category || "식비",
+  const [paymentMethodId, setPaymentMethodId] = useState<string>(
+    defaultValues?.paymentMethodId ?? "",
   );
-  const [description, setDescription] = useState(
-    currentTransaction?.description || "",
+
+  // 소분류(자유 텍스트)
+  const [subcategoryText, setSubcategoryText] = useState<string>(
+    defaultValues?.subcategoryText ?? "",
   );
-  const [isExpense, setIsExpense] = useState(initialIsExpense); // 출금(지출) 여부
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // 메모(description)
+  const [description, setDescription] = useState<string>(
+    defaultValues?.description ?? "",
+  );
 
-  // (B) 모달 제목 및 API 정보 설정
-  const isEditing = !!currentTransaction;
-  const modalTitle = isEditing ? "거래 내역 수정" : "새 거래 추가";
-  const apiMethod = isEditing ? "PUT" : "POST";
-  const apiUrl = isEditing
-    ? `${SPRING_BOOT_URL}/api/v1/transactions/${currentTransaction!.id}` // 수정 모드 시 ID 사용
-    : `${SPRING_BOOT_URL}/api/v1/transactions`;
+  // 금액 입력은 양수로만 받음(부호는 type로 결정)
+  const [amountText, setAmountText] = useState<string>(
+    defaultValues?.amount != null ? String(defaultValues.amount) : "",
+  );
 
-  // (C) 제출/저장 핸들러
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string>("");
+
+  // ✅ open될 때 type 기본값 리셋/반영 (핵심)
+  useEffect(() => {
+    if (!open) return;
+
+    // 추가 모드: 항상 지출로 시작
+    if (!defaultValues) {
+      setType("expense");
+      return;
+    }
+
+    // 수정 모드: defaultValues.type이 있으면 반영
+    if (defaultValues.type) {
+      setType(defaultValues.type);
+    }
+  }, [open, defaultValues]);
+
+  // open될 때 기본값 반영 (defaultValues 없을 때만)
+  useEffect(() => {
+    if (!open) return;
+
+    setError("");
+
+    if (defaultValues) return;
 
     try {
-      if (amount <= 0 || !description) {
-        throw new Error("금액과 내역은 필수 입력 항목입니다.");
-      }
+      setCategory((prev) => prev);
+      setPaymentMethodId((prev) => prev);
 
-      // [JWT 가져오기]
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("로그인이 필요합니다. 다시 로그인해주세요.");
-      }
-      const token = session.access_token;
-
-      // [금액 최종 처리]
-      const finalAmount = isExpense ? -amount : amount;
-
-      // 서버의 DTO 형식에 맞게 데이터를 구성합니다.
-      const transactionData = {
-        date,
-        amount: Math.round(finalAmount),
-        category,
-        description,
-      };
-
-      // [API 호출]
-      const response = await fetch(apiUrl, {
-        method: apiMethod,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(transactionData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `${modalTitle}에 실패했습니다.`);
-      }
-
-      // [성공]
-      alert(`${modalTitle.replace(" 내역", "")}되었습니다!`);
-      onSaveSuccess();
-      onClose();
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      setDate(todayISODateSeoul());
+    } catch {
+      // ignore
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const categoryOptions = useMemo(() => categories, [categories]);
+
+  const amountAbs = useMemo(() => toNumberOrNaN(amountText), [amountText]);
+  const isAmountValid = Number.isFinite(amountAbs) && amountAbs > 0;
+
+  const canSubmit =
+    Boolean(date) &&
+    Boolean(category) &&
+    Boolean(paymentMethodId) &&
+    isAmountValid &&
+    !isSaving;
+
+  async function handleSubmit() {
+    setError("");
+    if (!canSubmit) return;
+
+    // ✅ 서버에 저장될 최종 amount 부호 결정
+    const signedAmount = type === "expense" ? -amountAbs : Math.abs(amountAbs);
+    // TODO(정책): transfer는 현재 양수로 저장. 추후 transfer 처리 방식 정하면 수정.
+    // const signedAmount = type === "transfer" ? Math.abs(amountAbs) : (type === "expense" ? -amountAbs : amountAbs)
+
+    const payload: CreateTransactionPayload = {
+      date,
+      type,
+      amount: Math.round(signedAmount),
+      category,
+      paymentMethodId,
+
+      // TODO(api 확장): 서버 DTO에 필드 추가되면 body에 포함
+      subcategoryText: subcategoryText.trim() ? subcategoryText.trim() : null,
+      description: description.trim() ? description.trim() : null,
+    };
+
+    try {
+      setIsSaving(true);
+      await onSubmit(payload);
+
+      onOpenChange(false);
+
+      // 빠른 입력용 리셋(원하면 유지해도 됨)
+      setAmountText("");
+      setSubcategoryText("");
+      setDescription("");
+    } catch (e: any) {
+      setError(e?.message || "저장에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   return (
-    // 모달 배경 (최신 Tailwind 문법: bg-black/50)
-    <div
-      className="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
-      onClick={onClose}
-    >
-      {/* 모달 컨텐츠 */}
-      <div
-        className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">{modalTitle}</h2>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-xl">
+            {mode === "edit" ? "거래 수정" : "거래 추가"}
+          </DialogTitle>
+        </DialogHeader>
 
-        {error && (
-          <p className="text-sm text-red-600 text-center mb-4">{error}</p>
-        )}
+        <div className="space-y-5">
+          {/* 날짜 + 거래유형 */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="date">날짜</Label>
+              <Input
+                id="date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
+              />
+            </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* 입금/출금 토글 */}
-          <div className="flex rounded-md shadow-sm">
-            <button
-              type="button"
-              onClick={() => setIsExpense(true)}
-              className={` flex-1 px-4 py-2 rounded-l-md transition-colors ${
-                isExpense
-                  ? "bg-red-500 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-              disabled={loading}
-            >
-              출금 (지출)
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsExpense(false)}
-              className={` flex-1 px-4 py-2 rounded-r-md transition-colors ${
-                !isExpense
-                  ? "bg-sky-500 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-              disabled={loading}
-            >
-              입금 (수입)
-            </button>
+            <div className="space-y-2">
+              <Label>거래유형</Label>
+              <Select
+                value={type}
+                onValueChange={(v) => setType(v as TransactionType)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="expense">지출</SelectItem>
+                  <SelectItem value="income">수입</SelectItem>
+                  {/* <SelectItem value="transfer">이체</SelectItem> */}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* 날짜 */}
-          <div>
-            <label
-              htmlFor="date"
-              className="block text-sm font-medium text-gray-700"
-            >
-              날짜
-            </label>
-            <input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-              disabled={loading}
-            />
+          {/* 금액 + 결제수단 */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="amount">금액</Label>
+              <Input
+                id="amount"
+                inputMode="numeric"
+                placeholder="예: 18000"
+                value={amountText}
+                onChange={(e) => setAmountText(e.target.value)}
+                className="focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
+              />
+              {!isAmountValid && amountText.length > 0 && (
+                <p className="text-xs text-red-600">
+                  금액은 0보다 커야 합니다.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>결제수단(추가 예정)</Label>
+              <Select
+                value={paymentMethodId}
+                onValueChange={setPaymentMethodId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="결제수단 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentMethods
+                    .filter((p) => p.isActive !== false)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+
+              {/* TODO(api 확장): paymentMethodId를 서버 DTO에 추가해서 저장하면
+                  결제수단별 리포트 만들 수 있음 */}
+            </div>
           </div>
 
-          {/* 금액 */}
-          <div>
-            <label
-              htmlFor="amount"
-              className="block text-sm font-medium text-gray-700"
-            >
-              금액 (원)
-            </label>
-            <input
-              id="amount"
-              type="number"
-              value={amount === 0 ? "" : amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              required
-              min="0"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-              placeholder="0"
-              disabled={loading}
-            />
+          {/* 대분류 + 소분류(텍스트) */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>카테고리</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="카테고리 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>세부 항목(추가 예정)</Label>
+              <Input
+                placeholder="예: 술, 카페, 배달"
+                value={subcategoryText}
+                onChange={(e) => setSubcategoryText(e.target.value)}
+                className="focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
+              />
+              {/* TODO(api 확장): subcategoryText 저장/검색/표시 */}
+            </div>
           </div>
 
-          {/* 카테고리 (간단한 select) */}
-          <div>
-            <label
-              htmlFor="category"
-              className="block text-sm font-medium text-gray-700"
-            >
-              카테고리
-            </label>
-            <select
-              id="category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-              disabled={loading}
-            >
-              <option>식비</option>
-              <option>교통</option>
-              <option>문화생활</option>
-              <option>생필품</option>
-              <option>급여</option>
-              <option>기타</option>
-            </select>
-          </div>
+          {/* 메모 */}
 
-          {/* 내역 */}
-          <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700"
-            >
-              내역
-            </label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="description">메모</Label>
+            <Textarea
               id="description"
-              type="text"
+              placeholder="선택사항"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-              placeholder="예: 스타벅스"
-              disabled={loading}
+              className="min-h-[88px] focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
             />
+            {/* NOTE: 메모는 분석 집계에 사용하지 않음(검색/표시용) */}
           </div>
 
-          {/* 버튼 그룹 */}
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              className=" px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
-              onClick={onClose}
-              disabled={loading}
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              className={` px-4 py-2 bg-sky-500 text-white rounded-md hover:bg-sky-600 ${
-                loading ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-              disabled={loading}
-            >
-              {loading ? "저장 중..." : isEditing ? "수정하기" : "저장하기"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+            disabled={isSaving}
+          >
+            취소
+          </Button>
+          <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
+            {isSaving ? "저장 중..." : "저장"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
