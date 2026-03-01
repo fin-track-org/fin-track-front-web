@@ -1,3 +1,4 @@
+import { TrendingUp } from "lucide-react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -10,79 +11,103 @@ import {
 } from "recharts";
 
 export default function BalanceChart({ data }: { data: GraphData[] }) {
+  const isEmpty =
+    !data ||
+    data.length === 0 ||
+    data.every((d) => d.balance === 0 && d.income === 0 && d.expense === 0);
+
   return (
     <section className="lg:flex-1 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">
         이번 달 자산 변화
       </h3>
-      <div className="w-full h-[260px] lg:h-[300px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-            <XAxis
-              dataKey="date"
-              stroke="#9ca3af"
-              style={{ fontSize: "12px" }}
-            />
-            <YAxis stroke="#9ca3af" style={{ fontSize: "12px" }} />
 
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#fff",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-              }}
-              formatter={(value) => {
-                if (typeof value === "number") {
-                  return `₩${value.toLocaleString()}`;
-                }
-                return value ?? "";
-              }}
-            />
+      {/* ✅ Empty 상태 */}
+      {isEmpty ? (
+        <div className="h-[260px] lg:h-[300px] flex flex-col items-center justify-center text-center text-gray-400">
+          <TrendingUp className="w-10 h-10 opacity-40 mb-3" />
+          <p className="text-sm font-medium text-gray-700 mb-1">
+            아직 자산 변화 데이터가 없습니다
+          </p>
+          <p className="text-xs text-gray-400">
+            거래를 추가하면 자산 흐름이 표시됩니다
+          </p>
+        </div>
+      ) : (
+        <div className="w-full h-[260px] lg:h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data}>
+              <defs>
+                <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                </linearGradient>
+              </defs>
 
-            <Legend />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
 
-            <Area
-              type="monotone"
-              dataKey="balance"
-              name="잔액"
-              stroke="#8b5cf6"
-              fillOpacity={1}
-              fill="url(#colorBalance)"
-            />
-            <Area
-              type="monotone"
-              dataKey="income"
-              name="수입"
-              stroke="#10b981"
-              fillOpacity={1}
-              fill="url(#colorIncome)"
-            />
-            <Area
-              type="monotone"
-              dataKey="expense"
-              name="지출"
-              stroke="#ef4444"
-              fillOpacity={1}
-              fill="url(#colorExpense)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+              <XAxis
+                dataKey="date"
+                stroke="#9ca3af"
+                style={{ fontSize: "12px" }}
+              />
+
+              <YAxis stroke="#9ca3af" style={{ fontSize: "12px" }} />
+
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#fff",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
+                }}
+                formatter={(value) => {
+                  if (typeof value === "number") {
+                    return `₩${value.toLocaleString()}`;
+                  }
+                  return value ?? "";
+                }}
+              />
+
+              <Legend />
+
+              <Area
+                type="monotone"
+                dataKey="balance"
+                name="잔액"
+                stroke="#8b5cf6"
+                fillOpacity={1}
+                fill="url(#colorBalance)"
+              />
+
+              <Area
+                type="monotone"
+                dataKey="income"
+                name="수입"
+                stroke="#10b981"
+                fillOpacity={1}
+                fill="url(#colorIncome)"
+              />
+
+              <Area
+                type="monotone"
+                dataKey="expense"
+                name="지출"
+                stroke="#ef4444"
+                fillOpacity={1}
+                fill="url(#colorExpense)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </section>
   );
 }
