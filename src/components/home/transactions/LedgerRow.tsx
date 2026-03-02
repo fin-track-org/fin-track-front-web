@@ -5,9 +5,15 @@ interface Props {
   transaction: Transaction;
   onEdit: (t: Transaction) => void;
   onDelete: (id: number) => void;
+  categoryLabel: string;
 }
 
-export default function LedgerRow({ transaction, onEdit, onDelete }: Props) {
+export default function LedgerRow({
+  transaction,
+  onEdit,
+  onDelete,
+  categoryLabel,
+}: Props) {
   return (
     <tr
       key={transaction.id}
@@ -18,7 +24,7 @@ export default function LedgerRow({ transaction, onEdit, onDelete }: Props) {
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-600">
-          {transaction.category}
+          {categoryLabel}
         </span>
       </td>
       <td className="px-6 py-4 text-sm text-gray-700">
