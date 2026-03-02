@@ -27,7 +27,7 @@ export default function MonthSelector({
     <div className="w-full">
       {/* 상단: 월 이동 + 타이틀 */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2">
           <button
             onClick={onPrev}
             className="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 hover:bg-gray-200 rounded-lg transition-colors"
@@ -51,7 +51,7 @@ export default function MonthSelector({
       </div>
 
       {/* 하단: 오늘 문구 */}
-      <div className="mt-1 sm:mt-2 text-gray-500 text-xs sm:text-sm wrap-break-word">
+      <div className="mt-1 sm:mt-2 ml-2 text-gray-500 text-sm sm:text-base wrap-break-word">
         오늘은 <span className="font-medium text-gray-600">{today}</span>{" "}
         입니다.
       </div>

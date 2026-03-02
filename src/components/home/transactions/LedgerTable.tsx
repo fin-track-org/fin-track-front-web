@@ -101,7 +101,7 @@ export default function LedgerTable({
         )}
 
         {!loading && !error && transactions.length === 0 && (
-          <div className="py-12 text-center text-gray-400">
+          <div className="py-12 text-center text-gray-400 bg-white border border-gray-100 rounded-xl shadow-sm">
             <p className="mb-1">거래 내역이 없습니다</p>
             <p className="text-sm">새 거래를 추가해보세요 ✨</p>
           </div>
