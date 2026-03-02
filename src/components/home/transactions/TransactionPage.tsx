@@ -2,7 +2,7 @@
 
 import AddTransactionModal from "@/src/components/AddTransactionModal";
 import { createClient } from "@/src/lib/supabase/client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import LedgerTable from "./LedgerTable";
 import MonthSelector from "../dashboard/section/MonthSelector";
 import { Search } from "lucide-react";
@@ -334,6 +334,10 @@ export default function TransactionPage() {
     );
   });
 
+  const categoryNameById = useMemo(() => {
+    return Object.fromEntries(categories.map((c) => [c.id, c.name]));
+  }, []);
+
   return (
     <>
       <section className="space-y-4 md:space-y-6">
@@ -423,6 +427,7 @@ export default function TransactionPage() {
           error={isError ? (error as Error).message : null}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          categoryNameById={categoryNameById}
         />
       </section>
 
