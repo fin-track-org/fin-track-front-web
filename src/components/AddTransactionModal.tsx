@@ -489,7 +489,13 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               취소
             </Button>
             <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
-              {isSaving ? "저장 중..." : "저장"}
+              {isSaving
+                ? mode === "edit"
+                  ? "수정 중..."
+                  : "저장 중..."
+                : mode === "edit"
+                  ? "수정"
+                  : "저장"}
             </Button>
           </DialogFooter>
         </DialogContent>

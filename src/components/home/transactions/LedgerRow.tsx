@@ -23,7 +23,7 @@ export default function LedgerRow({
         {transaction.date}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-600">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-sky-100 text-sky-600">
           {categoryLabel}
         </span>
       </td>
