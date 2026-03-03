@@ -118,10 +118,12 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
   const needCardProvider = paymentType !== "cash";
 
+  const isEtcCategory = category === "ETC";
+
   const canSubmit =
     Boolean(date) &&
     Boolean(category) &&
-    Boolean(subCategory) &&
+    (isEtcCategory ? true : Boolean(subCategory)) &&
     isAmountValid &&
     !isSaving &&
     (!needCardProvider || Boolean(cardProvider)) &&
@@ -168,6 +170,11 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   }, [paymentType]);
 
   useEffect(() => {
+    if (isEtcCategory) {
+      setSubCategory("");
+      return;
+    }
+
     const list = (subCategories[category] ?? []).concat(
       customSubCategories[category] ?? [],
     );
@@ -337,9 +344,19 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
               <div className="space-y-2">
                 <Label className="ml-1">세부 항목(기능 추가 예정)</Label>
-                <Select value={subCategory} onValueChange={setSubCategory}>
+                <Select
+                  value={subCategory}
+                  onValueChange={setSubCategory}
+                  disabled={isEtcCategory}
+                >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="세부 항목 선택" />
+                    <SelectValue
+                      placeholder={
+                        isEtcCategory
+                          ? "기타는 세부 항목이 없습니다"
+                          : "세부 항목 선택"
+                      }
+                    />
                   </SelectTrigger>
 
                   <SelectContent>
@@ -349,21 +366,23 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                       </SelectItem>
                     ))}
 
-                    <div className="border-t mt-1 pt-1">
-                      <Button
-                        size={"sm"}
-                        type="button"
-                        variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => {
-                          setSubCatError("");
-                          setNewSubCatName("");
-                          setSubCatAddOpen(true);
-                        }}
-                      >
-                        + 세부 항목 추가
-                      </Button>
-                    </div>
+                    {!isEtcCategory && (
+                      <div className="border-t mt-1 pt-1">
+                        <Button
+                          size={"sm"}
+                          type="button"
+                          variant="ghost"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            setSubCatError("");
+                            setNewSubCatName("");
+                            setSubCatAddOpen(true);
+                          }}
+                        >
+                          + 세부 항목 추가
+                        </Button>
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
