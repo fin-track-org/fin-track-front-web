@@ -102,7 +102,17 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   // ----------------------------
   // Derived
   // ----------------------------
-  const categoryOptions = useMemo(() => categories, [categories]);
+  const categoryOptions = useMemo(() => {
+    if (type === "EXPENSE") {
+      return categories.filter((c) => c.id !== "ALL" && c.id !== "INCOME");
+    }
+
+    if (type === "INCOME") {
+      return categories.filter((c) => c.id === "INCOME" || c.id === "ETC");
+    }
+
+    return categories;
+  }, [categories, type]);
 
   const mergedSubCategories = useMemo(() => {
     const base = subCategories[category] ?? [];
@@ -158,12 +168,27 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     if (defaultValues) return;
 
     try {
-      setCategory((prev) => prev);
+      const initialCategory =
+        type === "INCOME"
+          ? (categories.find((c) => c.id === "INCOME")?.id ?? "")
+          : (categories.find((c) => c.id === "FOOD")?.id ?? "");
+
+      setCategory(initialCategory);
+      setSubCategory("");
       setDate(todayISODateSeoul());
     } catch {
       // ignore
     }
-  }, [open]);
+  }, [open, defaultValues, type, categories]);
+
+  useEffect(() => {
+    const validCategoryIds = categoryOptions.map((c) => c.id);
+
+    if (!validCategoryIds.includes(category)) {
+      setCategory(categoryOptions[0]?.id ?? "");
+      setSubCategory("");
+    }
+  }, [categoryOptions, category]);
 
   useEffect(() => {
     if (paymentType === "cash") setCardProvider("");

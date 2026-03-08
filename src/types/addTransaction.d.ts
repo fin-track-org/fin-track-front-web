@@ -1,8 +1,10 @@
 type TransactionType = "EXPENSE" | "INCOME" | "TRANSFER";
 
+type CategoryType = "EXPENSE" | "INCOME" | "COMMON";
 interface Category {
   id: string;
   name: string;
+  type: CategoryType;
 }
 
 interface SubCategory {

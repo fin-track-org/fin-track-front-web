@@ -19,18 +19,21 @@ import {
 // .env.local에서 Spring Boot URL을 읽어옵니다.
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
-const categories: { id: string; name: string }[] = [
-  { id: "ALL", name: "전체" },
-  { id: "FOOD", name: "식비" },
-  { id: "TRANSPORT", name: "교통/차량" },
-  { id: "HOUSING", name: "주거/공과금" },
-  { id: "SHOPPING", name: "쇼핑/생활" },
-  { id: "CULTURE", name: "문화/여가" },
-  { id: "MEDICAL", name: "의료/건강" },
-  { id: "EDUCATION", name: "교육/자기계발" },
-  { id: "FINANCE", name: "금융" },
-  { id: "INCOME", name: "수입" },
-  { id: "ETC", name: "기타" },
+const categories: Category[] = [
+  { id: "ALL", name: "전체", type: "COMMON" },
+
+  { id: "FOOD", name: "식비", type: "EXPENSE" },
+  { id: "TRANSPORT", name: "교통/차량", type: "EXPENSE" },
+  { id: "HOUSING", name: "주거/공과금", type: "EXPENSE" },
+  { id: "SHOPPING", name: "쇼핑/생활", type: "EXPENSE" },
+  { id: "CULTURE", name: "문화/여가", type: "EXPENSE" },
+  { id: "MEDICAL", name: "의료/건강", type: "EXPENSE" },
+  { id: "EDUCATION", name: "교육/자기계발", type: "EXPENSE" },
+  { id: "FINANCE", name: "금융", type: "EXPENSE" },
+
+  { id: "INCOME", name: "수입", type: "INCOME" },
+
+  { id: "ETC", name: "기타", type: "COMMON" },
 ];
 
 const subCategory: Record<string, { id: string; name: string }[]> = {
