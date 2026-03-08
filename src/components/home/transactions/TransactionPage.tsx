@@ -239,7 +239,7 @@ export default function TransactionPage() {
     setEditingTransaction(t);
     setModalDefaultValues({
       date: t.date,
-      type: t.amount < 0 ? "expense" : "income",
+      type: t.type,
       amount: Math.abs(t.amount),
       category: t.category,
       description: t.description,
@@ -278,6 +278,7 @@ export default function TransactionPage() {
     // 나머지 필드는 API 확장 후 함께 보낼 예정
     const bodyForNow = {
       date: payload.date,
+      type: payload.type,
       amount: payload.amount,
       category: payload.category,
       description: payload.description ?? "",
@@ -287,6 +288,8 @@ export default function TransactionPage() {
       // cardProvider: payload.cardProvider,
       // subCategory: payload.subCategory,
     };
+
+    console.log(bodyForNow);
 
     const res = await fetch(apiUrl, {
       method,
@@ -352,7 +355,7 @@ export default function TransactionPage() {
               setEditingTransaction(null);
               setModalDefaultValues({
                 date: new Date().toISOString().split("T")[0],
-                type: "expense",
+                type: "EXPENSE",
                 category: "FOOD",
                 paymentType: "cash",
               });

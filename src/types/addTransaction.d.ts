@@ -1,4 +1,4 @@
-type TransactionType = "expense" | "income" | "transfer";
+type TransactionType = "EXPENSE" | "INCOME" | "TRANSFER";
 
 interface Category {
   id: string;
@@ -22,7 +22,7 @@ interface PaymentMethod {
 
 interface CreateTransactionPayload {
   date: string; // YYYY-MM-DD
-  type: TransactionType; // ✅ 모달에서 결정
+  type: TransactionType; // 모달에서 결정
   amount: number; // ✅ 서버에 보낼 최종 amount(지출 음수, 수입 양수)
   category: string; // (현재 서버 DTO 기준 문자열)
   subCategory: string;

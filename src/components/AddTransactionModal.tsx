@@ -50,7 +50,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   // 초기값
   // ----------------------------
   const initialDate = defaultValues?.date ?? todayISODateSeoul();
-  const initialType: TransactionType = defaultValues?.type ?? "expense";
+  const initialType = defaultValues?.type ?? "EXPENSE";
 
   // ----------------------------
   // Form State
@@ -139,7 +139,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
     // 추가 모드: 항상 지출로 시작
     if (!defaultValues) {
-      setType("expense");
+      setType("EXPENSE");
       return;
     }
 
@@ -238,7 +238,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     if (!canSubmit) return;
 
     // 서버에 저장될 최종 amount 부호 결정
-    const signedAmount = type === "expense" ? -amountAbs : Math.abs(amountAbs);
+    const signedAmount = type === "EXPENSE" ? -amountAbs : Math.abs(amountAbs);
 
     const payload: CreateTransactionPayload = {
       date,
@@ -297,9 +297,9 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                     <SelectValue placeholder="선택" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="expense">지출</SelectItem>
-                    <SelectItem value="income">수입</SelectItem>
-                    {/* <SelectItem value="transfer">이체</SelectItem> */}
+                    <SelectItem value="EXPENSE">지출</SelectItem>
+                    <SelectItem value="INCOME">수입</SelectItem>
+                    {/* <SelectItem value="TRANSFER">이체</SelectItem> */}
                   </SelectContent>
                 </Select>
               </div>
@@ -343,7 +343,11 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               </div>
 
               <div className="space-y-2">
-                <Label className="ml-1">세부 항목(기능 추가 예정)</Label>
+                <Label
+                  className={`ml-1 ${isEtcCategory ? "text-gray-300" : ""}`}
+                >
+                  세부 항목(기능 추가 예정)
+                </Label>
                 <Select
                   value={subCategory}
                   onValueChange={setSubCategory}
