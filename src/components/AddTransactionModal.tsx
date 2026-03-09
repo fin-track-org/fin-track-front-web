@@ -335,7 +335,6 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                   <SelectContent>
                     <SelectItem value="EXPENSE">지출</SelectItem>
                     <SelectItem value="INCOME">수입</SelectItem>
-                    {/* <SelectItem value="TRANSFER">이체</SelectItem> */}
                   </SelectContent>
                 </Select>
               </div>

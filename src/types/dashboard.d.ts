@@ -1,6 +1,6 @@
 /* Res */
 interface Transaction {
-  id: number;
+  id: string;
   date: string; // YYYY-MM-DD
   type: TransactionType;
   category: string; // 지금은 문자열
@@ -9,9 +9,9 @@ interface Transaction {
   // TODO(api 확장): subCategory, paymentMethodId, merchantText 등 추가될 예정
 }
 /* interface Transaction {
-  id: number;
+  id: string;
   date: string;
-  type: "EXPENSE" | "INCOME" | "TRANSFER";
+  type: "EXPENSE" | "INCOME";
   amount: number;
   categoryName: string;
   subcategoryId?: string;

@@ -4,7 +4,7 @@ import { useState } from "react";
 interface Props {
   transaction: Transaction;
   onEdit: (t: Transaction) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
   categoryLabel: string;
 }
 

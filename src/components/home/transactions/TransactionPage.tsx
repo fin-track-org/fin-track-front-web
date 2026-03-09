@@ -222,7 +222,7 @@ export default function TransactionPage() {
 
   // ------------------- 삭제 -----------------------
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -243,7 +243,7 @@ export default function TransactionPage() {
     },
   });
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: string) => {
     if (!confirm("정말 삭제하시겠습니까?")) return;
     deleteMutation.mutate(id);
   };
@@ -415,7 +415,6 @@ export default function TransactionPage() {
                       {c.name}
                     </SelectItem>
                   ))}
-                  {/* <SelectItem value="transfer">이체</SelectItem> */}
                 </SelectContent>
               </Select>
             </div>

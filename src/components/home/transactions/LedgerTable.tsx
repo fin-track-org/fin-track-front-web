@@ -6,7 +6,7 @@ interface Props {
   loading: boolean;
   error: string | null;
   onEdit: (t: Transaction) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
   categoryNameById: {
     [k: string]: string;
   };
@@ -20,7 +20,7 @@ function MobileTransactionCard({
 }: {
   t: Transaction;
   onEdit: (t: Transaction) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
   categoryNameById: {
     [k: string]: string;
   };

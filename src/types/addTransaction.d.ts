@@ -1,4 +1,4 @@
-type TransactionType = "EXPENSE" | "INCOME" | "TRANSFER";
+type TransactionType = "EXPENSE" | "INCOME";
 
 type CategoryType = "EXPENSE" | "INCOME" | "COMMON";
 interface Category {
