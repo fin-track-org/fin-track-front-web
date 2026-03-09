@@ -12,8 +12,6 @@ interface SubCategory {
   name: string;
 }
 
-type PaymentMethodType = "cash" | "credit_card" | "debit_card" | "account";
-
 interface PaymentMethod {
   id: string;
   type: PaymentMethodType | string;
@@ -29,7 +27,7 @@ interface CreateTransactionPayload {
   category: string; // (현재 서버 DTO 기준 문자열)
   subCategory: string;
 
-  paymentType: "cash" | "credit_card" | "debit_card"; // ✅ 1차
+  paymentType: string | null; // ✅ 1차
   cardProvider?: string | null; // ✅ 2차 (카드일 때만)
 
   // 아래는 지금 당장 서버에 안 보내도 됨.

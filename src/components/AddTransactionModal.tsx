@@ -65,9 +65,9 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     defaultValues?.subCategory ?? "",
   );
 
-  const [paymentType, setPaymentType] = useState<
-    "cash" | "credit_card" | "debit_card"
-  >(defaultValues?.paymentType ?? "cash");
+  const [paymentType, setPaymentType] = useState<string>(
+    defaultValues?.paymentType ?? "cash",
+  );
 
   const [cardProvider, setCardProvider] = useState<string>(
     defaultValues?.cardProvider ?? "",
@@ -108,11 +108,17 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     }
 
     if (type === "INCOME") {
-      return categories.filter((c) => c.id === "INCOME" || c.id === "ETC");
+      return categories.filter(
+        (c) => c.id === "INCOME" || c.id === "ETC" || c.id === "WEALTH",
+      );
     }
 
     return categories;
   }, [categories, type]);
+
+  const isIncomeType = type === "INCOME";
+
+  const isPaymentTypeCash = paymentType === "cash";
 
   const mergedSubCategories = useMemo(() => {
     const base = subCategories[category] ?? [];
@@ -136,7 +142,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     (isEtcCategory ? true : Boolean(subCategory)) &&
     isAmountValid &&
     !isSaving &&
-    (!needCardProvider || Boolean(cardProvider)) &&
+    (isIncomeType || !needCardProvider || Boolean(cardProvider)) &&
     Boolean(description);
 
   // ----------------------------
@@ -180,6 +186,13 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       // ignore
     }
   }, [open, defaultValues, type, categories]);
+
+  useEffect(() => {
+    if (type === "INCOME") {
+      setPaymentType("cash");
+      setCardProvider("");
+    }
+  }, [type]);
 
   useEffect(() => {
     const validCategoryIds = categoryOptions.map((c) => c.id);
@@ -262,17 +275,15 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     setError("");
     if (!canSubmit) return;
 
-    // 서버에 저장될 최종 amount 부호 결정
-    const signedAmount = type === "EXPENSE" ? -amountAbs : Math.abs(amountAbs);
-
     const payload: CreateTransactionPayload = {
       date,
       type,
-      amount: Math.round(signedAmount),
+      amount: amountAbs,
       category,
       subCategory,
-      paymentType,
-      cardProvider: paymentType === "cash" ? null : cardProvider,
+      paymentType: type === "INCOME" ? null : paymentType,
+      cardProvider:
+        type === "INCOME" || paymentType === "cash" ? null : cardProvider,
       description: description.trim() ? description.trim() : null,
     };
 
@@ -417,61 +428,67 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               </div>
             </div>
 
-            {/* 3) 결제수단 + 카드사 (조건부) */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="ml-1">결제수단(기능 추가 예정)</Label>
-                <Select
-                  value={paymentType}
-                  onValueChange={(v) => setPaymentType(v as any)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="결제수단 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">현금</SelectItem>
-                    <SelectItem value="credit_card">신용카드</SelectItem>
-                    <SelectItem value="debit_card">체크카드</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* 3) 결제수단 + 카드사 (지출일 때만) */}
+            {!isIncomeType && (
+              <div
+                className={`grid grid-cols-1 gap-4 ${isPaymentTypeCash ? "md:grid-cols-1" : " md:grid-cols-2"}`}
+              >
+                <div className="space-y-2">
+                  <Label className="ml-1">결제수단(기능 추가 예정)</Label>
+                  <Select
+                    value={paymentType}
+                    onValueChange={(v) => setPaymentType(v as any)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="결제수단 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">현금</SelectItem>
+                      <SelectItem value="credit_card">신용카드</SelectItem>
+                      <SelectItem value="debit_card">체크카드</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <Label
-                  className={`ml-1 ${paymentType === "cash" ? "text-gray-300" : ""}`}
-                >
-                  카드사(기능 추가 예정)
-                </Label>
-                <Select
-                  value={cardProvider}
-                  onValueChange={setCardProvider}
-                  disabled={paymentType === "cash"}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue
-                      placeholder={
-                        paymentType === "cash"
-                          ? "현금 선택 시 비활성화"
-                          : "카드사 선택"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CARD_PROVIDERS.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {!isPaymentTypeCash && (
+                  <div className="space-y-2">
+                    <Label
+                      className={`ml-1 ${paymentType === "cash" ? "text-gray-300" : ""}`}
+                    >
+                      카드사(기능 추가 예정)
+                    </Label>
+                    <Select
+                      value={cardProvider}
+                      onValueChange={setCardProvider}
+                      disabled={paymentType === "cash"}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue
+                          placeholder={
+                            paymentType === "cash"
+                              ? "현금 선택 시 비활성화"
+                              : "카드사 선택"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CARD_PROVIDERS.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
-                {paymentType !== "cash" && !cardProvider && (
-                  <p className="text-xs text-gray-500 ml-1">
-                    카드사를 선택해주세요.
-                  </p>
+                    {paymentType !== "cash" && !cardProvider && (
+                      <p className="text-xs text-gray-500 ml-1">
+                        카드사를 선택해주세요.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
+            )}
 
             {/* 4) 날짜 (마지막 확인용) */}
             <div className="space-y-2">
@@ -577,9 +594,6 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* ✅ (지워도 무방) paymentMethods는 현재 이 컴포넌트에서 사용하지 않음 */}
-      {/* props에서 받는 paymentMethods를 나중에 결제수단 UI 확장 시 사용하면 됨 */}
     </>
   );
 }

@@ -15,6 +15,24 @@ import { useRouter } from "next/navigation";
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
+const categories: Category[] = [
+  { id: "ALL", name: "전체", type: "COMMON" },
+
+  { id: "FOOD", name: "식비", type: "EXPENSE" },
+  { id: "TRANSPORT", name: "교통/차량", type: "EXPENSE" },
+  { id: "HOUSING", name: "주거/공과금", type: "EXPENSE" },
+  { id: "SHOPPING", name: "쇼핑/생활", type: "EXPENSE" },
+  { id: "CULTURE", name: "문화/여가", type: "EXPENSE" },
+  { id: "MEDICAL", name: "의료/건강", type: "EXPENSE" },
+  { id: "EDUCATION", name: "교육/자기계발", type: "EXPENSE" },
+  { id: "FINANCE", name: "금융", type: "EXPENSE" },
+
+  { id: "INCOME", name: "수입", type: "INCOME" },
+
+  { id: "WEALTH", name: "재테크", type: "COMMON" },
+  { id: "ETC", name: "기타", type: "COMMON" },
+];
+
 const CATEGORY_COLORS: Record<string, string> = {
   식비: "#3b82f6",
   교통: "#8b5cf6",
@@ -175,6 +193,10 @@ export default function DashboardPage() {
     );
   };
 
+  const categoryNameById = useMemo(() => {
+    return Object.fromEntries(categories.map((c) => [c.id, c.name]));
+  }, []);
+
   if (isLoading) {
     return <DashboardSkeleton />;
   }
@@ -219,7 +241,10 @@ export default function DashboardPage() {
       </div>
 
       {/* 최근 거래 내역 테이블 */}
-      <RecentTransactions data={allTransactions} />
+      <RecentTransactions
+        data={allTransactions}
+        categoryNameById={categoryNameById}
+      />
     </div>
   );
 }

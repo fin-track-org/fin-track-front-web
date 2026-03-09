@@ -33,6 +33,7 @@ const categories: Category[] = [
 
   { id: "INCOME", name: "수입", type: "INCOME" },
 
+  { id: "WEALTH", name: "재테크", type: "COMMON" },
   { id: "ETC", name: "기타", type: "COMMON" },
 ];
 
@@ -120,7 +121,6 @@ const subCategory: Record<string, { id: string; name: string }[]> = {
     { id: "FINANCE_INSURANCE", name: "보험료" },
     { id: "FINANCE_CARD_PAYMENT", name: "카드대금" },
     { id: "FINANCE_FEE", name: "수수료" },
-    { id: "FINANCE_INVEST", name: "투자" },
     { id: "FINANCE_TAX", name: "세금" },
   ],
 
@@ -131,6 +131,18 @@ const subCategory: Record<string, { id: string; name: string }[]> = {
     { id: "INCOME_REFUND", name: "환급/캐시백" },
     { id: "INCOME_SIDE", name: "부수입" },
     { id: "INCOME_INVEST", name: "투자수익" },
+  ],
+
+  WEALTH: [
+    { id: "WEALTH_SAVING", name: "저축" },
+    { id: "WEALTH_INSTALLMENT", name: "적금" },
+    { id: "WEALTH_DEPOSIT", name: "예금" },
+    { id: "WEALTH_STOCK", name: "주식투자" },
+    { id: "WEALTH_FUND", name: "펀드" },
+    { id: "WEALTH_PENSION", name: "연금 (IRP / 연금저축)" },
+    { id: "WEALTH_COIN", name: "코인 투자" },
+    { id: "WEALTH_GOLD_SILVER", name: "금/은 투자" },
+    { id: "WEALTH_REAL_ESTATE", name: "부동산 투자" },
   ],
 };
 
@@ -364,7 +376,7 @@ export default function TransactionPage() {
               });
               setIsModalOpen(true);
             }}
-            className="flex-none w-full md:w-auto bg-sky-500 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-600 transition-colors text-sm md:text-base shadow-sm"
+            className="flex-none w-full md:w-auto bg-sky-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-700 transition-colors text-sm md:text-base shadow-sm"
           >
             + 새 거래 추가
           </button>
@@ -416,7 +428,7 @@ export default function TransactionPage() {
                   onClick={() => setSelectedCategoryId(c.id)}
                   className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
                     selectedCategoryId === c.id
-                      ? "bg-blue-600 text-white"
+                      ? "bg-sky-600 text-white"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
