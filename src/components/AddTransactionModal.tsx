@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
@@ -23,6 +22,8 @@ import {
 } from "@/src/components/ui/select";
 import { Textarea } from "@/src/components/ui/textarea";
 import { todayISODateSeoul, toNumberOrNaN } from "../hook/useTransaction";
+import { getSubCategories } from "../lib/api/categoryApi";
+import { useQuery } from "@tanstack/react-query";
 
 const CARD_PROVIDERS = [
   { id: "SAMSUNG", name: "삼성" },
@@ -36,15 +37,8 @@ const CARD_PROVIDERS = [
 ] as const;
 
 export default function AddTransactionModal(props: AddTransactionModalProps) {
-  const {
-    open,
-    onOpenChange,
-    categories,
-    subCategories,
-    onSubmit,
-    defaultValues,
-    mode,
-  } = props;
+  const { open, onOpenChange, categories, onSubmit, defaultValues, mode } =
+    props;
 
   // ----------------------------
   // 초기값
@@ -114,8 +108,6 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     return categories;
   }, [categories, type]);
 
-  console.log(categoryOptions);
-
   const isIncomeType = type === "INCOME";
 
   const isPaymentTypeCash = paymentType === "cash";
@@ -124,14 +116,27 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     return categories.find((c) => c.name === category);
   }, [categories, category]);
 
+  const selectedCategoryId = selectedCategory?.id ?? "";
   const selectedCategoryCode = selectedCategory?.code ?? "";
 
+  /* 세부 항목 (소분류) 조회 */
+  const { data: fetchedSubCategories = [] } = useQuery({
+    queryKey: ["subCategories", selectedCategoryId],
+    queryFn: () => getSubCategories(selectedCategoryId),
+    enabled: open && !!selectedCategoryId,
+    staleTime: 1000 * 60 * 5,
+  });
+
   const mergedSubCategories = useMemo(() => {
-    const base = subCategories[selectedCategoryCode] ?? [];
+    const base = fetchedSubCategories.map((item) => ({
+      id: item.id,
+      name: item.name,
+    }));
+
     const custom = customSubCategories[selectedCategoryCode] ?? [];
-    const map = new Map([...base, ...custom].map((x) => [x.id, x]));
+    const map = new Map([...base, ...custom].map((x) => [x.name, x]));
     return Array.from(map.values());
-  }, [subCategories, customSubCategories, selectedCategoryCode]);
+  }, [fetchedSubCategories, customSubCategories, selectedCategoryCode]);
 
   const currentSubCats = mergedSubCategories;
 
@@ -140,7 +145,9 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
   const needCardProvider = paymentType !== "cash";
 
-  const isEtcCategory = selectedCategory?.code === "ETC";
+  const isEtcCategory =
+    selectedCategory?.code === "ETC_EXPENSE" ||
+    selectedCategory?.code === "ETC_INCOME";
 
   const canSubmit =
     Boolean(date) &&
@@ -201,9 +208,9 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   }, [type]);
 
   useEffect(() => {
-    const validCategoryIds = categoryOptions.map((c) => c.name);
+    const validCategoryNames = categoryOptions.map((c) => c.name);
 
-    if (!validCategoryIds.includes(category)) {
+    if (!validCategoryNames.includes(category)) {
       setCategory(categoryOptions[0]?.name ?? "");
       setSubCategory("");
     }
@@ -219,13 +226,30 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       return;
     }
 
-    const list = (subCategories[selectedCategoryCode] ?? []).concat(
-      customSubCategories[selectedCategoryCode] ?? [],
-    );
-
+    const list = mergedSubCategories;
     const exists = list.some((x) => x.name === subCategory);
-    if (!exists) setSubCategory("");
-  }, [category]);
+
+    if (!exists) {
+      setSubCategory(list[0]?.name ?? "");
+    }
+  }, [mergedSubCategories, subCategory, isEtcCategory]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    setDate(defaultValues?.date ?? todayISODateSeoul());
+    setType(defaultValues?.type ?? "EXPENSE");
+    setCategory(defaultValues?.category ?? "");
+    setSubCategory(defaultValues?.subCategory ?? "");
+    setPaymentType(defaultValues?.paymentType ?? "cash");
+    setCardProvider(defaultValues?.cardProvider ?? "");
+    setDescription(defaultValues?.description ?? "");
+    setAmountText(
+      defaultValues?.amount != null ? String(defaultValues.amount) : "",
+    );
+    setError("");
+    setSubCatError("");
+  }, [open, defaultValues]);
 
   // ----------------------------
   // Handlers
@@ -259,7 +283,13 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       setIsAddingSubCat(true);
 
       const id = `CUSTOM_${selectedCategoryCode}_${Date.now()}`;
-      const created: SubCategory = { id, name };
+      const created: SubCategory = {
+        id,
+        categoryId: selectedCategoryId,
+        name,
+        sortOrder: currentSubCats.length,
+        isSystem: false,
+      };
 
       setCustomSubCategories((prev) => {
         const existing = prev[selectedCategoryCode] ?? [];
@@ -295,7 +325,6 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
     try {
       setIsSaving(true);
-      console.log(payload);
       await onSubmit(payload);
 
       onOpenChange(false);
@@ -385,21 +414,23 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
               <div className="space-y-2">
                 <Label
-                  className={`ml-1 ${isEtcCategory ? "text-gray-300" : ""}`}
+                  className={`ml-1 ${isEtcCategory || currentSubCats.length === 0 ? "text-gray-300" : ""}`}
                 >
-                  세부 항목(기능 추가 예정)
+                  세부 항목
                 </Label>
                 <Select
                   value={subCategory}
                   onValueChange={setSubCategory}
-                  disabled={isEtcCategory}
+                  disabled={isEtcCategory || currentSubCats.length === 0}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue
                       placeholder={
                         isEtcCategory
                           ? "기타는 세부 항목이 없습니다"
-                          : "세부 항목 선택"
+                          : currentSubCats.length === 0
+                            ? "세부 항목이 없습니다"
+                            : "세부 항목 선택"
                       }
                     />
                   </SelectTrigger>

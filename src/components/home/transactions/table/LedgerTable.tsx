@@ -25,7 +25,6 @@ function MobileTransactionCard({
     [k: string]: string;
   };
 }) {
-  console.log(t);
   const isExpense = t.type === "EXPENSE";
   const amountAbs = Math.abs(t.amount).toLocaleString();
   const label = categoryNameById[t.category] ?? t.category; // fallback

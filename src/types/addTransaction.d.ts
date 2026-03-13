@@ -33,7 +33,6 @@ interface AddTransactionModalProps {
   onOpenChange: (open: boolean) => void;
 
   categories: Category[];
-  subCategories: Record<string, SubCategory[]>;
   paymentMethods: PaymentMethod[];
 
   onSubmit: (payload: CreateTransactionPayload) => Promise<void>;
