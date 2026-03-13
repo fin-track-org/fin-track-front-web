@@ -15,27 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
+import { getCategories } from "@/src/lib/api/categoryApi";
+import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
-
-const categories: Category[] = [
-  { id: "ALL", name: "전체", type: "COMMON" },
-
-  { id: "FOOD", name: "식비", type: "EXPENSE" },
-  { id: "TRANSPORT", name: "교통/차량", type: "EXPENSE" },
-  { id: "HOUSING", name: "주거/공과금", type: "EXPENSE" },
-  { id: "SHOPPING", name: "쇼핑/생활", type: "EXPENSE" },
-  { id: "CULTURE", name: "문화/여가", type: "EXPENSE" },
-  { id: "MEDICAL", name: "의료/건강", type: "EXPENSE" },
-  { id: "EDUCATION", name: "교육/자기계발", type: "EXPENSE" },
-  { id: "FINANCE", name: "금융", type: "EXPENSE" },
-
-  { id: "INCOME", name: "수입", type: "INCOME" },
-
-  { id: "WEALTH", name: "재테크", type: "COMMON" },
-  { id: "ETC", name: "기타", type: "COMMON" },
-];
 
 const subCategory: Record<string, { id: string; name: string }[]> = {
   FOOD: [
@@ -152,6 +136,15 @@ const paymentMethods = [
   { id: "KB_DEBIT", type: "debit_card", name: "체크카드" },
 ];
 
+const ALL_CATEGORY = {
+  id: "ALL",
+  name: "전체",
+  type: "COMMON",
+  code: "ALL",
+  colorCode: "#9ca3af",
+  sortOrder: -1,
+};
+
 export default function TransactionPage() {
   const supabase = createClient();
   const queryClient = useQueryClient();
@@ -182,6 +175,34 @@ export default function TransactionPage() {
     return `${year}-${month}`; // 예: 2026-02
   };
 
+  /* 카테고리 조회 api */
+  const {
+    data: rawCategories = [],
+    isLoading: isCategoriesLoading,
+    isError: isCategoriesError,
+    error: categoriesError,
+  } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => getCategories(),
+  });
+
+  const categories = useMemo(() => {
+    return [ALL_CATEGORY, ...rawCategories];
+  }, [rawCategories]);
+
+  const categoryNameById = useMemo(() => {
+    return Object.fromEntries(rawCategories.map((c) => [c.id, c.name]));
+  }, [rawCategories]);
+
+  const defaultExpenseCategoryId = useMemo(() => {
+    return rawCategories.find((c) => c.type === "EXPENSE")?.id ?? "";
+  }, [rawCategories]);
+
+  const categoryCodeById = useMemo(() => {
+    return Object.fromEntries(rawCategories.map((c) => [c.id, c.code]));
+  }, [rawCategories]);
+  /* ----------------------------------------------------------------------- */
+
   /* 조회 api */
   const getTransactions = async (): Promise<Transaction[]> => {
     const {
@@ -211,9 +232,9 @@ export default function TransactionPage() {
 
   const {
     data: transactions = [],
-    isLoading,
-    isError,
-    error,
+    isLoading: isTransactionsLoading,
+    isError: isTransactionsError,
+    error: transactionsError,
   } = useQuery({
     queryKey: ["transactions", getYearMonth(currentMonth)],
     queryFn: getTransactions,
@@ -252,13 +273,23 @@ export default function TransactionPage() {
   // 수정 버튼 클릭
   const handleEdit = (t: Transaction) => {
     setEditingTransaction(t);
+
+    const categoryCode = categoryCodeById[t.category] ?? t.category;
+
     setModalDefaultValues({
       date: t.date,
       type: t.type,
       amount: Math.abs(t.amount),
       category: t.category,
       description: t.description,
+      subCategory: undefined,
+      paymentType: "cash",
     });
+
+    if (categoryCode) {
+      void categoryCode;
+    }
+
     setIsModalOpen(true);
   };
 
@@ -352,9 +383,21 @@ export default function TransactionPage() {
     );
   });
 
-  const categoryNameById = useMemo(() => {
-    return Object.fromEntries(categories.map((c) => [c.id, c.name]));
-  }, []);
+  const isPageLoading = isTransactionsLoading || isCategoriesLoading;
+  const pageError =
+    (isTransactionsError && (transactionsError as Error)) ||
+    (isCategoriesError && (categoriesError as Error)) ||
+    null;
+
+  const isInitialLoading =
+    isCategoriesLoading &&
+    isTransactionsLoading &&
+    rawCategories.length === 0 &&
+    transactions.length === 0;
+
+  if (isInitialLoading) {
+    return <TransactionPageSkeleton />;
+  }
 
   return (
     <>
@@ -371,7 +414,7 @@ export default function TransactionPage() {
               setModalDefaultValues({
                 date: new Date().toISOString().split("T")[0],
                 type: "EXPENSE",
-                category: "FOOD",
+                category: defaultExpenseCategoryId,
                 paymentType: "cash",
               });
               setIsModalOpen(true);
@@ -440,8 +483,8 @@ export default function TransactionPage() {
 
         <LedgerTable
           transactions={filteredByMonth}
-          loading={isLoading}
-          error={isError ? (error as Error).message : null}
+          loading={isPageLoading}
+          error={pageError?.message ?? null}
           onEdit={handleEdit}
           onDelete={handleDelete}
           categoryNameById={categoryNameById}
@@ -454,7 +497,7 @@ export default function TransactionPage() {
           <AddTransactionModal
             open={isModalOpen}
             onOpenChange={handleOpenChange}
-            categories={categories.filter((c) => c.id !== "ALL")} // 모달에서 "전체" 제외
+            categories={rawCategories}
             subCategories={subCategory} // 모달에서 "전체" 제외
             paymentMethods={paymentMethods}
             onSubmit={handleSubmitTransaction}

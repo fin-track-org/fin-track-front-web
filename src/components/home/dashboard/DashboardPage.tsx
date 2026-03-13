@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/immutability */
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -12,6 +11,9 @@ import RecentTransactions from "./section/RecentTransactions";
 import { useQuery } from "@tanstack/react-query";
 import DashboardSkeleton from "../../skeleton/DashboardSkeleton";
 import { useRouter } from "next/navigation";
+import { formatMonth } from "@/src/utils/date";
+import { getDashboardSummary } from "@/src/lib/api/dashboard/summary";
+import { getDashboardDaily } from "@/src/lib/api/dashboard/daily";
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
@@ -55,6 +57,12 @@ export default function DashboardPage() {
 
   // 날짜
   const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  // 선택한 날짜 0000-00 형태 변경 포맷 유틸
+  const selectedMonth = useMemo(
+    () => formatMonth(currentMonth),
+    [currentMonth],
+  );
 
   const [viewType, setViewType] = useState<"chart" | "table">("chart");
 
@@ -104,29 +112,40 @@ export default function DashboardPage() {
     retry: false,
   });
 
+  /* Summary 요약 내용 */
+  const {
+    data: summary,
+    isLoading: isSummaryLoading,
+    isError: isSummaryError,
+    error: summaryError,
+  } = useQuery({
+    queryKey: ["dashboardSummary", selectedMonth],
+    queryFn: () => getDashboardSummary(selectedMonth),
+    retry: false,
+  });
+
   useEffect(() => {
     if (error instanceof AuthError) {
       router.replace("/login");
     }
   }, [error, router]);
 
+  /* 자산 변화 차트 */
+  const {
+    data: dailyData = [],
+    isLoading: isDailyLoading,
+    isError: isDailyError,
+    error: dailyError,
+  } = useQuery({
+    queryKey: ["dashboardDaily", selectedMonth],
+    queryFn: () => getDashboardDaily(selectedMonth),
+    retry: false,
+  });
+
   /* currentMonth 데이터 */
   const monthTransactions = allTransactions.filter((t) =>
     isSameMonth(t.date, currentMonth),
   );
-
-  /* 요약 내용 */
-  const summary = useMemo(() => {
-    return monthTransactions.reduce(
-      (acc, t) => {
-        if (t.amount > 0) acc.income += t.amount;
-        else acc.expense += Math.abs(t.amount);
-        acc.balance = acc.income - acc.expense;
-        return acc;
-      },
-      { income: 0, expense: 0, balance: 0 },
-    );
-  }, [monthTransactions]);
 
   /* 카테고리 파이 차트 */
   const pieData = useMemo(() => {
@@ -149,36 +168,6 @@ export default function DashboardPage() {
     }));
   }, [monthTransactions]);
 
-  /* Bar Chart */
-  const barData = useMemo(() => {
-    const dailyMap: Record<string, { income: number; expense: number }> = {};
-
-    monthTransactions.forEach((t) => {
-      if (!dailyMap[t.date]) {
-        dailyMap[t.date] = { income: 0, expense: 0 };
-      }
-
-      if (t.amount > 0) dailyMap[t.date].income += t.amount;
-      else dailyMap[t.date].expense += Math.abs(t.amount);
-    });
-
-    let runningBalance = 0;
-
-    return Object.keys(dailyMap)
-      .sort()
-      .map((date) => {
-        const { income, expense } = dailyMap[date];
-        runningBalance += income - expense;
-
-        return {
-          date: date.substring(5),
-          income,
-          expense,
-          balance: runningBalance,
-        };
-      });
-  }, [monthTransactions]);
-
   /* 다음 달 이동 버튼 */
   const handlePreviousMonth = () => {
     setCurrentMonth(
@@ -193,18 +182,22 @@ export default function DashboardPage() {
     );
   };
 
+  /* 카테고리 id -> name */
   const categoryNameById = useMemo(() => {
     return Object.fromEntries(categories.map((c) => [c.id, c.name]));
   }, []);
 
-  if (isLoading) {
+  /* 로딩 */
+  if (isLoading || isSummaryLoading || isDailyLoading) {
     return <DashboardSkeleton />;
   }
 
-  if (isError) {
+  /* 에러 */
+  if (isError || isSummaryError || !summary || isDailyError) {
     return (
       <div className="py-12 text-center text-red-500">
-        {(error as Error).message}
+        {((error || summaryError || dailyError) as Error)?.message ??
+          "오류가 발생했습니다."}
       </div>
     );
   }
@@ -224,7 +217,14 @@ export default function DashboardPage() {
       {/* 2. Chart */}
       <div className="flex flex-col xl:flex-row gap-6">
         {/* Left - 이번 달 자산 변화 */}
-        <BalanceChart data={barData} />
+        <BalanceChart
+          data={dailyData.map((d) => ({
+            date: d.date.substring(5),
+            income: d.income,
+            expense: d.expense,
+            balance: d.balance,
+          }))}
+        />
 
         {/* Right - 카테고리별 지출 */}
         <CategoryChart
