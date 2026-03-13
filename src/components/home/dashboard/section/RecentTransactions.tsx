@@ -1,14 +1,19 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo } from "react";
 
-interface Transaction {
-  id: number;
-  date: string;
-  category: string;
-  description: string;
-  amount: number;
-}
+export default function RecentTransactions({
+  data,
+  categories,
+}: {
+  data: Transaction[];
+  categories: Category[];
+}) {
+  const categoryNameById = useMemo(() => {
+    return Object.fromEntries(categories.map((c) => [c.id, c.name]));
+  }, [categories]);
 
-export default function RecentTransactions({ data }: { data: Transaction[] }) {
   const hasData = data && data.length > 0;
 
   return (
@@ -35,7 +40,8 @@ export default function RecentTransactions({ data }: { data: Transaction[] }) {
       {hasData && (
         <div className="md:hidden divide-y divide-gray-100">
           {data.map((t) => {
-            const isIncome = t.amount > 0;
+            const label = categoryNameById[t.category] ?? t.category;
+            const isExpense = t.type === "EXPENSE";
             const absAmount = Math.abs(t.amount).toLocaleString();
 
             return (
@@ -44,14 +50,8 @@ export default function RecentTransactions({ data }: { data: Transaction[] }) {
                   <p className="text-xs text-gray-500">{t.date}</p>
                   <p className="font-medium truncate mt-1">{t.description}</p>
                   <div className="mt-2 flex gap-2 flex-wrap">
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        isIncome
-                          ? "bg-green-100 text-green-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {t.category}
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {label}
                     </span>
                   </div>
                 </div>
@@ -59,10 +59,10 @@ export default function RecentTransactions({ data }: { data: Transaction[] }) {
                 <div className="text-right shrink-0">
                   <p
                     className={`font-semibold ${
-                      isIncome ? "text-green-600" : "text-gray-900"
+                      isExpense ? "text-red-600" : "text-green-600"
                     }`}
                   >
-                    {isIncome ? "+" : "-"}₩{absAmount}
+                    {isExpense ? "-" : "+"}₩{absAmount}
                   </p>
                 </div>
               </div>
@@ -94,7 +94,8 @@ export default function RecentTransactions({ data }: { data: Transaction[] }) {
 
             <tbody className="divide-y divide-gray-100">
               {data.map((t) => {
-                const isIncome = t.amount > 0;
+                const label = categoryNameById[t.category] ?? t.category;
+                const isExpense = t.type === "EXPENSE";
                 const absAmount = Math.abs(t.amount).toLocaleString();
 
                 return (
@@ -104,14 +105,8 @@ export default function RecentTransactions({ data }: { data: Transaction[] }) {
                     </td>
 
                     <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          isIncome
-                            ? "bg-green-100 text-green-800"
-                            : "bg-blue-100 text-blue-800"
-                        }`}
-                      >
-                        {t.category}
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
+                        {label}
                       </span>
                     </td>
 
@@ -121,10 +116,10 @@ export default function RecentTransactions({ data }: { data: Transaction[] }) {
 
                     <td
                       className={`px-6 py-4 text-sm font-semibold text-right ${
-                        isIncome ? "text-green-600" : "text-gray-900"
+                        isExpense ? "text-red-600" : "text-green-600"
                       }`}
                     >
-                      {isIncome ? "+" : "-"}₩{absAmount}
+                      {isExpense ? "-" : "+"}₩{absAmount}
                     </td>
                   </tr>
                 );

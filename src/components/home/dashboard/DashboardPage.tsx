@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/immutability */
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -6,160 +5,93 @@ import MonthSelector from "./section/MonthSelector";
 import SummaryCards from "./section/SummaryCards";
 import BalanceChart from "./section/BalanceChart";
 import CategoryChart from "./section/CategoryChart";
-import { createClient } from "@/src/lib/supabase/client";
 import BudgetBar from "./section/BudgetBar";
 import RecentTransactions from "./section/RecentTransactions";
 import { useQuery } from "@tanstack/react-query";
 import DashboardSkeleton from "../../skeleton/DashboardSkeleton";
 import { useRouter } from "next/navigation";
-
-const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
-
-const CATEGORY_COLORS: Record<string, string> = {
-  식비: "#3b82f6",
-  교통: "#8b5cf6",
-  문화생활: "#ec4899",
-  생필품: "#10b981",
-  급여: "#f97316",
-  기타: "#f59e0b",
-};
-
-class AuthError extends Error {
-  constructor(message = "로그인이 필요합니다.") {
-    super(message);
-    this.name = "AuthError";
-  }
-}
+import { formatMonth } from "@/src/utils/date";
+import { getDashboardSummary } from "@/src/lib/api/dashboard/summary";
+import { getDashboardDaily } from "@/src/lib/api/dashboard/daily";
+import { getCategories } from "@/src/lib/api/categoryApi";
+import { getDashboardExpenseCategory } from "@/src/lib/api/dashboard/pie";
+import { AuthError } from "@/src/lib/api/authError";
+import { getRecentTransactions } from "@/src/lib/api/dashboard/recent";
 
 export default function DashboardPage() {
-  const supabase = createClient();
   const router = useRouter();
 
   // 날짜
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
+  // 선택한 날짜 0000-00 형태 변경 포맷 유틸
+  const selectedMonth = useMemo(
+    () => formatMonth(currentMonth),
+    [currentMonth],
+  );
+
   const [viewType, setViewType] = useState<"chart" | "table">("chart");
 
-  const isSameMonth = (dateStr: string, target: Date) => {
-    const d = new Date(dateStr);
-    return (
-      d.getFullYear() === target.getFullYear() &&
-      d.getMonth() === target.getMonth()
-    );
-  };
+  /* 카테고리 조회 api */
+  const { data: rawCategories = [] } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => getCategories(),
+  });
 
-  const fetchTransactions = async (): Promise<Transaction[]> => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new AuthError();
-    }
-
-    const response = await fetch(`${SPRING_BOOT_URL}/api/v1/transactions`, {
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
-    });
-
-    if (response.status === 401) {
-      throw new AuthError();
-    }
-
-    if (!response.ok) {
-      throw new Error("데이터를 불러오는데 실패했습니다.");
-    }
-
-    const result = await response.json();
-    return result.data ?? [];
-  };
-
+  /* Summary 요약 내용 */
   const {
-    data: allTransactions = [],
-    isLoading,
-    isError,
-    error,
+    data: summary,
+    isLoading: isSummaryLoading,
+    isError: isSummaryError,
+    error: summaryError,
   } = useQuery({
-    queryKey: ["transactions"],
-    queryFn: fetchTransactions,
+    queryKey: ["dashboardSummary", selectedMonth],
+    queryFn: () => getDashboardSummary(selectedMonth),
     retry: false,
   });
 
-  useEffect(() => {
-    if (error instanceof AuthError) {
-      router.replace("/login");
-    }
-  }, [error, router]);
-
-  /* currentMonth 데이터 */
-  const monthTransactions = allTransactions.filter((t) =>
-    isSameMonth(t.date, currentMonth),
-  );
-
-  /* 요약 내용 */
-  const summary = useMemo(() => {
-    return monthTransactions.reduce(
-      (acc, t) => {
-        if (t.amount > 0) acc.income += t.amount;
-        else acc.expense += Math.abs(t.amount);
-        acc.balance = acc.income - acc.expense;
-        return acc;
-      },
-      { income: 0, expense: 0, balance: 0 },
-    );
-  }, [monthTransactions]);
+  /* 자산 변화 차트 */
+  const {
+    data: dailyData = [],
+    isLoading: isDailyLoading,
+    isError: isDailyError,
+    error: dailyError,
+  } = useQuery({
+    queryKey: ["dashboardDaily", selectedMonth],
+    queryFn: () => getDashboardDaily(selectedMonth),
+    retry: false,
+  });
 
   /* 카테고리 파이 차트 */
-  const pieData = useMemo(() => {
-    const categoryMap: Record<string, number> = {};
+  const {
+    data: expenseCategoryData = [],
+    isLoading: isExpenseCategoryLoading,
+    isError: isExpenseCategoryError,
+    error: expenseCategoryError,
+  } = useQuery({
+    queryKey: ["dashboardExpenseCategory", selectedMonth],
+    queryFn: () => getDashboardExpenseCategory(selectedMonth),
+    retry: false,
+  });
 
-    monthTransactions.forEach((t) => {
-      if (t.amount < 0) {
-        categoryMap[t.category] =
-          (categoryMap[t.category] || 0) + Math.abs(t.amount);
-      }
-    });
+  /* 카테고리 colorCode 매핑 */
+  const categoryColorByName = useMemo(() => {
+    return Object.fromEntries(rawCategories.map((c) => [c.name, c.colorCode]));
+  }, [rawCategories]);
 
-    const total = Object.values(categoryMap).reduce((a, b) => a + b, 0);
+  /* 파이 데이터 매핑 */
+  const pieData = expenseCategoryData.map((item) => ({
+    name: item.category,
+    value: item.amount,
+    percentage: item.percentage,
+    color: categoryColorByName[item.category] ?? "#9ca3af",
+  }));
 
-    return Object.keys(categoryMap).map((key) => ({
-      name: key,
-      value: categoryMap[key],
-      color: CATEGORY_COLORS[key] ?? "#9ca3af",
-      percentage: total ? Math.round((categoryMap[key] / total) * 100) : 0,
-    }));
-  }, [monthTransactions]);
-
-  /* Bar Chart */
-  const barData = useMemo(() => {
-    const dailyMap: Record<string, { income: number; expense: number }> = {};
-
-    monthTransactions.forEach((t) => {
-      if (!dailyMap[t.date]) {
-        dailyMap[t.date] = { income: 0, expense: 0 };
-      }
-
-      if (t.amount > 0) dailyMap[t.date].income += t.amount;
-      else dailyMap[t.date].expense += Math.abs(t.amount);
-    });
-
-    let runningBalance = 0;
-
-    return Object.keys(dailyMap)
-      .sort()
-      .map((date) => {
-        const { income, expense } = dailyMap[date];
-        runningBalance += income - expense;
-
-        return {
-          date: date.substring(5),
-          income,
-          expense,
-          balance: runningBalance,
-        };
-      });
-  }, [monthTransactions]);
+  /* 최근 거래 내역 */
+  const { data: recentTransactions = [] } = useQuery({
+    queryKey: ["recentTransactions"],
+    queryFn: () => getRecentTransactions(10),
+  });
 
   /* 다음 달 이동 버튼 */
   const handlePreviousMonth = () => {
@@ -175,14 +107,31 @@ export default function DashboardPage() {
     );
   };
 
-  if (isLoading) {
+  const pageIsLoading =
+    isSummaryLoading || isDailyLoading || isExpenseCategoryLoading;
+
+  const pageIsError = isSummaryError || isDailyError || isExpenseCategoryError;
+
+  const pageError = summaryError || dailyError || expenseCategoryError;
+
+  /* 로그인 안되어 있으면 로그인 페이지로 이동 */
+  useEffect(() => {
+    if (pageError instanceof AuthError) {
+      router.replace("/login");
+    }
+  }, [pageError, router]);
+
+  /* 로딩 */
+  if (pageIsLoading) {
     return <DashboardSkeleton />;
   }
 
-  if (isError) {
+  /* 에러 */
+  if (pageIsError || !summary) {
     return (
       <div className="py-12 text-center text-red-500">
-        {(error as Error).message}
+        {((summaryError || dailyError || expenseCategoryError) as Error)
+          ?.message ?? "오류가 발생했습니다."}
       </div>
     );
   }
@@ -202,7 +151,14 @@ export default function DashboardPage() {
       {/* 2. Chart */}
       <div className="flex flex-col xl:flex-row gap-6">
         {/* Left - 이번 달 자산 변화 */}
-        <BalanceChart data={barData} />
+        <BalanceChart
+          data={dailyData.map((d) => ({
+            date: d.date.substring(5),
+            income: d.income,
+            expense: d.expense,
+            balance: d.balance,
+          }))}
+        />
 
         {/* Right - 카테고리별 지출 */}
         <CategoryChart
@@ -219,7 +175,10 @@ export default function DashboardPage() {
       </div>
 
       {/* 최근 거래 내역 테이블 */}
-      <RecentTransactions data={allTransactions} />
+      <RecentTransactions
+        data={recentTransactions}
+        categories={rawCategories}
+      />
     </div>
   );
 }

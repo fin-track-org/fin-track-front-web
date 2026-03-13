@@ -1,12 +1,12 @@
 import LedgerRow from "./LedgerRow";
-import SkeletonRow from "./SkeletonRow";
+import SkeletonRow from "../SkeletonRow";
 
 interface Props {
   transactions: Transaction[];
   loading: boolean;
   error: string | null;
   onEdit: (t: Transaction) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
   categoryNameById: {
     [k: string]: string;
   };
@@ -20,12 +20,12 @@ function MobileTransactionCard({
 }: {
   t: Transaction;
   onEdit: (t: Transaction) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
   categoryNameById: {
     [k: string]: string;
   };
 }) {
-  const isExpense = t.amount < 0;
+  const isExpense = t.type === "EXPENSE";
   const amountAbs = Math.abs(t.amount).toLocaleString();
   const label = categoryNameById[t.category] ?? t.category; // fallback
 
@@ -82,7 +82,6 @@ export default function LedgerTable({
   onDelete,
   categoryNameById,
 }: Props) {
-  // ✅ 모바일: 카드 리스트
   return (
     <>
       <div className="md:hidden space-y-3">

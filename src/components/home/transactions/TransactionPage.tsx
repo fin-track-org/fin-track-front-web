@@ -3,7 +3,7 @@
 import AddTransactionModal from "@/src/components/AddTransactionModal";
 import { createClient } from "@/src/lib/supabase/client";
 import { useMemo, useState } from "react";
-import LedgerTable from "./LedgerTable";
+import LedgerTable from "./table/LedgerTable";
 import MonthSelector from "../dashboard/section/MonthSelector";
 import { Search } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,127 +15,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
+import { getCategories } from "@/src/lib/api/categoryApi";
+import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
+import { fetchTransactions } from "@/src/lib/api/transaction/transactions";
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
-
-const categories: { id: string; name: string }[] = [
-  { id: "ALL", name: "전체" },
-  { id: "FOOD", name: "식비" },
-  { id: "TRANSPORT", name: "교통/차량" },
-  { id: "HOUSING", name: "주거/공과금" },
-  { id: "SHOPPING", name: "쇼핑/생활" },
-  { id: "CULTURE", name: "문화/여가" },
-  { id: "MEDICAL", name: "의료/건강" },
-  { id: "EDUCATION", name: "교육/자기계발" },
-  { id: "FINANCE", name: "금융" },
-  { id: "INCOME", name: "수입" },
-  { id: "ETC", name: "기타" },
-];
-
-const subCategory: Record<string, { id: string; name: string }[]> = {
-  FOOD: [
-    { id: "FOOD_EAT_OUT", name: "외식" },
-    { id: "FOOD_DELIVERY", name: "배달" },
-    { id: "FOOD_CAFE", name: "카페" },
-    { id: "FOOD_SNACK", name: "간식" },
-    { id: "FOOD_MART", name: "마트" },
-    { id: "FOOD_CONVENIENCE", name: "편의점" },
-    { id: "FOOD_ALCOHOL", name: "술/주류" },
-  ],
-
-  TRANSPORT: [
-    { id: "TRANSPORT_SUBWAY", name: "지하철" },
-    { id: "TRANSPORT_BUS", name: "버스" },
-    { id: "TRANSPORT_TAXI", name: "택시" },
-    { id: "TRANSPORT_TRAIN", name: "KTX/고속버스" },
-    { id: "TRANSPORT_FLIGHT", name: "항공" },
-    { id: "TRANSPORT_GAS", name: "주유" },
-    { id: "TRANSPORT_PARKING", name: "주차" },
-    { id: "TRANSPORT_MAINTENANCE", name: "정비" },
-    { id: "TRANSPORT_INSURANCE", name: "차량보험" },
-    { id: "TRANSPORT_TOLL", name: "톨게이트" },
-  ],
-
-  HOUSING: [
-    { id: "HOUSING_RENT", name: "월세" },
-    { id: "HOUSING_MANAGEMENT", name: "관리비" },
-    { id: "HOUSING_ELECTRIC", name: "전기" },
-    { id: "HOUSING_GAS", name: "가스" },
-    { id: "HOUSING_WATER", name: "수도" },
-    { id: "HOUSING_INTERNET", name: "인터넷" },
-    { id: "HOUSING_PHONE", name: "휴대폰" },
-    { id: "HOUSING_REPAIR", name: "수리/유지보수" },
-    { id: "HOUSING_MOVE", name: "이사" },
-  ],
-
-  SHOPPING: [
-    { id: "SHOPPING_ONLINE", name: "온라인쇼핑" },
-    { id: "SHOPPING_CLOTHES", name: "의류" },
-    { id: "SHOPPING_SHOES", name: "신발" },
-    { id: "SHOPPING_ACCESSORY", name: "잡화" },
-    { id: "SHOPPING_ELECTRONICS", name: "전자기기" },
-    { id: "SHOPPING_APPLIANCE", name: "가전" },
-    { id: "SHOPPING_FURNITURE", name: "가구" },
-    { id: "SHOPPING_DAILY", name: "생필품" },
-    { id: "SHOPPING_PET", name: "반려동물" },
-  ],
-
-  CULTURE: [
-    { id: "CULTURE_MOVIE", name: "영화" },
-    { id: "CULTURE_PERFORMANCE", name: "공연" },
-    { id: "CULTURE_EXHIBITION", name: "전시" },
-    { id: "CULTURE_TRAVEL", name: "여행" },
-    { id: "CULTURE_STAY", name: "숙박" },
-    { id: "CULTURE_HOBBY", name: "취미" },
-    { id: "CULTURE_GAME", name: "게임" },
-    { id: "CULTURE_BOOK", name: "도서" },
-    { id: "CULTURE_SUBSCRIPTION", name: "구독서비스" },
-  ],
-
-  MEDICAL: [
-    { id: "MEDICAL_HOSPITAL", name: "병원" },
-    { id: "MEDICAL_PHARMACY", name: "약국" },
-    { id: "MEDICAL_DENTAL", name: "치과" },
-    { id: "MEDICAL_ORIENTAL", name: "한의원" },
-    { id: "MEDICAL_SUPPLEMENT", name: "영양제" },
-    { id: "MEDICAL_HEALTH", name: "헬스" },
-    { id: "MEDICAL_BEAUTY", name: "미용" },
-  ],
-
-  EDUCATION: [
-    { id: "EDU_ACADEMY", name: "학원" },
-    { id: "EDU_ONLINE", name: "온라인강의" },
-    { id: "EDU_BOOK", name: "도서" },
-    { id: "EDU_CERT", name: "자격증" },
-    { id: "EDU_EXAM", name: "시험응시료" },
-  ],
-
-  FINANCE: [
-    { id: "FINANCE_LOAN", name: "대출상환" },
-    { id: "FINANCE_INTEREST", name: "이자" },
-    { id: "FINANCE_INSURANCE", name: "보험료" },
-    { id: "FINANCE_CARD_PAYMENT", name: "카드대금" },
-    { id: "FINANCE_FEE", name: "수수료" },
-    { id: "FINANCE_INVEST", name: "투자" },
-    { id: "FINANCE_TAX", name: "세금" },
-  ],
-
-  INCOME: [
-    { id: "INCOME_SALARY", name: "급여" },
-    { id: "INCOME_BONUS", name: "상여" },
-    { id: "INCOME_ALLOWANCE", name: "용돈" },
-    { id: "INCOME_REFUND", name: "환급/캐시백" },
-    { id: "INCOME_SIDE", name: "부수입" },
-    { id: "INCOME_INVEST", name: "투자수익" },
-  ],
-};
 
 const paymentMethods = [
   { id: "CASH", type: "cash", name: "현금" },
   { id: "SAMSUNG_CREDIT", type: "credit_card", name: "신용카드" },
   { id: "KB_DEBIT", type: "debit_card", name: "체크카드" },
 ];
+
+const ALL_CATEGORY = {
+  id: "ALL",
+  name: "전체",
+  type: "COMMON",
+  code: "ALL",
+  colorCode: "#9ca3af",
+  sortOrder: -1,
+};
 
 export default function TransactionPage() {
   const supabase = createClient();
@@ -167,47 +67,49 @@ export default function TransactionPage() {
     return `${year}-${month}`; // 예: 2026-02
   };
 
-  /* 조회 api */
-  const getTransactions = async (): Promise<Transaction[]> => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+  /* ----------------------------------------------------------------------- */
+  /* 카테고리 조회 api */
+  const {
+    data: rawCategories = [],
+    isLoading: isCategoriesLoading,
+    isError: isCategoriesError,
+    error: categoriesError,
+  } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => getCategories(),
+  });
 
-    if (!session) throw new Error("로그인이 필요합니다.");
+  const categories = useMemo(() => {
+    return [ALL_CATEGORY, ...rawCategories];
+  }, [rawCategories]);
 
-    const yearMonth = getYearMonth(currentMonth);
+  const categoryNameById = useMemo(() => {
+    return Object.fromEntries(rawCategories.map((c) => [c.id, c.name]));
+  }, [rawCategories]);
 
-    const response = await fetch(
-      `${SPRING_BOOT_URL}/api/v1/transactions?month=${yearMonth}`,
-      {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      },
-    );
+  const defaultExpenseCategoryName = useMemo(() => {
+    return rawCategories.find((c) => c.type === "EXPENSE")?.name ?? "";
+  }, [rawCategories]);
 
-    if (!response.ok) {
-      throw new Error("데이터를 불러오는 데 실패했습니다.");
-    }
-
-    const result = await response.json();
-    return result.data ?? [];
-  };
+  const categoryCodeById = useMemo(() => {
+    return Object.fromEntries(rawCategories.map((c) => [c.id, c.code]));
+  }, [rawCategories]);
+  /* ----------------------------------------------------------------------- */
 
   const {
     data: transactions = [],
-    isLoading,
-    isError,
-    error,
+    isLoading: isTransactionsLoading,
+    isError: isTransactionsError,
+    error: transactionsError,
   } = useQuery({
     queryKey: ["transactions", getYearMonth(currentMonth)],
-    queryFn: getTransactions,
+    queryFn: fetchTransactions,
     placeholderData: (previousData) => previousData,
   });
 
   // ------------------- 삭제 -----------------------
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -228,7 +130,7 @@ export default function TransactionPage() {
     },
   });
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: string) => {
     if (!confirm("정말 삭제하시겠습니까?")) return;
     deleteMutation.mutate(id);
   };
@@ -237,13 +139,23 @@ export default function TransactionPage() {
   // 수정 버튼 클릭
   const handleEdit = (t: Transaction) => {
     setEditingTransaction(t);
+
+    const categoryCode = categoryCodeById[t.category] ?? t.category;
+
     setModalDefaultValues({
       date: t.date,
-      type: t.amount < 0 ? "expense" : "income",
+      type: t.type,
       amount: Math.abs(t.amount),
-      category: t.category,
+      category: categoryNameById[t.category] ?? t.category,
       description: t.description,
+      subCategory: undefined,
+      paymentType: "cash",
     });
+
+    if (categoryCode) {
+      void categoryCode;
+    }
+
     setIsModalOpen(true);
   };
 
@@ -278,6 +190,7 @@ export default function TransactionPage() {
     // 나머지 필드는 API 확장 후 함께 보낼 예정
     const bodyForNow = {
       date: payload.date,
+      type: payload.type,
       amount: payload.amount,
       category: payload.category,
       description: payload.description ?? "",
@@ -334,9 +247,21 @@ export default function TransactionPage() {
     );
   });
 
-  const categoryNameById = useMemo(() => {
-    return Object.fromEntries(categories.map((c) => [c.id, c.name]));
-  }, []);
+  const isPageLoading = isTransactionsLoading || isCategoriesLoading;
+  const pageError =
+    (isTransactionsError && (transactionsError as Error)) ||
+    (isCategoriesError && (categoriesError as Error)) ||
+    null;
+
+  const isInitialLoading =
+    isCategoriesLoading &&
+    isTransactionsLoading &&
+    rawCategories.length === 0 &&
+    transactions.length === 0;
+
+  if (isInitialLoading) {
+    return <TransactionPageSkeleton />;
+  }
 
   return (
     <>
@@ -352,13 +277,13 @@ export default function TransactionPage() {
               setEditingTransaction(null);
               setModalDefaultValues({
                 date: new Date().toISOString().split("T")[0],
-                type: "expense",
-                category: "FOOD",
+                type: "EXPENSE",
+                category: defaultExpenseCategoryName,
                 paymentType: "cash",
               });
               setIsModalOpen(true);
             }}
-            className="flex-none w-full md:w-auto bg-sky-500 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-600 transition-colors text-sm md:text-base shadow-sm"
+            className="flex-none w-full md:w-auto bg-sky-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-700 transition-colors text-sm md:text-base shadow-sm"
           >
             + 새 거래 추가
           </button>
@@ -397,7 +322,6 @@ export default function TransactionPage() {
                       {c.name}
                     </SelectItem>
                   ))}
-                  {/* <SelectItem value="transfer">이체</SelectItem> */}
                 </SelectContent>
               </Select>
             </div>
@@ -410,7 +334,7 @@ export default function TransactionPage() {
                   onClick={() => setSelectedCategoryId(c.id)}
                   className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
                     selectedCategoryId === c.id
-                      ? "bg-blue-600 text-white"
+                      ? "bg-sky-600 text-white"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
@@ -423,8 +347,8 @@ export default function TransactionPage() {
 
         <LedgerTable
           transactions={filteredByMonth}
-          loading={isLoading}
-          error={isError ? (error as Error).message : null}
+          loading={isPageLoading}
+          error={pageError?.message ?? null}
           onEdit={handleEdit}
           onDelete={handleDelete}
           categoryNameById={categoryNameById}
@@ -437,8 +361,7 @@ export default function TransactionPage() {
           <AddTransactionModal
             open={isModalOpen}
             onOpenChange={handleOpenChange}
-            categories={categories.filter((c) => c.id !== "ALL")} // 모달에서 "전체" 제외
-            subCategories={subCategory} // 모달에서 "전체" 제외
+            categories={rawCategories}
             paymentMethods={paymentMethods}
             onSubmit={handleSubmitTransaction}
             defaultValues={modalDefaultValues}

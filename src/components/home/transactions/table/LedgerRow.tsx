@@ -4,7 +4,7 @@ import { useState } from "react";
 interface Props {
   transaction: Transaction;
   onEdit: (t: Transaction) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
   categoryLabel: string;
 }
 
@@ -14,6 +14,7 @@ export default function LedgerRow({
   onDelete,
   categoryLabel,
 }: Props) {
+  const isExpense = transaction.type === "EXPENSE";
   return (
     <tr
       key={transaction.id}
@@ -35,10 +36,10 @@ export default function LedgerRow({
       </td>
       <td
         className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${
-          transaction.amount > 0 ? "text-green-600" : "text-red-600"
+          !isExpense ? "text-green-600" : "text-red-600"
         }`}
       >
-        {transaction.amount > 0 ? "+" : "-"}
+        {!isExpense ? "+" : "-"}
         {Math.abs(transaction.amount).toLocaleString()}원
       </td>
       <td className="px-6 py-4 text-right">
