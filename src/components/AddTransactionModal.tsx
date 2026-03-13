@@ -104,28 +104,34 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   // ----------------------------
   const categoryOptions = useMemo(() => {
     if (type === "EXPENSE") {
-      return categories.filter((c) => c.id !== "ALL" && c.id !== "INCOME");
+      return categories.filter((c) => c.type === "EXPENSE");
     }
 
     if (type === "INCOME") {
-      return categories.filter(
-        (c) => c.id === "INCOME" || c.id === "ETC" || c.id === "WEALTH",
-      );
+      return categories.filter((c) => c.type === "INCOME");
     }
 
     return categories;
   }, [categories, type]);
 
+  console.log(categoryOptions);
+
   const isIncomeType = type === "INCOME";
 
   const isPaymentTypeCash = paymentType === "cash";
 
+  const selectedCategory = useMemo(() => {
+    return categories.find((c) => c.name === category);
+  }, [categories, category]);
+
+  const selectedCategoryCode = selectedCategory?.code ?? "";
+
   const mergedSubCategories = useMemo(() => {
-    const base = subCategories[category] ?? [];
-    const custom = customSubCategories[category] ?? [];
+    const base = subCategories[selectedCategoryCode] ?? [];
+    const custom = customSubCategories[selectedCategoryCode] ?? [];
     const map = new Map([...base, ...custom].map((x) => [x.id, x]));
     return Array.from(map.values());
-  }, [subCategories, customSubCategories, category]);
+  }, [subCategories, customSubCategories, selectedCategoryCode]);
 
   const currentSubCats = mergedSubCategories;
 
@@ -134,7 +140,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
   const needCardProvider = paymentType !== "cash";
 
-  const isEtcCategory = category === "ETC";
+  const isEtcCategory = selectedCategory?.code === "ETC";
 
   const canSubmit =
     Boolean(date) &&
@@ -176,8 +182,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     try {
       const initialCategory =
         type === "INCOME"
-          ? (categories.find((c) => c.id === "INCOME")?.id ?? "")
-          : (categories.find((c) => c.id === "FOOD")?.id ?? "");
+          ? (categories.find((c) => c.type === "INCOME")?.name ?? "")
+          : (categories.find((c) => c.type === "EXPENSE")?.name ?? "");
 
       setCategory(initialCategory);
       setSubCategory("");
@@ -195,10 +201,10 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   }, [type]);
 
   useEffect(() => {
-    const validCategoryIds = categoryOptions.map((c) => c.id);
+    const validCategoryIds = categoryOptions.map((c) => c.name);
 
     if (!validCategoryIds.includes(category)) {
-      setCategory(categoryOptions[0]?.id ?? "");
+      setCategory(categoryOptions[0]?.name ?? "");
       setSubCategory("");
     }
   }, [categoryOptions, category]);
@@ -213,10 +219,11 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       return;
     }
 
-    const list = (subCategories[category] ?? []).concat(
-      customSubCategories[category] ?? [],
+    const list = (subCategories[selectedCategoryCode] ?? []).concat(
+      customSubCategories[selectedCategoryCode] ?? [],
     );
-    const exists = list.some((x) => x.id === subCategory);
+
+    const exists = list.some((x) => x.name === subCategory);
     if (!exists) setSubCategory("");
   }, [category]);
 
@@ -251,17 +258,16 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     try {
       setIsAddingSubCat(true);
 
-      // 로컬 임시 ID (서버 붙이면 서버 응답 id로 교체)
-      const id = `CUSTOM_${category}_${Date.now()}`;
+      const id = `CUSTOM_${selectedCategoryCode}_${Date.now()}`;
       const created: SubCategory = { id, name };
 
       setCustomSubCategories((prev) => {
-        const existing = prev[category] ?? [];
-        return { ...prev, [category]: [...existing, created] };
+        const existing = prev[selectedCategoryCode] ?? [];
+        return { ...prev, [selectedCategoryCode]: [...existing, created] };
       });
 
       // 추가 후 즉시 선택
-      setSubCategory(id);
+      setSubCategory(name);
 
       // 닫기 + 입력 리셋
       setSubCatAddOpen(false);
@@ -369,7 +375,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {categoryOptions.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
+                      <SelectItem key={c.id} value={c.name}>
                         {c.name}
                       </SelectItem>
                     ))}
@@ -400,7 +406,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
                   <SelectContent>
                     {currentSubCats.map((sc) => (
-                      <SelectItem key={sc.id} value={sc.id}>
+                      <SelectItem key={sc.id} value={sc.name}>
                         {sc.name}
                       </SelectItem>
                     ))}

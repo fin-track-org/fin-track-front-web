@@ -1,12 +1,4 @@
 type TransactionType = "EXPENSE" | "INCOME";
-
-type CategoryType = "EXPENSE" | "INCOME" | "COMMON";
-interface Category {
-  id: string;
-  name: string;
-  type: CategoryType;
-}
-
 interface SubCategory {
   id: string;
   name: string;

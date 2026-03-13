@@ -1,5 +1,5 @@
 import LedgerRow from "./LedgerRow";
-import SkeletonRow from "./SkeletonRow";
+import SkeletonRow from "../SkeletonRow";
 
 interface Props {
   transactions: Transaction[];

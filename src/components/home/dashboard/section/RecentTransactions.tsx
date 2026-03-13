@@ -1,14 +1,19 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo } from "react";
 
 export default function RecentTransactions({
   data,
-  categoryNameById,
+  categories,
 }: {
   data: Transaction[];
-  categoryNameById: {
-    [k: string]: string;
-  };
+  categories: Category[];
 }) {
+  const categoryNameById = useMemo(() => {
+    return Object.fromEntries(categories.map((c) => [c.id, c.name]));
+  }, [categories]);
+
   const hasData = data && data.length > 0;
 
   return (
@@ -100,7 +105,7 @@ export default function RecentTransactions({
                     </td>
 
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
                         {label}
                       </span>
                     </td>

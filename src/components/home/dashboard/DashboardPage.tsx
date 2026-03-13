@@ -5,7 +5,6 @@ import MonthSelector from "./section/MonthSelector";
 import SummaryCards from "./section/SummaryCards";
 import BalanceChart from "./section/BalanceChart";
 import CategoryChart from "./section/CategoryChart";
-import { createClient } from "@/src/lib/supabase/client";
 import BudgetBar from "./section/BudgetBar";
 import RecentTransactions from "./section/RecentTransactions";
 import { useQuery } from "@tanstack/react-query";
@@ -14,45 +13,12 @@ import { useRouter } from "next/navigation";
 import { formatMonth } from "@/src/utils/date";
 import { getDashboardSummary } from "@/src/lib/api/dashboard/summary";
 import { getDashboardDaily } from "@/src/lib/api/dashboard/daily";
-
-const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
-
-const categories: Category[] = [
-  { id: "ALL", name: "전체", type: "COMMON" },
-
-  { id: "FOOD", name: "식비", type: "EXPENSE" },
-  { id: "TRANSPORT", name: "교통/차량", type: "EXPENSE" },
-  { id: "HOUSING", name: "주거/공과금", type: "EXPENSE" },
-  { id: "SHOPPING", name: "쇼핑/생활", type: "EXPENSE" },
-  { id: "CULTURE", name: "문화/여가", type: "EXPENSE" },
-  { id: "MEDICAL", name: "의료/건강", type: "EXPENSE" },
-  { id: "EDUCATION", name: "교육/자기계발", type: "EXPENSE" },
-  { id: "FINANCE", name: "금융", type: "EXPENSE" },
-
-  { id: "INCOME", name: "수입", type: "INCOME" },
-
-  { id: "WEALTH", name: "재테크", type: "COMMON" },
-  { id: "ETC", name: "기타", type: "COMMON" },
-];
-
-const CATEGORY_COLORS: Record<string, string> = {
-  식비: "#3b82f6",
-  교통: "#8b5cf6",
-  문화생활: "#ec4899",
-  생필품: "#10b981",
-  급여: "#f97316",
-  기타: "#f59e0b",
-};
-
-class AuthError extends Error {
-  constructor(message = "로그인이 필요합니다.") {
-    super(message);
-    this.name = "AuthError";
-  }
-}
+import { getCategories } from "@/src/lib/api/categoryApi";
+import { getDashboardExpenseCategory } from "@/src/lib/api/dashboard/pie";
+import { AuthError } from "@/src/lib/api/authError";
+import { getRecentTransactions } from "@/src/lib/api/dashboard/recent";
 
 export default function DashboardPage() {
-  const supabase = createClient();
   const router = useRouter();
 
   // 날짜
@@ -66,50 +32,10 @@ export default function DashboardPage() {
 
   const [viewType, setViewType] = useState<"chart" | "table">("chart");
 
-  const isSameMonth = (dateStr: string, target: Date) => {
-    const d = new Date(dateStr);
-    return (
-      d.getFullYear() === target.getFullYear() &&
-      d.getMonth() === target.getMonth()
-    );
-  };
-
-  const fetchTransactions = async (): Promise<Transaction[]> => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new AuthError();
-    }
-
-    const response = await fetch(`${SPRING_BOOT_URL}/api/v1/transactions`, {
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
-    });
-
-    if (response.status === 401) {
-      throw new AuthError();
-    }
-
-    if (!response.ok) {
-      throw new Error("데이터를 불러오는데 실패했습니다.");
-    }
-
-    const result = await response.json();
-    return result.data ?? [];
-  };
-
-  const {
-    data: allTransactions = [],
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ["transactions"],
-    queryFn: fetchTransactions,
-    retry: false,
+  /* 카테고리 조회 api */
+  const { data: rawCategories = [] } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => getCategories(),
   });
 
   /* Summary 요약 내용 */
@@ -124,12 +50,6 @@ export default function DashboardPage() {
     retry: false,
   });
 
-  useEffect(() => {
-    if (error instanceof AuthError) {
-      router.replace("/login");
-    }
-  }, [error, router]);
-
   /* 자산 변화 차트 */
   const {
     data: dailyData = [],
@@ -142,31 +62,36 @@ export default function DashboardPage() {
     retry: false,
   });
 
-  /* currentMonth 데이터 */
-  const monthTransactions = allTransactions.filter((t) =>
-    isSameMonth(t.date, currentMonth),
-  );
-
   /* 카테고리 파이 차트 */
-  const pieData = useMemo(() => {
-    const categoryMap: Record<string, number> = {};
+  const {
+    data: expenseCategoryData = [],
+    isLoading: isExpenseCategoryLoading,
+    isError: isExpenseCategoryError,
+    error: expenseCategoryError,
+  } = useQuery({
+    queryKey: ["dashboardExpenseCategory", selectedMonth],
+    queryFn: () => getDashboardExpenseCategory(selectedMonth),
+    retry: false,
+  });
 
-    monthTransactions.forEach((t) => {
-      if (t.amount < 0) {
-        categoryMap[t.category] =
-          (categoryMap[t.category] || 0) + Math.abs(t.amount);
-      }
-    });
+  /* 카테고리 colorCode 매핑 */
+  const categoryColorByName = useMemo(() => {
+    return Object.fromEntries(rawCategories.map((c) => [c.name, c.colorCode]));
+  }, [rawCategories]);
 
-    const total = Object.values(categoryMap).reduce((a, b) => a + b, 0);
+  /* 파이 데이터 매핑 */
+  const pieData = expenseCategoryData.map((item) => ({
+    name: item.category,
+    value: item.amount,
+    percentage: item.percentage,
+    color: categoryColorByName[item.category] ?? "#9ca3af",
+  }));
 
-    return Object.keys(categoryMap).map((key) => ({
-      name: key,
-      value: categoryMap[key],
-      color: CATEGORY_COLORS[key] ?? "#9ca3af",
-      percentage: total ? Math.round((categoryMap[key] / total) * 100) : 0,
-    }));
-  }, [monthTransactions]);
+  /* 최근 거래 내역 */
+  const { data: recentTransactions = [] } = useQuery({
+    queryKey: ["recentTransactions"],
+    queryFn: () => getRecentTransactions(10),
+  });
 
   /* 다음 달 이동 버튼 */
   const handlePreviousMonth = () => {
@@ -182,22 +107,31 @@ export default function DashboardPage() {
     );
   };
 
-  /* 카테고리 id -> name */
-  const categoryNameById = useMemo(() => {
-    return Object.fromEntries(categories.map((c) => [c.id, c.name]));
-  }, []);
+  const pageIsLoading =
+    isSummaryLoading || isDailyLoading || isExpenseCategoryLoading;
+
+  const pageIsError = isSummaryError || isDailyError || isExpenseCategoryError;
+
+  const pageError = summaryError || dailyError || expenseCategoryError;
+
+  /* 로그인 안되어 있으면 로그인 페이지로 이동 */
+  useEffect(() => {
+    if (pageError instanceof AuthError) {
+      router.replace("/login");
+    }
+  }, [pageError, router]);
 
   /* 로딩 */
-  if (isLoading || isSummaryLoading || isDailyLoading) {
+  if (pageIsLoading) {
     return <DashboardSkeleton />;
   }
 
   /* 에러 */
-  if (isError || isSummaryError || !summary || isDailyError) {
+  if (pageIsError || !summary) {
     return (
       <div className="py-12 text-center text-red-500">
-        {((error || summaryError || dailyError) as Error)?.message ??
-          "오류가 발생했습니다."}
+        {((summaryError || dailyError || expenseCategoryError) as Error)
+          ?.message ?? "오류가 발생했습니다."}
       </div>
     );
   }
@@ -242,8 +176,8 @@ export default function DashboardPage() {
 
       {/* 최근 거래 내역 테이블 */}
       <RecentTransactions
-        data={allTransactions}
-        categoryNameById={categoryNameById}
+        data={recentTransactions}
+        categories={rawCategories}
       />
     </div>
   );

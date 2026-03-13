@@ -3,7 +3,7 @@
 import AddTransactionModal from "@/src/components/AddTransactionModal";
 import { createClient } from "@/src/lib/supabase/client";
 import { useMemo, useState } from "react";
-import LedgerTable from "./LedgerTable";
+import LedgerTable from "./table/LedgerTable";
 import MonthSelector from "../dashboard/section/MonthSelector";
 import { Search } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -175,6 +175,7 @@ export default function TransactionPage() {
     return `${year}-${month}`; // 예: 2026-02
   };
 
+  /* ----------------------------------------------------------------------- */
   /* 카테고리 조회 api */
   const {
     data: rawCategories = [],
@@ -194,8 +195,8 @@ export default function TransactionPage() {
     return Object.fromEntries(rawCategories.map((c) => [c.id, c.name]));
   }, [rawCategories]);
 
-  const defaultExpenseCategoryId = useMemo(() => {
-    return rawCategories.find((c) => c.type === "EXPENSE")?.id ?? "";
+  const defaultExpenseCategoryName = useMemo(() => {
+    return rawCategories.find((c) => c.type === "EXPENSE")?.name ?? "";
   }, [rawCategories]);
 
   const categoryCodeById = useMemo(() => {
@@ -280,7 +281,7 @@ export default function TransactionPage() {
       date: t.date,
       type: t.type,
       amount: Math.abs(t.amount),
-      category: t.category,
+      category: categoryNameById[t.category] ?? t.category,
       description: t.description,
       subCategory: undefined,
       paymentType: "cash",
@@ -414,7 +415,7 @@ export default function TransactionPage() {
               setModalDefaultValues({
                 date: new Date().toISOString().split("T")[0],
                 type: "EXPENSE",
-                category: defaultExpenseCategoryId,
+                category: defaultExpenseCategoryName,
                 paymentType: "cash",
               });
               setIsModalOpen(true);
