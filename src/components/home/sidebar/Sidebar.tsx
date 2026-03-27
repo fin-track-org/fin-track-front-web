@@ -16,6 +16,8 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/src/lib/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { fetchMe } from "@/src/lib/api/userApi";
 
 export default function Sidebar() {
   const router = useRouter();
@@ -31,6 +33,11 @@ export default function Sidebar() {
     { icon: User, label: "마이페이지", path: "/home/profile" },
     { icon: CreditCard, label: "결제/포인트샵", path: "/home/shop" },
   ];
+
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["me"],
+    queryFn: fetchMe,
+  });
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -60,7 +67,7 @@ export default function Sidebar() {
             홍
           </div>
           <div>
-            <div className="font-semibold text-gray-900">홍길동</div>
+            <div className="font-semibold text-gray-900">{data?.nickname}</div>
             <div className="text-sm text-gray-500">Free 플랜</div>
           </div>
         </div>
