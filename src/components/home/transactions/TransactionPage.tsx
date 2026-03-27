@@ -148,59 +148,37 @@ export default function TransactionPage() {
   /* ----------------------------------------------------------------------- */
 
   const {
-    data: transactions = [],
+    // fetchTransactions가 배열이 아니라 페이지 객체를 반환하므로 기본값도 페이지 객체로 변경
+    data: transactionPage = {
+      content: [],
+      hasNext: false,
+      nextCursorDate: null,
+      nextCursorSortOrder: null,
+    },
     isLoading: isTransactionsLoading,
     isError: isTransactionsError,
     error: transactionsError,
   } = useQuery({
-    queryKey: ["transactions", getYearMonth(currentMonth)],
-    queryFn: fetchTransactions,
+    // 검색어/카테고리 필터도 쿼리키에 포함해서 조건 변경 시 재조회되도록 변경
+    queryKey: [
+      "transactions",
+      getYearMonth(currentMonth),
+      searchTerm,
+      selectedCategoryIds,
+    ],
+    // API 스펙에 맞춰 keyword, categoryIds, size 전달
+    queryFn: () =>
+      fetchTransactions({
+        keyword: searchTerm.trim() || undefined,
+        categoryIds:
+          selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
+        size: 20,
+      }),
     placeholderData: (previousData) => previousData,
   });
 
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((t) => {
-      // 1) 월 필터
-      const txDate = new Date(t.date);
-      const matchMonth =
-        txDate.getFullYear() === currentMonth.getFullYear() &&
-        txDate.getMonth() === currentMonth.getMonth();
-
-      if (!matchMonth) return false;
-
-      // 2) 거래 유형 필터
-      const matchType = selectedType === "ALL" || t.type === selectedType;
-      if (!matchType) return false;
-
-      // 3) 카테고리 다중 선택 필터
-      const matchCategory =
-        selectedCategoryIds.length === 0 ||
-        selectedCategoryIds.includes(t.category);
-
-      if (!matchCategory) return false;
-
-      // 4) 검색 필터
-      const q = searchTerm.trim().toLowerCase();
-      if (!q) return true;
-
-      const categoryName = categoryNameById[t.category]?.toLowerCase() ?? "";
-      const description = t.description?.toLowerCase() ?? "";
-      const amountText = String(Math.abs(t.amount));
-
-      return (
-        description.includes(q) ||
-        categoryName.includes(q) ||
-        amountText.includes(q)
-      );
-    });
-  }, [
-    transactions,
-    currentMonth,
-    selectedType,
-    selectedCategoryIds,
-    searchTerm,
-    categoryNameById,
-  ]);
+  // LedgerTable에 넘길 실제 거래 배열 추출
+  const transactions = transactionPage.content;
 
   // ------------------- 삭제 -----------------------
   const deleteMutation = useMutation({
@@ -342,7 +320,7 @@ export default function TransactionPage() {
     isCategoriesLoading &&
     isTransactionsLoading &&
     rawCategories.length === 0 &&
-    transactions.length === 0;
+    transactionPage.content.length === 0;
 
   if (isInitialLoading) {
     return <TransactionPageSkeleton />;
@@ -685,7 +663,7 @@ export default function TransactionPage() {
         </div>
 
         <LedgerTable
-          transactions={filteredTransactions}
+          transactions={transactions}
           loading={isPageLoading}
           error={pageError?.message ?? null}
           onEdit={handleEdit}
