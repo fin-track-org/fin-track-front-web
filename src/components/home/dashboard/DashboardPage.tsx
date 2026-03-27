@@ -135,7 +135,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
   return (
     <div className="space-y-6">
       {/* 0. 월 선택 버튼 */}

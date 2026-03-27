@@ -3,8 +3,11 @@
 interface DashboardSummary {
   month: string;
   income: number;
+  incomeChangeRate: number;
   expense: number;
+  expenseChangeRate: number;
   balance: number;
+  balanceChangeRate: number;
 }
 
 interface DashboardSummaryApiResponse {

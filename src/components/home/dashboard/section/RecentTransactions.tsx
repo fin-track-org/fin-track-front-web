@@ -7,7 +7,7 @@ export default function RecentTransactions({
   data,
   categories,
 }: {
-  data: Transaction[];
+  data: RecentTransaction[];
   categories: Category[];
 }) {
   const categoryNameById = useMemo(() => {
