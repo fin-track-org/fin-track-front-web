@@ -10,7 +10,6 @@ interface Props {
 export default function LedgerRow({ transaction, onEdit, onDelete }: Props) {
   const isExpense = transaction.type === "EXPENSE";
 
-  console.log(transaction);
   return (
     <tr
       key={transaction.id}
@@ -22,6 +21,11 @@ export default function LedgerRow({ transaction, onEdit, onDelete }: Props) {
       <td className="px-6 py-4 whitespace-nowrap">
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-sky-100 text-sky-600">
           {transaction.category.name}
+        </span>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-sky-100 text-sky-600">
+          {transaction.subcategory?.name}
         </span>
       </td>
       <td className="px-6 py-4 text-sm text-gray-700">

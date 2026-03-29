@@ -130,6 +130,9 @@ export default function LedgerTable({
                 카테고리
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
+                세부 항목
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
                 설명
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase">

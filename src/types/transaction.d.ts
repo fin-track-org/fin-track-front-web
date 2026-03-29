@@ -23,7 +23,7 @@ interface Transaction {
   amount: number;
   type: TransactionType;
   category: TransactionCategory;
-  subcategory: TransactionSubcategory | null;
+  subcategory: TransactionSubcategory;
   description: string;
   sortOrder: number;
   account: TransactionAccount;

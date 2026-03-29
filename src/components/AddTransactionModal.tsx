@@ -143,6 +143,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
   const currentSubCats = mergedSubCategories;
 
+  console.log(currentSubCats);
+
   const amountAbs = useMemo(() => toNumberOrNaN(amountText), [amountText]);
   const isAmountValid = Number.isFinite(amountAbs) && amountAbs > 0;
 

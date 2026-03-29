@@ -4,11 +4,16 @@
 
 import AddTransactionModal from "@/src/components/AddTransactionModal";
 import { createClient } from "@/src/lib/supabase/client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import LedgerTable from "./table/LedgerTable";
 import MonthSelector from "../dashboard/section/MonthSelector";
 import { ChevronDown, Search } from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
 import { fetchTransactions } from "@/src/lib/api/transaction/transactions";
@@ -20,6 +25,9 @@ const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 export default function TransactionPage() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+
+  // 무한 스크롤 로더
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   // 날짜
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -148,38 +156,77 @@ export default function TransactionPage() {
     queryFn: getAccounts,
   });
 
+  type TransactionCursor = {
+    cursorDate: string | null;
+    cursorSortOrder: number | null;
+  };
+
   const {
-    // fetchTransactions가 배열이 아니라 페이지 객체를 반환하므로 기본값도 페이지 객체로 변경
-    data: transactionPage = {
-      content: [],
-      hasNext: false,
-      nextCursorDate: null,
-      nextCursorSortOrder: null,
-    },
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
     isLoading: isTransactionsLoading,
     isError: isTransactionsError,
     error: transactionsError,
-  } = useQuery({
-    // 검색어/카테고리 필터도 쿼리키에 포함해서 조건 변경 시 재조회되도록 변경
-    queryKey: [
-      "transactions",
-      getYearMonth(currentMonth),
-      searchTerm,
-      selectedCategoryIds,
-    ],
-    // API 스펙에 맞춰 keyword, categoryIds, size 전달
-    queryFn: () =>
+  } = useInfiniteQuery({
+    queryKey: ["transactions", searchTerm, selectedCategoryIds],
+    initialPageParam: {
+      cursorDate: null,
+      cursorSortOrder: null,
+    } as TransactionCursor,
+    queryFn: ({ pageParam }: { pageParam: TransactionCursor }) =>
       fetchTransactions({
         keyword: searchTerm.trim() || undefined,
         categoryIds:
           selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
         size: 20,
+        cursorDate: pageParam.cursorDate ?? undefined,
+        cursorSortOrder: pageParam.cursorSortOrder ?? undefined,
       }),
-    placeholderData: (previousData) => previousData,
+    getNextPageParam: (lastPage): TransactionCursor | undefined => {
+      if (!lastPage.hasNext) return undefined;
+
+      return {
+        cursorDate: lastPage.nextCursorDate,
+        cursorSortOrder: lastPage.nextCursorSortOrder,
+      };
+    },
   });
 
   // LedgerTable에 넘길 실제 거래 배열 추출
-  const transactions = transactionPage.content;
+  const transactions = data?.pages.flatMap((page) => page.content) ?? [];
+
+  /* 무한 스크롤 */
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (
+          first.isIntersecting &&
+          hasNextPage &&
+          !isFetchingNextPage &&
+          !isTransactionsLoading
+        ) {
+          fetchNextPage();
+        }
+      },
+      {
+        root: null,
+        rootMargin: "200px",
+        threshold: 0,
+      },
+    );
+
+    observer.observe(target);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, isTransactionsLoading]);
 
   // ------------------- 삭제 -----------------------
   const deleteMutation = useMutation({
@@ -217,10 +264,11 @@ export default function TransactionPage() {
     setModalDefaultValues({
       date: t.date,
       type: t.type,
-      amount: Math.abs(t.amount),
-      categoryId: rawCategories[0]?.id ?? "",
-      subCategoryId: fetchedSubCategories[0]?.id ?? "",
-      accountId: accounts[0]?.id ?? "",
+      amount: t.amount,
+      categoryId: t.category.id,
+      subCategoryId: t.subcategory?.id ?? "",
+      accountId: t.account.id ?? "",
+      description: t.description,
     });
 
     setIsModalOpen(true);
@@ -262,10 +310,6 @@ export default function TransactionPage() {
       subCategoryId: payload.subCategoryId,
       description: payload.description ?? "",
       accountId: payload.accountId,
-
-      // TODO(api 확장):
-      // paymentType: payload.paymentType,
-      // cardProvider: payload.cardProvider,
     };
 
     const res = await fetch(apiUrl, {
@@ -315,7 +359,7 @@ export default function TransactionPage() {
     isCategoriesLoading &&
     isTransactionsLoading &&
     rawCategories.length === 0 &&
-    transactionPage.content.length === 0;
+    transactions.length === 0;
 
   if (isInitialLoading) {
     return <TransactionPageSkeleton />;
@@ -665,6 +709,20 @@ export default function TransactionPage() {
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
+
+        <div ref={loadMoreRef} className="h-4" />
+
+        {isFetchingNextPage && (
+          <div className="pb-6 text-center text-sm text-gray-500">
+            거래 내역 불러오는 중...
+          </div>
+        )}
+
+        {!hasNextPage && transactions.length > 0 && (
+          <div className="pb-6 text-center text-sm text-gray-400">
+            모든 거래 내역을 불러왔습니다.
+          </div>
+        )}
       </section>
 
       {(isModalOpen || editingTransaction) && (

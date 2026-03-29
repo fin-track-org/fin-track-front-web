@@ -174,10 +174,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 최근 거래 내역 테이블 */}
-      <RecentTransactions
-        data={recentTransactions}
-        categories={rawCategories}
-      />
+      <RecentTransactions data={recentTransactions} />
     </div>
   );
 }
