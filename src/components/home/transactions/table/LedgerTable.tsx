@@ -7,27 +7,19 @@ interface Props {
   error: string | null;
   onEdit: (t: Transaction) => void;
   onDelete: (id: string) => void;
-  categoryNameById: {
-    [k: string]: string;
-  };
 }
 
 function MobileTransactionCard({
   t,
   onEdit,
   onDelete,
-  categoryNameById,
 }: {
   t: Transaction;
   onEdit: (t: Transaction) => void;
   onDelete: (id: string) => void;
-  categoryNameById: {
-    [k: string]: string;
-  };
 }) {
   const isExpense = t.type === "EXPENSE";
   const amountAbs = Math.abs(t.amount).toLocaleString();
-  const label = categoryNameById[t.category] ?? t.category; // fallback
 
   return (
     <div className="rounded-xl border bg-white p-4 shadow-sm">
@@ -37,7 +29,7 @@ function MobileTransactionCard({
           <p className="mt-1 font-semibold truncate">{t.description}</p>
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
             <span className="rounded-md px-2 py-1 bg-sky-100 text-sky-600">
-              {label}
+              {t.category.name}
             </span>
             {/* TODO(api 확장): 결제수단 표시 */}
             <span className="rounded-md bg-gray-100 px-2 py-1 text-gray-700">
@@ -80,7 +72,6 @@ export default function LedgerTable({
   error,
   onEdit,
   onDelete,
-  categoryNameById,
 }: Props) {
   return (
     <>
@@ -123,7 +114,6 @@ export default function LedgerTable({
               t={t}
               onEdit={onEdit}
               onDelete={onDelete}
-              categoryNameById={categoryNameById}
             />
           ))}
       </div>
@@ -194,7 +184,6 @@ export default function LedgerTable({
                   transaction={t}
                   onEdit={onEdit}
                   onDelete={onDelete}
-                  categoryLabel={categoryNameById[t.category] ?? t.category}
                 />
               ))}
           </tbody>

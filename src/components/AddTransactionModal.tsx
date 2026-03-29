@@ -25,7 +25,7 @@ import { todayISODateSeoul, toNumberOrNaN } from "../hook/useTransaction";
 import { getSubCategories } from "../lib/api/categoryApi";
 import { useQuery } from "@tanstack/react-query";
 
-const CARD_PROVIDERS = [
+/* const CARD_PROVIDERS = [
   { id: "SAMSUNG", name: "삼성" },
   { id: "KB", name: "국민" },
   { id: "HYUNDAI", name: "현대" },
@@ -34,11 +34,18 @@ const CARD_PROVIDERS = [
   { id: "HANA", name: "하나" },
   { id: "LOTTE", name: "롯데" },
   { id: "NH", name: "NH" },
-] as const;
+] as const; */
 
 export default function AddTransactionModal(props: AddTransactionModalProps) {
-  const { open, onOpenChange, categories, onSubmit, defaultValues, mode } =
-    props;
+  const {
+    open,
+    onOpenChange,
+    categories,
+    accounts,
+    onSubmit,
+    defaultValues,
+    mode,
+  } = props;
 
   // ----------------------------
   // 초기값
@@ -53,18 +60,14 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   const [type, setType] = useState<TransactionType>(initialType);
 
   const [category, setCategory] = useState<string>(
-    defaultValues?.category ?? "",
+    defaultValues?.categoryId ?? "",
   );
   const [subCategory, setSubCategory] = useState<string>(
-    defaultValues?.subCategory ?? "",
+    defaultValues?.subCategoryId ?? "",
   );
 
-  const [paymentType, setPaymentType] = useState<string>(
-    defaultValues?.paymentType ?? "cash",
-  );
-
-  const [cardProvider, setCardProvider] = useState<string>(
-    defaultValues?.cardProvider ?? "",
+  const [accountId, setAccountId] = useState<string>(
+    defaultValues?.accountId ?? "",
   );
 
   const [description, setDescription] = useState<string>(
@@ -110,10 +113,10 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
   const isIncomeType = type === "INCOME";
 
-  const isPaymentTypeCash = paymentType === "cash";
+  const isAccountIdCash = accountId === "cash";
 
   const selectedCategory = useMemo(() => {
-    return categories.find((c) => c.name === category);
+    return categories.find((c) => c.id === category);
   }, [categories, category]);
 
   const selectedCategoryId = selectedCategory?.id ?? "";
@@ -143,8 +146,6 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   const amountAbs = useMemo(() => toNumberOrNaN(amountText), [amountText]);
   const isAmountValid = Number.isFinite(amountAbs) && amountAbs > 0;
 
-  const needCardProvider = paymentType !== "cash";
-
   const isEtcCategory =
     selectedCategory?.code === "ETC_EXPENSE" ||
     selectedCategory?.code === "ETC_INCOME";
@@ -155,7 +156,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     (isEtcCategory ? true : Boolean(subCategory)) &&
     isAmountValid &&
     !isSaving &&
-    (isIncomeType || !needCardProvider || Boolean(cardProvider)) &&
+    Boolean(accountId) &&
     Boolean(description);
 
   // ----------------------------
@@ -189,8 +190,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     try {
       const initialCategory =
         type === "INCOME"
-          ? (categories.find((c) => c.type === "INCOME")?.name ?? "")
-          : (categories.find((c) => c.type === "EXPENSE")?.name ?? "");
+          ? (categories.find((c) => c.type === "INCOME")?.id ?? "")
+          : (categories.find((c) => c.type === "EXPENSE")?.id ?? "");
 
       setCategory(initialCategory);
       setSubCategory("");
@@ -202,23 +203,18 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
   useEffect(() => {
     if (type === "INCOME") {
-      setPaymentType("cash");
-      setCardProvider("");
+      setAccountId("cash");
     }
   }, [type]);
 
   useEffect(() => {
-    const validCategoryNames = categoryOptions.map((c) => c.name);
+    const validCategoryNames = categoryOptions.map((c) => c.id);
 
     if (!validCategoryNames.includes(category)) {
-      setCategory(categoryOptions[0]?.name ?? "");
+      setCategory(categoryOptions[0]?.id ?? "");
       setSubCategory("");
     }
   }, [categoryOptions, category]);
-
-  useEffect(() => {
-    if (paymentType === "cash") setCardProvider("");
-  }, [paymentType]);
 
   useEffect(() => {
     if (isEtcCategory) {
@@ -227,10 +223,10 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     }
 
     const list = mergedSubCategories;
-    const exists = list.some((x) => x.name === subCategory);
+    const exists = list.some((x) => x.id === subCategory);
 
     if (!exists) {
-      setSubCategory(list[0]?.name ?? "");
+      setSubCategory(list[0]?.id ?? "");
     }
   }, [mergedSubCategories, subCategory, isEtcCategory]);
 
@@ -239,10 +235,9 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
     setDate(defaultValues?.date ?? todayISODateSeoul());
     setType(defaultValues?.type ?? "EXPENSE");
-    setCategory(defaultValues?.category ?? "");
-    setSubCategory(defaultValues?.subCategory ?? "");
-    setPaymentType(defaultValues?.paymentType ?? "cash");
-    setCardProvider(defaultValues?.cardProvider ?? "");
+    setCategory(defaultValues?.categoryId ?? "");
+    setSubCategory(defaultValues?.subCategoryId ?? "");
+    setAccountId(defaultValues?.accountId ?? "");
     setDescription(defaultValues?.description ?? "");
     setAmountText(
       defaultValues?.amount != null ? String(defaultValues.amount) : "",
@@ -315,12 +310,10 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       date,
       type,
       amount: amountAbs,
-      category,
-      subCategory,
-      paymentType: type === "INCOME" ? null : paymentType,
-      cardProvider:
-        type === "INCOME" || paymentType === "cash" ? null : cardProvider,
+      categoryId: category,
+      subCategoryId: subCategory,
       description: description.trim() ? description.trim() : null,
+      accountId,
     };
 
     try {
@@ -404,7 +397,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {categoryOptions.map((c) => (
-                      <SelectItem key={c.id} value={c.name}>
+                      <SelectItem key={c.id} value={c.id}>
                         {c.name}
                       </SelectItem>
                     ))}
@@ -437,7 +430,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
                   <SelectContent>
                     {currentSubCats.map((sc) => (
-                      <SelectItem key={sc.id} value={sc.name}>
+                      <SelectItem key={sc.id} value={sc.id}>
                         {sc.name}
                       </SelectItem>
                     ))}
@@ -467,41 +460,40 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
             {/* 3) 결제수단 + 카드사 (지출일 때만) */}
             {!isIncomeType && (
               <div
-                className={`grid grid-cols-1 gap-4 ${isPaymentTypeCash ? "md:grid-cols-1" : " md:grid-cols-2"}`}
+                className={`grid grid-cols-1 gap-4 ${isAccountIdCash ? "md:grid-cols-1" : " md:grid-cols-2"}`}
               >
                 <div className="space-y-2">
-                  <Label className="ml-1">결제수단(기능 추가 예정)</Label>
-                  <Select
-                    value={paymentType}
-                    onValueChange={(v) => setPaymentType(v as any)}
-                  >
+                  <Label className="ml-1">결제수단</Label>
+                  <Select value={accountId} onValueChange={setAccountId}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="결제수단 선택" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">현금</SelectItem>
-                      <SelectItem value="credit_card">신용카드</SelectItem>
-                      <SelectItem value="debit_card">체크카드</SelectItem>
+                      {accounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {!isPaymentTypeCash && (
+                {/* {!isAccountIdCash && (
                   <div className="space-y-2">
                     <Label
-                      className={`ml-1 ${paymentType === "cash" ? "text-gray-300" : ""}`}
+                      className={`ml-1 ${accountId === "cash" ? "text-gray-300" : ""}`}
                     >
                       카드사(기능 추가 예정)
                     </Label>
                     <Select
                       value={cardProvider}
                       onValueChange={setCardProvider}
-                      disabled={paymentType === "cash"}
+                      disabled={accountId === "cash"}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue
                           placeholder={
-                            paymentType === "cash"
+                            accountId === "cash"
                               ? "현금 선택 시 비활성화"
                               : "카드사 선택"
                           }
@@ -516,13 +508,13 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                       </SelectContent>
                     </Select>
 
-                    {paymentType !== "cash" && !cardProvider && (
+                    {accountId !== "cash" && !cardProvider && (
                       <p className="text-xs text-gray-500 ml-1">
                         카드사를 선택해주세요.
                       </p>
                     )}
                   </div>
-                )}
+                )} */}
               </div>
             )}
 

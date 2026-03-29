@@ -9,18 +9,13 @@ import LedgerTable from "./table/LedgerTable";
 import MonthSelector from "../dashboard/section/MonthSelector";
 import { ChevronDown, Search } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getCategories } from "@/src/lib/api/categoryApi";
+import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
 import { fetchTransactions } from "@/src/lib/api/transaction/transactions";
+import { getAccounts } from "@/src/lib/api/accountApi";
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
-
-const paymentMethods = [
-  { id: "CASH", type: "cash", name: "현금" },
-  { id: "SAMSUNG_CREDIT", type: "credit_card", name: "신용카드" },
-  { id: "KB_DEBIT", type: "debit_card", name: "체크카드" },
-];
 
 export default function TransactionPage() {
   const supabase = createClient();
@@ -70,8 +65,6 @@ export default function TransactionPage() {
     queryFn: () => getCategories(),
   });
 
-  console.log(rawCategories);
-
   const filteredCategories = useMemo(() => {
     if (selectedType === "ALL") return rawCategories;
     return rawCategories.filter((c) => c.type === selectedType);
@@ -85,18 +78,6 @@ export default function TransactionPage() {
   // 전체 선택 시 카테고리를 수입 / 지출 섹션으로 분리해서 렌더링하기 위한 목록
   const expenseCategories = useMemo(() => {
     return rawCategories.filter((c) => c.type === "EXPENSE");
-  }, [rawCategories]);
-
-  const categoryNameById = useMemo(() => {
-    return Object.fromEntries(rawCategories.map((c) => [c.id, c.name]));
-  }, [rawCategories]);
-
-  const defaultExpenseCategoryName = useMemo(() => {
-    return rawCategories.find((c) => c.type === "EXPENSE")?.name ?? "";
-  }, [rawCategories]);
-
-  const categoryCodeById = useMemo(() => {
-    return Object.fromEntries(rawCategories.map((c) => [c.id, c.code]));
   }, [rawCategories]);
 
   useEffect(() => {
@@ -146,6 +127,26 @@ export default function TransactionPage() {
     expenseCategories.length > 0 &&
     expenseCategories.every((c) => selectedCategoryIds.includes(c.id));
   /* ----------------------------------------------------------------------- */
+
+  /* 세부 항목 (소분류) 조회 */
+  const firstCategoryId = rawCategories[0]?.id;
+
+  const { data: fetchedSubCategories = [] } = useQuery({
+    queryKey: ["subCategories", firstCategoryId],
+    queryFn: () => getSubCategories(firstCategoryId!),
+    enabled: !!firstCategoryId,
+  });
+
+  /* 결제 수단 조회 api */
+  const {
+    data: accounts = [],
+    isLoading: isAccountsLoading,
+    isError: isAccountsError,
+    error: accountsError,
+  } = useQuery({
+    queryKey: ["accounts"],
+    queryFn: getAccounts,
+  });
 
   const {
     // fetchTransactions가 배열이 아니라 페이지 객체를 반환하므로 기본값도 페이지 객체로 변경
@@ -213,21 +214,14 @@ export default function TransactionPage() {
   const handleEdit = (t: Transaction) => {
     setEditingTransaction(t);
 
-    const categoryCode = categoryCodeById[t.category] ?? t.category;
-
     setModalDefaultValues({
       date: t.date,
       type: t.type,
       amount: Math.abs(t.amount),
-      category: categoryNameById[t.category] ?? t.category,
-      description: t.description,
-      subCategory: undefined,
-      paymentType: "cash",
+      categoryId: rawCategories[0]?.id ?? "",
+      subCategoryId: fetchedSubCategories[0]?.id ?? "",
+      accountId: accounts[0]?.id ?? "",
     });
-
-    if (categoryCode) {
-      void categoryCode;
-    }
 
     setIsModalOpen(true);
   };
@@ -262,15 +256,16 @@ export default function TransactionPage() {
     // 나머지 필드는 API 확장 후 함께 보낼 예정
     const bodyForNow = {
       date: payload.date,
-      type: payload.type,
       amount: payload.amount,
-      category: payload.category,
+      type: payload.type,
+      categoryId: payload.categoryId,
+      subCategoryId: payload.subCategoryId,
       description: payload.description ?? "",
+      accountId: payload.accountId,
 
       // TODO(api 확장):
       // paymentType: payload.paymentType,
       // cardProvider: payload.cardProvider,
-      // subCategory: payload.subCategory,
     };
 
     const res = await fetch(apiUrl, {
@@ -341,8 +336,9 @@ export default function TransactionPage() {
               setModalDefaultValues({
                 date: new Date().toISOString().split("T")[0],
                 type: "EXPENSE",
-                category: defaultExpenseCategoryName,
-                paymentType: "cash",
+                categoryId: rawCategories[0].id,
+                subCategoryId: fetchedSubCategories[0].id,
+                accountId: accounts[0].id,
               });
               setIsModalOpen(true);
             }}
@@ -668,7 +664,6 @@ export default function TransactionPage() {
           error={pageError?.message ?? null}
           onEdit={handleEdit}
           onDelete={handleDelete}
-          categoryNameById={categoryNameById}
         />
       </section>
 
@@ -679,7 +674,7 @@ export default function TransactionPage() {
             open={isModalOpen}
             onOpenChange={handleOpenChange}
             categories={rawCategories}
-            paymentMethods={paymentMethods}
+            accounts={accounts}
             onSubmit={handleSubmitTransaction}
             defaultValues={modalDefaultValues}
             mode={editingTransaction ? "edit" : "create"}
