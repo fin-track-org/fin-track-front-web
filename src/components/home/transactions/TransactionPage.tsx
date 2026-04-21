@@ -302,14 +302,15 @@ export default function TransactionPage() {
     const method = isEditing ? "PUT" : "POST";
 
     // 나머지 필드는 API 확장 후 함께 보낼 예정
+    // jsg [2026.04.21] 서브카테고리 등 추가된 필드도 함께 보내도록 수정
     const bodyForNow = {
       date: payload.date,
       amount: payload.amount,
       type: payload.type,
       categoryId: payload.categoryId,
-      subCategoryId: payload.subCategoryId,
-      description: payload.description ?? "",
-      accountId: payload.accountId,
+      subcategoryId: payload.subCategoryId ?? null,
+      description: payload.description ?? null,
+      accountId: payload.accountId ?? null,
     };
 
     const res = await fetch(apiUrl, {
