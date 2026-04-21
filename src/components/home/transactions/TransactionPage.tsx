@@ -261,13 +261,14 @@ export default function TransactionPage() {
   const handleEdit = (t: Transaction) => {
     setEditingTransaction(t);
 
+    // jsg [2026.04.21] 결제수단 임시로 null 허용 FIXME : 추후 null 허용하지 않도록 수정 필요
     setModalDefaultValues({
       date: t.date,
       type: t.type,
       amount: t.amount,
       categoryId: t.category.id,
       subCategoryId: t.subcategory?.id ?? "",
-      accountId: t.account.id ?? "",
+      accountId: t.account?.id ?? "",
       description: t.description,
     });
 

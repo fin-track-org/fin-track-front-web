@@ -152,13 +152,14 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     selectedCategory?.code === "ETC_EXPENSE" ||
     selectedCategory?.code === "ETC_INCOME";
 
+    // jsg [2026.04.21] accountId는 일단 필수에서 제외 -> 백엔드에서 현금 작업 후 필수로 변경 예정
   const canSubmit =
     Boolean(date) &&
     Boolean(category) &&
     (isEtcCategory ? true : Boolean(subCategory)) &&
     isAmountValid &&
     !isSaving &&
-    Boolean(accountId) &&
+    // Boolean(accountId) &&
     Boolean(description);
 
   // ----------------------------
@@ -466,18 +467,24 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               >
                 <div className="space-y-2">
                   <Label className="ml-1">결제수단</Label>
-                  <Select value={accountId} onValueChange={setAccountId}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="결제수단 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {accounts.length === 0 ? (
+                    <div className="flex items-center h-9 w-full rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+                      등록된 결제수단이 없습니다
+                    </div>
+                  ) : (
+                    <Select value={accountId} onValueChange={setAccountId}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="결제수단 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 {/* {!isAccountIdCash && (
