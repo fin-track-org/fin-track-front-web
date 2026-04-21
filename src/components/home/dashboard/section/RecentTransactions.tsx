@@ -1,19 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
 
 export default function RecentTransactions({
   data,
-  categories,
 }: {
-  data: Transaction[];
-  categories: Category[];
+  data: RecentTransaction[];
 }) {
-  const categoryNameById = useMemo(() => {
-    return Object.fromEntries(categories.map((c) => [c.id, c.name]));
-  }, [categories]);
-
   const hasData = data && data.length > 0;
 
   return (
@@ -40,7 +33,6 @@ export default function RecentTransactions({
       {hasData && (
         <div className="md:hidden divide-y divide-gray-100">
           {data.map((t) => {
-            const label = categoryNameById[t.category] ?? t.category;
             const isExpense = t.type === "EXPENSE";
             const absAmount = Math.abs(t.amount).toLocaleString();
 
@@ -51,7 +43,7 @@ export default function RecentTransactions({
                   <p className="font-medium truncate mt-1">{t.description}</p>
                   <div className="mt-2 flex gap-2 flex-wrap">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {label}
+                      {t.categoryName}
                     </span>
                   </div>
                 </div>
@@ -84,8 +76,14 @@ export default function RecentTransactions({
                   카테고리
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
+                  세부항목
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
                   설명
                 </th>
+                {/* <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
+                  결제수단
+                </th> */}
                 <th className="px-6 py-3 text-right text-xs font-semibold uppercase">
                   금액
                 </th>
@@ -94,7 +92,6 @@ export default function RecentTransactions({
 
             <tbody className="divide-y divide-gray-100">
               {data.map((t) => {
-                const label = categoryNameById[t.category] ?? t.category;
                 const isExpense = t.type === "EXPENSE";
                 const absAmount = Math.abs(t.amount).toLocaleString();
 
@@ -106,13 +103,23 @@ export default function RecentTransactions({
 
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
-                        {label}
+                        {t.categoryName}
+                      </span>
+                    </td>
+
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
+                        {t.subcategoryName}
                       </span>
                     </td>
 
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {t.description}
                     </td>
+
+                    {/* <td className="px-6 py-4 text-sm text-gray-700">
+                      {t.accountName}
+                    </td> */}
 
                     <td
                       className={`px-6 py-4 text-sm font-semibold text-right ${

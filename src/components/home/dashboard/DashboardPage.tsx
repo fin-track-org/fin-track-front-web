@@ -135,7 +135,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
   return (
     <div className="space-y-6">
       {/* 0. 월 선택 버튼 */}
@@ -175,10 +174,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 최근 거래 내역 테이블 */}
-      <RecentTransactions
-        data={recentTransactions}
-        categories={rawCategories}
-      />
+      <RecentTransactions data={recentTransactions} />
     </div>
   );
 }

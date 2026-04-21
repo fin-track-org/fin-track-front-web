@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 로그인 토큰
+FinTrack_jwtToken_generator.html
+
+# 무시 파일
+.gitignore

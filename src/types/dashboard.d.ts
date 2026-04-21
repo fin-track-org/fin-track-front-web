@@ -1,13 +1,13 @@
 /* Res */
-interface Transaction {
-  id: string;
-  date: string; // YYYY-MM-DD
-  type: TransactionType;
-  category: string; // 지금은 문자열
-  description: string; // 메모/내역
-  amount: number; // 지출은 - , 수입은 +
-  // TODO(api 확장): subCategory, paymentMethodId, merchantText 등 추가될 예정
-}
+// interface Transaction {
+//   id: string;
+//   date: string; // YYYY-MM-DD
+//   amount: number; // 지출은 - , 수입은 +
+//   type: TransactionType;
+//   category: string; // 지금은 문자열
+//   description: string; // 메모/내역
+//   // TODO(api 확장): subCategory, paymentMethodId, merchantText 등 추가될 예정
+// }
 /* interface Transaction {
   id: string;
   date: string;
