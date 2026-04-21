@@ -381,9 +381,9 @@ export default function TransactionPage() {
               setModalDefaultValues({
                 date: new Date().toISOString().split("T")[0],
                 type: "EXPENSE",
-                categoryId: rawCategories[0].id,
-                subCategoryId: fetchedSubCategories[0].id,
-                accountId: accounts[0].id,
+                categoryId: rawCategories[0]?.id,
+                subCategoryId: fetchedSubCategories[0]?.id,
+                accountId: accounts[0]?.id,
               });
               setIsModalOpen(true);
             }}
