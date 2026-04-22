@@ -14,6 +14,8 @@ import {
   Plus,
   Trash2,
   Wallet,
+  CreditCard,
+  Star,
 } from "lucide-react";
 import { fetchMe, updateMe } from "@/src/lib/api/userApi";
 import {
@@ -24,6 +26,29 @@ import {
 } from "@/src/lib/api/budgetApi";
 import { getCategories } from "@/src/lib/api/categoryApi";
 import { AuthError } from "@/src/lib/api/authError";
+import {
+  getAccounts,
+  createAccount,
+  updateAccount,
+  deleteAccount,
+  setDefaultAccount,
+} from "@/src/lib/api/accountApi";
+
+const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
+  CASH: "현금",
+  BANK: "은행 계좌",
+  CREDIT_CARD: "신용카드",
+  CHECK_CARD: "체크카드",
+  ETC: "기타",
+};
+
+const ACCOUNT_TYPE_OPTIONS: AccountType[] = [
+  "CASH",
+  "BANK",
+  "CREDIT_CARD",
+  "CHECK_CARD",
+  "ETC",
+];
 
 const Skeleton = ({ className }: { className?: string }) => (
   <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
@@ -134,6 +159,54 @@ export default function ProfilePage() {
     const amount = Number(newAmount);
     if (!newCategoryId || !amount || amount <= 0) return;
     mutateCreate({ categoryId: newCategoryId, targetAmount: amount });
+  };
+
+  /* ── 결제수단 ── */
+  const { data: accounts = [], isLoading: isAccountsLoading } = useQuery({
+    queryKey: ["accounts"],
+    queryFn: getAccounts,
+  });
+
+  // 추가 폼 상태
+  const [showAccountForm, setShowAccountForm] = useState(false);
+  const [accountForm, setAccountForm] = useState<{ name: string; type: AccountType }>({
+    name: "",
+    type: "CREDIT_CARD",
+  });
+
+  // 인라인 수정 상태: accountId → { name, type }
+  const [editingAccount, setEditingAccount] = useState<Record<string, { name: string; type: AccountType }>>({});
+
+  const { mutate: mutateCreateAccount, isPending: isCreatingAccount } = useMutation({
+    mutationFn: createAccount,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      setShowAccountForm(false);
+      setAccountForm({ name: "", type: "CREDIT_CARD" });
+    },
+  });
+
+  const { mutate: mutateUpdateAccount } = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: AccountUpdateReq }) =>
+      updateAccount(id, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+
+  const { mutate: mutateDeleteAccount } = useMutation({
+    mutationFn: deleteAccount,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+
+  const { mutate: mutateSetDefault } = useMutation({
+    mutationFn: setDefaultAccount,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+
+  const handleAccountEditSave = (id: string) => {
+    const draft = editingAccount[id];
+    if (!draft?.name.trim()) return;
+    mutateUpdateAccount({ id, body: { name: draft.name.trim(), type: draft.type } });
+    setEditingAccount((prev) => { const next = { ...prev }; delete next[id]; return next; });
   };
 
   /* ── 로딩 ── */
@@ -372,6 +445,185 @@ export default function ProfilePage() {
                   </button>
                   <button
                     onClick={() => { setShowAddForm(false); setNewAmount(""); }}
+                    className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </li>
+            )}
+          </ul>
+        )}
+      </div>
+
+      {/* ── 결제수단 카드 ── */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-sky-600" />
+            <h2 className="font-semibold text-gray-900">결제수단 관리</h2>
+          </div>
+          {!showAccountForm && (
+            <button
+              onClick={() => setShowAccountForm(true)}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />추가
+            </button>
+          )}
+        </div>
+
+        {isAccountsLoading ? (
+          <div className="divide-y divide-gray-100">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center justify-between px-6 py-4">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+                <Skeleton className="h-6 w-16 rounded-full" />
+              </div>
+            ))}
+          </div>
+        ) : accounts.length === 0 && !showAccountForm ? (
+          <div className="px-6 py-10 text-center">
+            <p className="text-sm text-gray-500 mb-4">등록된 결제수단이 없어요.</p>
+            <button
+              onClick={() => setShowAccountForm(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />결제수단 추가
+            </button>
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {accounts.map((account) => {
+              const isEditingThis = account.id in editingAccount;
+              const draft = editingAccount[account.id];
+              return (
+                <li key={account.id} className="px-6 py-4">
+                  {isEditingThis ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        autoFocus
+                        value={draft.name}
+                        onChange={(e) =>
+                          setEditingAccount((prev) => ({ ...prev, [account.id]: { ...draft, name: e.target.value } }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleAccountEditSave(account.id);
+                          if (e.key === "Escape") setEditingAccount((prev) => { const next = { ...prev }; delete next[account.id]; return next; });
+                        }}
+                        className="flex-1 min-w-0 text-sm border border-sky-400 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-sky-200"
+                      />
+                      <select
+                        value={draft.type}
+                        onChange={(e) =>
+                          setEditingAccount((prev) => ({ ...prev, [account.id]: { ...draft, type: e.target.value as AccountType } }))
+                        }
+                        className="text-sm border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 bg-white"
+                      >
+                        {ACCOUNT_TYPE_OPTIONS.map((t) => (
+                          <option key={t} value={t}>{ACCOUNT_TYPE_LABEL[t]}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => handleAccountEditSave(account.id)}
+                        className="p-1.5 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setEditingAccount((prev) => { const next = { ...prev }; delete next[account.id]; return next; })}
+                        className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-gray-800 truncate">{account.name}</p>
+                          {account.isDefault && (
+                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-700 flex-shrink-0">
+                              <Star className="w-2.5 h-2.5" />기본
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">{ACCOUNT_TYPE_LABEL[account.type]}</p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {!account.isDefault && (
+                          <button
+                            onClick={() => mutateSetDefault(account.id)}
+                            title="기본 결제수단으로 설정"
+                            className="p-1.5 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+                          >
+                            <Star className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() =>
+                            setEditingAccount((prev) => ({
+                              ...prev,
+                              [account.id]: { name: account.name, type: account.type },
+                            }))
+                          }
+                          className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => mutateDeleteAccount(account.id)}
+                          className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+
+            {/* 추가 폼 */}
+            {showAccountForm && (
+              <li className="px-6 py-4 bg-sky-50/50">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input
+                    autoFocus
+                    placeholder="결제수단 이름 (예: 신한 체크카드)"
+                    value={accountForm.name}
+                    onChange={(e) => setAccountForm((prev) => ({ ...prev, name: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (accountForm.name.trim()) mutateCreateAccount({ name: accountForm.name.trim(), type: accountForm.type });
+                      }
+                      if (e.key === "Escape") setShowAccountForm(false);
+                    }}
+                    className="flex-1 min-w-0 text-sm border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400"
+                  />
+                  <select
+                    value={accountForm.type}
+                    onChange={(e) => setAccountForm((prev) => ({ ...prev, type: e.target.value as AccountType }))}
+                    className="text-sm border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 bg-white"
+                  >
+                    {ACCOUNT_TYPE_OPTIONS.map((t) => (
+                      <option key={t} value={t}>{ACCOUNT_TYPE_LABEL[t]}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => {
+                      if (accountForm.name.trim()) mutateCreateAccount({ name: accountForm.name.trim(), type: accountForm.type });
+                    }}
+                    disabled={isCreatingAccount || !accountForm.name.trim()}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-50 rounded-lg transition-colors"
+                  >
+                    <Check className="w-3.5 h-3.5" />저장
+                  </button>
+                  <button
+                    onClick={() => { setShowAccountForm(false); setAccountForm({ name: "", type: "CREDIT_CARD" }); }}
                     className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
                   >
                     <X className="w-4 h-4" />
