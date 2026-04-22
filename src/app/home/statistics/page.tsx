@@ -1,7 +1,5 @@
-export default function StatisticsPage() {
-  return (
-    <>
-      <h1>statistics</h1>
-    </>
-  );
+import StatisticsPage from "@/src/components/home/StatisticsPage";
+
+export default function Page() {
+  return <StatisticsPage />;
 }
