@@ -56,7 +56,7 @@ export default function Sidebar() {
       <div className="hidden lg:block p-6 border-b border-gray-200">
         <h1 className="flex items-center gap-2 text-sky-700">
           <DollarSign className="w-8 h-8" />
-          <span className="text-2xl font-bold">FinTrack</span>
+          <span className="text-2xl font-bold">게으른 가계부</span>
         </h1>
       </div>
 
@@ -118,7 +118,7 @@ export default function Sidebar() {
       <header className="lg:hidden h-15 flex items-center justify-between gap-2 p-4 border-b border-gray-200 bg-white">
         <h1 className="flex items-center gap-1 text-sky-700">
           <DollarSign className="w-5 h-5" />
-          <span className="text-xl font-bold">FinTrack</span>
+          <span className="text-xl font-bold">게으른 가계부</span>
         </h1>
         <button onClick={() => setIsOpen(true)}>
           <Menu className="text-gray-700" />

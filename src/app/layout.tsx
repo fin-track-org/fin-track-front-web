@@ -3,8 +3,8 @@ import "./globals.css";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
-  title: "FinTrack",
-  description: "스마트 가계부 서비스",
+  title: "게으른 가계부",
+  description: "게으른 완벽주의자를 위한 가계부",
 };
 
 export default function RootLayout({
