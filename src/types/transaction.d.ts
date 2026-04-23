@@ -32,6 +32,8 @@ interface Transaction {
 interface FetchTransactionsParams {
   categoryIds?: string[];
   keyword?: string;
+  startDate?: string;
+  endDate?: string;
   cursorDate?: string;
   cursorSortOrder?: number;
   size?: number;
