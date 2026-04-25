@@ -47,85 +47,109 @@ export default function LoginPage() {
     }
   };
 
-  // (17) 사용자 눈에 보이는 HTML (JSX) 부분
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-3xl font-bold text-center text-sky-700 mb-8">
-          FinTrack
-        </h1>
+    <div className="min-h-screen flex">
+      {/* ===== 왼쪽 브랜드 패널 (데스크톱 전용) ===== */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-sky-600 to-indigo-700 flex-col justify-between p-12 text-white">
+        <span className="text-2xl font-bold tracking-tight">🦥 게으른 가계부</span>
 
-        {/* (18) 폼 제출 핸들러 연결 */}
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          {/* 이메일 입력란 */}
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700"
-            >
-              이메일 주소
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              value={email} // (19) State와 연결
-              onChange={(e) => setEmail(e.target.value)} // (20) State 변경
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-              placeholder="you@example.com"
-              disabled={loading} // 로딩 중 비활성화
-            />
+        <div>
+          <h2 className="text-4xl font-bold leading-tight mb-4">
+            귀찮을수록<br />더 잘 맞는 가계부
+          </h2>
+          <p className="text-sky-200 text-lg mb-10">
+            게으른 완벽주의자를 위한<br />가장 스마트한 가계부
+          </p>
+          <ul className="space-y-4 text-sm text-sky-100">
+            <li className="flex items-start gap-3">
+              <span className="text-sky-300 mt-0.5">✦</span>
+              <span>숨만 쉬어도 정리되는 지출 분석</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-sky-300 mt-0.5">✦</span>
+              <span>한 줄 입력으로 완성되는 월별 리포트</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="text-sky-300 mt-0.5">✦</span>
+              <span>당신은 쓰기만 하세요. 통계는 우리가 합니다</span>
+            </li>
+          </ul>
+        </div>
+
+        <p className="text-sky-400 text-xs">
+          © {new Date().getFullYear()} 게으른 가계부
+        </p>
+      </div>
+
+      {/* ===== 오른쪽 폼 패널 ===== */}
+      <div className="flex-1 flex items-center justify-center bg-gray-50 px-6 py-12">
+        <div className="w-full max-w-sm">
+          {/* 모바일 전용 로고 */}
+          <div className="lg:hidden text-center mb-8">
+            <span className="text-2xl font-bold text-sky-700">🦥 게으른 가계부</span>
+            <p className="mt-1 text-sm text-gray-500">복잡한 건 우리가 할게. 넌 대충 적기만 해 ✨</p>
           </div>
 
-          {/* 비밀번호 입력란 */}
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700"
-            >
-              비밀번호
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              value={password} // State와 연결
-              onChange={(e) => setPassword(e.target.value)} // State 변경
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500"
-              placeholder="••••••••"
-              disabled={loading} // 로딩 중 비활성화
-            />
-          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">다시 오셨군요 👋</h2>
+          <p className="text-sm text-gray-500 mb-8">계속하려면 로그인하세요.</p>
 
-          {/* (21) 에러가 발생했을 때만 에러 메시지를 보여줌 */}
-          {error && <p className="text-sm text-red-600 text-center">{error}</p>}
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                이메일
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="block w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition"
+                placeholder="you@example.com"
+                disabled={loading}
+              />
+            </div>
 
-          {/* 로그인 버튼 */}
-          <div>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                비밀번호
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="block w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition"
+                placeholder="••••••••"
+                disabled={loading}
+              />
+            </div>
+
+            {error && (
+              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
             <button
               type="submit"
-              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 ${
-                loading ? "opacity-50 cursor-not-allowed" : ""
-              }`}
               disabled={loading}
+              className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500"
             >
               {loading ? "로그인 중..." : "로그인"}
             </button>
-          </div>
-        </form>
+          </form>
 
-        {/* 회원가입 링크 */}
-        <p className="mt-6 text-center text-sm text-gray-600">
-          계정이 없으신가요?{" "}
-          <Link
-            href="/create-account"
-            className="font-medium text-sky-600 hover:text-sky-500"
-          >
-            회원가입하기
-          </Link>
-        </p>
+          <p className="mt-6 text-center text-sm text-gray-500">
+            아직 계정이 없으신가요?{" "}
+            <Link href="/create-account" className="font-semibold text-sky-600 hover:text-sky-500">
+              무료로 시작하기
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

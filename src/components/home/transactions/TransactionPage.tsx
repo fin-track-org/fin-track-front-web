@@ -7,7 +7,7 @@ import { createClient } from "@/src/lib/supabase/client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import LedgerTable from "./table/LedgerTable";
 import MonthSelector from "../dashboard/section/MonthSelector";
-import { ChevronDown, Search } from "lucide-react";
+import { CalendarDays, ChevronDown, Search, X } from "lucide-react";
 import {
   useInfiniteQuery,
   useMutation,
@@ -46,6 +46,14 @@ export default function TransactionPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // 날짜 범위 필터
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateRangeMode, setDateRangeMode] = useState<"month" | "custom">("month");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [tempStart, setTempStart] = useState("");
+  const [tempEnd, setTempEnd] = useState("");
+
   // 새 거래용 defaultValues
   const [modalDefaultValues, setModalDefaultValues] = useState<
     Partial<CreateTransactionPayload> | undefined
@@ -55,11 +63,17 @@ export default function TransactionPage() {
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
 
-  const getYearMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    return `${year}-${month}`; // 예: 2026-02
-  };
+  const { startDate, endDate } = useMemo(() => {
+    if (dateRangeMode === "custom" && customStart && customEnd) {
+      return { startDate: customStart, endDate: customEnd };
+    }
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const end = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    return { startDate: start, endDate: end };
+  }, [dateRangeMode, customStart, customEnd, currentMonth]);
 
   /* ----------------------------------------------------------------------- */
   /* 카테고리 조회 api */
@@ -170,7 +184,7 @@ export default function TransactionPage() {
     isError: isTransactionsError,
     error: transactionsError,
   } = useInfiniteQuery({
-    queryKey: ["transactions", searchTerm, selectedCategoryIds],
+    queryKey: ["transactions", searchTerm, selectedCategoryIds, startDate, endDate],
     initialPageParam: {
       cursorDate: null,
       cursorSortOrder: null,
@@ -180,6 +194,8 @@ export default function TransactionPage() {
         keyword: searchTerm.trim() || undefined,
         categoryIds:
           selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
+        startDate,
+        endDate,
         size: 20,
         cursorDate: pageParam.cursorDate ?? undefined,
         cursorSortOrder: pageParam.cursorSortOrder ?? undefined,
@@ -338,14 +354,42 @@ export default function TransactionPage() {
     setEditingTransaction(null);
   };
 
+  /* 날짜 범위 */
+  const handleOpenDatePicker = () => {
+    if (showDatePicker) {
+      setShowDatePicker(false);
+      return;
+    }
+    setTempStart(startDate);
+    setTempEnd(endDate);
+    setShowDatePicker(true);
+  };
+
+  const applyDateRange = () => {
+    if (!tempStart || !tempEnd || tempStart > tempEnd) return;
+    setCustomStart(tempStart);
+    setCustomEnd(tempEnd);
+    setDateRangeMode("custom");
+    setShowDatePicker(false);
+  };
+
+  const clearCustomRange = () => {
+    setCustomStart("");
+    setCustomEnd("");
+    setDateRangeMode("month");
+    setShowDatePicker(false);
+  };
+
   /* 이전/다음 달 */
   const handlePreviousMonth = () => {
+    setDateRangeMode("month");
     setCurrentMonth(
       new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1),
     );
   };
 
   const handleNextMonth = () => {
+    setDateRangeMode("month");
     setCurrentMonth(
       new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1),
     );
@@ -370,28 +414,95 @@ export default function TransactionPage() {
   return (
     <>
       <section className="space-y-4 md:space-y-6">
-        <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
-          <MonthSelector
-            currentMonth={currentMonth}
-            onPrev={handlePreviousMonth}
-            onNext={handleNextMonth}
-          />
-          <button
-            onClick={() => {
-              setEditingTransaction(null);
-              setModalDefaultValues({
-                date: new Date().toISOString().split("T")[0],
-                type: "EXPENSE",
-                categoryId: rawCategories[0]?.id,
-                subCategoryId: fetchedSubCategories[0]?.id,
-                accountId: accounts[0]?.id,
-              });
-              setIsModalOpen(true);
-            }}
-            className="flex-none w-full md:w-auto bg-sky-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-700 transition-colors text-sm md:text-base shadow-sm"
-          >
-            + 새 거래 추가
-          </button>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
+            <MonthSelector
+              currentMonth={currentMonth}
+              onPrev={handlePreviousMonth}
+              onNext={handleNextMonth}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleOpenDatePicker}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  dateRangeMode === "custom"
+                    ? "bg-sky-50 text-sky-700 border-sky-300"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                <CalendarDays size={16} />
+                <span>
+                  {dateRangeMode === "custom"
+                    ? `${customStart} ~ ${customEnd}`
+                    : "기간 지정"}
+                </span>
+                {dateRangeMode === "custom" && (
+                  <X
+                    size={14}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      clearCustomRange();
+                    }}
+                  />
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setEditingTransaction(null);
+                  setModalDefaultValues({
+                    date: new Date().toISOString().split("T")[0],
+                    type: "EXPENSE",
+                    categoryId: rawCategories[0]?.id,
+                    subCategoryId: fetchedSubCategories[0]?.id,
+                    accountId: accounts[0]?.id,
+                  });
+                  setIsModalOpen(true);
+                }}
+                className="flex-1 md:flex-none bg-sky-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-700 transition-colors text-sm md:text-base shadow-sm"
+              >
+                + 새 거래 추가
+              </button>
+            </div>
+          </div>
+
+          {showDatePicker && (
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-end gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500">시작일</label>
+                <input
+                  type="date"
+                  value={tempStart}
+                  onChange={(e) => setTempStart(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                />
+              </div>
+              <span className="mb-2 text-gray-400">~</span>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500">종료일</label>
+                <input
+                  type="date"
+                  value={tempEnd}
+                  onChange={(e) => setTempEnd(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={applyDateRange}
+                  disabled={!tempStart || !tempEnd || tempStart > tempEnd}
+                  className="px-4 py-2 bg-sky-600 text-white text-sm rounded-lg font-medium hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  적용
+                </button>
+                <button
+                  onClick={() => setShowDatePicker(false)}
+                  className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 검색/필터 */}
