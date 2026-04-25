@@ -26,6 +26,14 @@ export const fetchTransactions = async (
     searchParams.set("keyword", params.keyword.trim());
   }
 
+  if (params.startDate) {
+    searchParams.set("startDate", params.startDate);
+  }
+
+  if (params.endDate) {
+    searchParams.set("endDate", params.endDate);
+  }
+
   if (params.cursorDate) {
     searchParams.set("cursorDate", params.cursorDate);
   }
