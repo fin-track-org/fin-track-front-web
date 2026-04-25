@@ -42,7 +42,7 @@ export default function LandingPage() {
             게으른 완벽주의자를 위한 가계부 ✨
           </span>
           <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 leading-tight mb-6">
-            귀찮아도<br />돈은 모여야죠
+            귀찮아도<br />돈 관리는 돼야죠
           </h1>
           <p className="text-lg text-gray-500 max-w-md mx-auto mb-10">
             입력은 최소한으로, 분석은 최대한으로.<br />

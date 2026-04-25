@@ -55,7 +55,7 @@ export default function LoginPage() {
 
         <div>
           <h2 className="text-4xl font-bold leading-tight mb-4">
-            귀찮음도<br />자산이 됩니다.
+            귀찮을수록<br />더 잘 맞는 가계부
           </h2>
           <p className="text-sky-200 text-lg mb-10">
             게으른 완벽주의자를 위한<br />가장 스마트한 가계부
