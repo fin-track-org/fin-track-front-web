@@ -22,8 +22,8 @@ import {
 } from "@/src/components/ui/select";
 import { Textarea } from "@/src/components/ui/textarea";
 import { todayISODateSeoul, toNumberOrNaN } from "../hook/useTransaction";
-import { getSubCategories } from "../lib/api/categoryApi";
-import { useQuery } from "@tanstack/react-query";
+import { createSubCategory, getSubCategories } from "../lib/api/categoryApi";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 /* const CARD_PROVIDERS = [
   { id: "SAMSUNG", name: "삼성" },
@@ -46,6 +46,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     defaultValues,
     mode,
   } = props;
+
+  const queryClient = useQueryClient();
 
   // ----------------------------
   // 초기값
@@ -152,7 +154,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     selectedCategory?.code === "ETC_EXPENSE" ||
     selectedCategory?.code === "ETC_INCOME";
 
-    // jsg [2026.04.21] accountId는 일단 필수에서 제외 -> 백엔드에서 현금 작업 후 필수로 변경 예정
+  // jsg [2026.04.21] accountId는 일단 필수에서 제외 -> 백엔드에서 현금 작업 후 필수로 변경 예정
   const canSubmit =
     Boolean(date) &&
     Boolean(category) &&
@@ -280,26 +282,21 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     try {
       setIsAddingSubCat(true);
 
-      const id = `CUSTOM_${selectedCategoryCode}_${Date.now()}`;
-      const created: SubCategory = {
-        id,
-        categoryId: selectedCategoryId,
-        name,
-        sortOrder: currentSubCats.length,
-        isSystem: false,
-      };
+      const created = await createSubCategory(selectedCategoryId, name);
 
-      setCustomSubCategories((prev) => {
-        const existing = prev[selectedCategoryCode] ?? [];
-        return { ...prev, [selectedCategoryCode]: [...existing, created] };
+      // 쿼리 캐시 갱신
+      await queryClient.invalidateQueries({
+        queryKey: ["subCategories", selectedCategoryId],
       });
 
-      // 추가 후 즉시 선택
-      setSubCategory(name);
+      // 추가된 항목 즉시 선택
+      setSubCategory(created.id);
 
       // 닫기 + 입력 리셋
       setSubCatAddOpen(false);
       setNewSubCatName("");
+    } catch (e: any) {
+      setSubCatError(e?.message || "세부 항목 추가에 실패했습니다.");
     } finally {
       setIsAddingSubCat(false);
     }
