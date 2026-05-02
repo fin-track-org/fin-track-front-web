@@ -206,11 +206,12 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     }
   }, [open, defaultValues, type, categories]);
 
-  useEffect(() => {
-    if (type === "INCOME") {
-      setAccountId("cash");
-    }
-  }, [type]);
+  // 수입일 때도 결제수단(입금 계좌)을 선택할 수 있도록 자동 설정 제거
+  // useEffect(() => {
+  //   if (type === "INCOME") {
+  //     setAccountId("cash");
+  //   }
+  // }, [type]);
 
   useEffect(() => {
     const validCategoryNames = categoryOptions.map((c) => c.id);
@@ -457,32 +458,33 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               </div>
             </div>
 
-            {/* 3) 결제수단 + 카드사 (지출일 때만) */}
-            {!isIncomeType && (
-              <div
-                className={`grid grid-cols-1 gap-4 ${isAccountIdCash ? "md:grid-cols-1" : " md:grid-cols-2"}`}
-              >
-                <div className="space-y-2">
-                  <Label className="ml-1">결제수단</Label>
-                  {accounts.length === 0 ? (
-                    <div className="flex items-center h-9 w-full rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
-                      등록된 결제수단이 없습니다
-                    </div>
-                  ) : (
-                    <Select value={accountId} onValueChange={setAccountId}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="결제수단 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {accounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
+            {/* 3) 결제수단 / 입금 계좌 */}
+            <div
+              className={`grid grid-cols-1 gap-4 ${isAccountIdCash ? "md:grid-cols-1" : " md:grid-cols-2"}`}
+            >
+              <div className="space-y-2">
+                <Label className="ml-1">
+                  {isIncomeType ? "입금 계좌" : "결제수단"}
+                </Label>
+                {accounts.length === 0 ? (
+                  <div className="flex items-center h-9 w-full rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+                    {isIncomeType ? "등록된 계좌가 없습니다" : "등록된 결제수단이 없습니다"}
+                  </div>
+                ) : (
+                  <Select value={accountId} onValueChange={setAccountId}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={isIncomeType ? "입금 계좌 선택" : "결제수단 선택"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
 
                 {/* {!isAccountIdCash && (
                   <div className="space-y-2">
@@ -521,8 +523,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                     )}
                   </div>
                 )} */}
-              </div>
-            )}
+            </div>
 
             {/* 4) 날짜 (마지막 확인용) */}
             <div className="space-y-2">
@@ -545,7 +546,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               </Label>
               <Textarea
                 id="description"
-                placeholder="선택사항"
+                placeholder="예: 스타벅스 - 아이스 아메리카노"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="min-h-[88px] focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
