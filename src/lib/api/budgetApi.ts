@@ -13,14 +13,14 @@ async function getToken(): Promise<string> {
 }
 
 /** 예산 템플릿 목록 조회 */
-export const getBudgetTemplates = async (): Promise<BudgetTemplateRes[]> => {
+export const getBudgetTemplates = async (): Promise<BudgetTemplateGroupRes[]> => {
   const token = await getToken();
   const response = await fetch(`${SPRING_BOOT_URL}/api/v1/budgets/defaults`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (response.status === 401) throw new AuthError();
   if (!response.ok) throw new Error("예산 템플릿 목록을 불러오는데 실패했습니다.");
-  const result: ApiResponse<BudgetTemplateRes[]> = await response.json();
+  const result: ApiResponse<BudgetTemplateGroupRes[]> = await response.json();
   return result.data ?? [];
 };
 

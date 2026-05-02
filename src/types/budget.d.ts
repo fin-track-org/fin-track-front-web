@@ -8,6 +8,23 @@ interface BudgetTemplateRes {
   isActive: boolean;
 }
 
+interface BudgetTemplateItemRes {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  subCategoryId: string;
+  subCategoryName: string;
+  targetAmount: number;
+}
+
+interface BudgetTemplateGroupRes {
+  categoryId: string;
+  categoryName: string;
+  id: string | null;
+  targetAmount: number | null;
+  items: BudgetTemplateItemRes[];
+}
+
 interface BudgetTemplateCreateReq {
   categoryId: string;
   subCategoryId?: string | null;
