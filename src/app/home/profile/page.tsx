@@ -355,6 +355,7 @@ export default function ProfilePage() {
   // 신규 추가 폼
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCategoryId, setNewCategoryId] = useState("");
+  const [newSubCategoryId, setNewSubCategoryId] = useState<string>("");
   const [newAmount, setNewAmount] = useState("");
 
   const { mutate: mutateCreate, isPending: isCreating } = useMutation({
@@ -363,6 +364,7 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ["budgetTemplates"] });
       setShowAddForm(false);
       setNewCategoryId("");
+      setNewSubCategoryId("");
       setNewAmount("");
     },
   });
@@ -385,10 +387,22 @@ export default function ProfilePage() {
     setEditingAmounts((prev) => { const next = { ...prev }; delete next[id]; return next; });
   };
 
+  /* 선택된 카테고리의 소분류 목록 */
+  const { data: newSubCategories = [] } = useQuery({
+    queryKey: ["subCategories", newCategoryId],
+    queryFn: () => getSubCategories(newCategoryId),
+    enabled: showAddForm && !!newCategoryId,
+    staleTime: 1000 * 60 * 5,
+  });
+
   const handleAddSubmit = () => {
     const amount = Number(newAmount);
     if (!newCategoryId || !amount || amount <= 0) return;
-    mutateCreate({ categoryId: newCategoryId, targetAmount: amount });
+    mutateCreate({ 
+      categoryId: newCategoryId, 
+      subCategoryId: newSubCategoryId || null,
+      targetAmount: amount 
+    });
   };
 
   /* ── 결제수단 ── */
@@ -467,9 +481,7 @@ export default function ProfilePage() {
     );
   }
 
-  /* ── 이미 템플릿이 있는 카테고리 ID 집합 ── */
-  const existingCategoryIds = new Set(templates.map((t) => t.categoryId));
-  const availableCategories = categories.filter((c) => !existingCategoryIds.has(c.id));
+  /* ── 모든 카테고리를 선택 가능하게 (소분류별로 예산 설정 가능) ── */
 
   return (
     <div className="space-y-6 max-w-xl">
@@ -555,9 +567,13 @@ export default function ProfilePage() {
             <Wallet className="w-4 h-4 text-sky-600" />
             <h2 className="font-semibold text-gray-900">월 예산 템플릿</h2>
           </div>
-          {!showAddForm && availableCategories.length > 0 && (
+          {!showAddForm && categories.length > 0 && (
             <button
-              onClick={() => { setShowAddForm(true); setNewCategoryId(availableCategories[0]?.id ?? ""); }}
+              onClick={() => { 
+                setShowAddForm(true); 
+                setNewCategoryId(categories[0]?.id ?? ""); 
+                setNewSubCategoryId("");
+              }}
               className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />추가
@@ -578,7 +594,11 @@ export default function ProfilePage() {
           <div className="px-6 py-10 text-center">
             <p className="text-sm text-gray-500 mb-4">아직 설정된 예산 템플릿이 없어요.</p>
             <button
-              onClick={() => { setShowAddForm(true); setNewCategoryId(availableCategories[0]?.id ?? ""); }}
+              onClick={() => { 
+                setShowAddForm(true); 
+                setNewCategoryId(categories[0]?.id ?? ""); 
+                setNewSubCategoryId("");
+              }}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors"
             >
               <Plus className="w-4 h-4" />예산 템플릿 추가
@@ -648,13 +668,28 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-3 flex-wrap">
                   <select
                     value={newCategoryId}
-                    onChange={(e) => setNewCategoryId(e.target.value)}
+                    onChange={(e) => {
+                      setNewCategoryId(e.target.value);
+                      setNewSubCategoryId("");
+                    }}
                     className="flex-1 min-w-0 text-sm border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 bg-white"
                   >
-                    {availableCategories.map((c) => (
+                    {categories.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
+                  {newSubCategories.length > 0 && (
+                    <select
+                      value={newSubCategoryId}
+                      onChange={(e) => setNewSubCategoryId(e.target.value)}
+                      className="flex-1 min-w-0 text-sm border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 bg-white"
+                    >
+                      <option value="">소분류 선택 안함</option>
+                      {newSubCategories.map((sc) => (
+                        <option key={sc.id} value={sc.id}>{sc.name}</option>
+                      ))}
+                    </select>
+                  )}
                   <div className="relative">
                     <input
                       type="number"
