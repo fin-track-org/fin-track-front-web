@@ -28,3 +28,13 @@ interface BudgetTemplateUpsertItem {
 interface BudgetTemplateBulkUpsertReq {
   templates: BudgetTemplateUpsertItem[];
 }
+
+interface BudgetUsageRes {
+  categoryId: string;
+  categoryName: string;
+  subcategoryId: string | null;
+  subcategoryName: string | null;
+  targetAmount: number;
+  spentAmount: number;
+  source: string;
+}

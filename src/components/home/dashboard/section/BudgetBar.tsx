@@ -2,21 +2,22 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getBudgetTemplates } from "@/src/lib/api/budgetApi";
+import { getDashboardBudgetUsage } from "@/src/lib/api/dashboard/budget";
 import { useRouter } from "next/navigation";
 import { Settings } from "lucide-react";
 
-export default function BudgetBar() {
+interface BudgetBarProps {
+  month: string;
+}
+
+export default function BudgetBar({ month }: BudgetBarProps) {
   const router = useRouter();
 
-  const { data: templates = [], isLoading } = useQuery({
-    queryKey: ["budgetTemplates"],
-    queryFn: getBudgetTemplates,
+  const { data: budgetUsages = [], isLoading, isError } = useQuery({
+    queryKey: ["dashboardBudgetUsage", month],
+    queryFn: () => getDashboardBudgetUsage(month),
+    retry: false,
   });
-
-  const activeTemplates = templates.filter((t) => t.isActive);
-
-  const totalBudget = activeTemplates.reduce((sum, t) => sum + t.targetAmount, 0);
 
   if (isLoading) {
     return (
@@ -37,11 +38,11 @@ export default function BudgetBar() {
     );
   }
 
-  if (activeTemplates.length === 0) {
+  if (isError || budgetUsages.length === 0) {
     return (
       <section className="p-8 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          아직 예산 템플릿이 없어요
+          아직 예산이 없어요
         </h3>
         <p className="text-sm text-gray-500 mb-6">
           마이페이지에서 카테고리별 월 예산을 설정하면 여기서 확인할 수 있어요
@@ -57,13 +58,16 @@ export default function BudgetBar() {
     );
   }
 
+  const totalBudget = budgetUsages.reduce((sum, b) => sum + (b?.targetAmount ?? 0), 0);
+  const totalUsed = budgetUsages.reduce((sum, b) => sum + (b?.spentAmount ?? 0), 0);
+
   return (
     <section className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">월 예산 템플릿 (개발중)</h3>
+          <h3 className="text-lg font-semibold text-gray-900">월 예산 및 사용 현황</h3>
           <p className="text-xs text-gray-400 mt-0.5">
-            총 예산 {totalBudget.toLocaleString("ko-KR")}원
+            총 예산 {totalBudget.toLocaleString("ko-KR")}원 / 사용 {totalUsed.toLocaleString("ko-KR")}원
           </p>
         </div>
         <button
@@ -76,31 +80,43 @@ export default function BudgetBar() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {activeTemplates.map((t) => {
-          const ratio = totalBudget > 0 ? t.targetAmount / totalBudget : 0;
-          const pct = Math.round(ratio * 100);
+        {budgetUsages.map((budget) => {
+          if (!budget) return null;
+          
+          const spentAmount = budget.spentAmount ?? 0;
+          const targetAmount = budget.targetAmount ?? 0;
+          const usagePercentage = targetAmount > 0 ? (spentAmount / targetAmount) * 100 : 0;
+          const isOverBudget = usagePercentage > 100;
+          const barColor = isOverBudget ? "bg-red-500" : usagePercentage > 80 ? "bg-amber-500" : "bg-sky-500";
+          const textColor = isOverBudget ? "text-red-600" : usagePercentage > 80 ? "text-amber-600" : "text-sky-700";
 
           return (
             <div
-              key={t.id}
+              key={`${budget.categoryId}-${budget.subcategoryId ?? "none"}`}
               className="p-4 rounded-lg border border-gray-100 bg-gray-50"
             >
               <p className="text-sm font-medium text-gray-800 truncate mb-0.5">
-                {t.categoryName}
+                {budget.categoryName ?? "카테고리"}
               </p>
-              {t.subCategoryName && (
-                <p className="text-xs text-gray-400 mb-1 truncate">{t.subCategoryName}</p>
+              {budget.subcategoryName && (
+                <p className="text-xs text-gray-400 mb-1 truncate">{budget.subcategoryName}</p>
               )}
-              <p className="text-base font-semibold text-sky-700">
-                {t.targetAmount.toLocaleString("ko-KR")}원
-              </p>
+              <div className="flex items-baseline gap-1 mb-1">
+                <p className={`text-base font-semibold ${textColor}`}>
+                  {spentAmount.toLocaleString("ko-KR")}원
+                </p>
+                <p className="text-xs text-gray-400">/ {targetAmount.toLocaleString("ko-KR")}원</p>
+              </div>
               <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-sky-400 rounded-full"
-                  style={{ width: `${pct}%` }}
+                  className={`h-full ${barColor} rounded-full transition-all`}
+                  style={{ width: `${Math.min(usagePercentage, 100)}%` }}
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-400">전체 예산의 {pct}%</p>
+              <p className={`mt-1 text-xs ${textColor}`}>
+                {usagePercentage.toFixed(1)}% 사용
+                {isOverBudget && " (초과)"}
+              </p>
             </div>
           );
         })}
