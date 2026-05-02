@@ -170,7 +170,7 @@ export default function DashboardPage() {
       {/* 3. 예산 및 소비 분석 */}
       <div className="mb-8">
         {/* 예산 Budget Bar */}
-        <BudgetBar />
+        <BudgetBar month={selectedMonth} />
       </div>
 
       {/* 최근 거래 내역 테이블 */}
