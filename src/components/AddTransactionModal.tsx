@@ -158,7 +158,6 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   const canSubmit =
     Boolean(date) &&
     Boolean(category) &&
-    (isEtcCategory ? true : Boolean(subCategory)) &&
     isAmountValid &&
     !isSaving &&
     // Boolean(accountId) &&
@@ -223,18 +222,13 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   }, [categoryOptions, category]);
 
   useEffect(() => {
-    if (isEtcCategory) {
-      setSubCategory("");
-      return;
-    }
-
     const list = mergedSubCategories;
-    const exists = list.some((x) => x.id === subCategory);
+    const exists = subCategory === "" || list.some((x) => x.id === subCategory);
 
     if (!exists) {
-      setSubCategory(list[0]?.id ?? "");
+      setSubCategory("");
     }
-  }, [mergedSubCategories, subCategory, isEtcCategory]);
+  }, [mergedSubCategories, subCategory]);
 
   useEffect(() => {
     if (!open) return;
@@ -408,51 +402,42 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
               <div className="space-y-2">
                 <Label
-                  className={`ml-1 ${isEtcCategory || currentSubCats.length === 0 ? "text-gray-300" : ""}`}
+                  className={`ml-1 ${currentSubCats.length === 0 ? "text-gray-300" : ""}`}
                 >
                   세부 항목
                 </Label>
                 <Select
                   value={subCategory}
-                  onValueChange={setSubCategory}
-                  disabled={isEtcCategory || currentSubCats.length === 0}
+                  onValueChange={(v) => setSubCategory(v === "__none__" ? "" : v)}
+                  disabled={currentSubCats.length === 0}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue
-                      placeholder={
-                        isEtcCategory
-                          ? "기타는 세부 항목이 없습니다"
-                          : currentSubCats.length === 0
-                            ? "세부 항목이 없습니다"
-                            : "세부 항목 선택"
-                      }
-                    />
+                    <SelectValue placeholder="-" />
                   </SelectTrigger>
 
                   <SelectContent>
+                    <SelectItem value="__none__">-</SelectItem>
                     {currentSubCats.map((sc) => (
                       <SelectItem key={sc.id} value={sc.id}>
                         {sc.name}
                       </SelectItem>
                     ))}
 
-                    {!isEtcCategory && (
-                      <div className="border-t mt-1 pt-1">
-                        <Button
-                          size={"sm"}
-                          type="button"
-                          variant="ghost"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            setSubCatError("");
-                            setNewSubCatName("");
-                            setSubCatAddOpen(true);
-                          }}
-                        >
-                          + 세부 항목 추가
-                        </Button>
-                      </div>
-                    )}
+                    <div className="border-t mt-1 pt-1">
+                      <Button
+                        size={"sm"}
+                        type="button"
+                        variant="ghost"
+                        className="w-full justify-start"
+                        onClick={() => {
+                          setSubCatError("");
+                          setNewSubCatName("");
+                          setSubCatAddOpen(true);
+                        }}
+                      >
+                        + 세부 항목 추가
+                      </Button>
+                    </div>
                   </SelectContent>
                 </Select>
               </div>
@@ -486,7 +471,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                 )}
               </div>
 
-                {/* {!isAccountIdCash && (
+              {/* {!isAccountIdCash && (
                   <div className="space-y-2">
                     <Label
                       className={`ml-1 ${accountId === "cash" ? "text-gray-300" : ""}`}
