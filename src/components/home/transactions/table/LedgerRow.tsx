@@ -32,12 +32,11 @@ export default function LedgerRow({ transaction, onEdit, onDelete }: Props) {
         {transaction.description}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        결제수단
+        {transaction.account?.name ?? "-"}
       </td>
       <td
-        className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${
-          !isExpense ? "text-green-600" : "text-red-600"
-        }`}
+        className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${!isExpense ? "text-green-600" : "text-red-600"
+          }`}
       >
         {!isExpense ? "+" : "-"}
         {Math.abs(transaction.amount).toLocaleString()}원
