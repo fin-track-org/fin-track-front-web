@@ -31,10 +31,11 @@ function MobileTransactionCard({
             <span className="rounded-md px-2 py-1 bg-sky-100 text-sky-600">
               {t.category.name}
             </span>
-            {/* TODO(api 확장): 결제수단 표시 */}
-            <span className="rounded-md bg-gray-100 px-2 py-1 text-gray-700">
-              결제수단(추가예정)
-            </span>
+            {t.account?.name && (
+              <span className="rounded-md bg-gray-100 px-2 py-1 text-gray-700">
+                {t.account.name}
+              </span>
+            )}
           </div>
         </div>
 
