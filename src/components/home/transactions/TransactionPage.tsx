@@ -38,6 +38,9 @@ export default function TransactionPage() {
   // 모바일 검색/필터 접기/펼치기 상태
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
+  // 결제수단 필터
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+
   // 카테고리 필터
   const [selectedType, setSelectedType] = useState<
     "ALL" | "EXPENSE" | "INCOME"
@@ -184,7 +187,7 @@ export default function TransactionPage() {
     isError: isTransactionsError,
     error: transactionsError,
   } = useInfiniteQuery({
-    queryKey: ["transactions", searchTerm, selectedCategoryIds, startDate, endDate],
+    queryKey: ["transactions", searchTerm, selectedCategoryIds, selectedAccountId, startDate, endDate],
     initialPageParam: {
       cursorDate: null,
       cursorSortOrder: null,
@@ -194,6 +197,7 @@ export default function TransactionPage() {
         keyword: searchTerm.trim() || undefined,
         categoryIds:
           selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
+        accountId: selectedAccountId || undefined,
         startDate,
         endDate,
         size: 20,
@@ -540,16 +544,30 @@ export default function TransactionPage() {
                 isMobileFilterOpen ? "mt-4 md:mt-0" : "hidden md:flex"
               }`}
             >
-              {/* 검색 */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="거래 내역 검색..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-                />
+              {/* 검색 + 결제수단 필터 */}
+              <div className="flex flex-col gap-3 md:flex-row">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="거래 내역 검색..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                  />
+                </div>
+                <select
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                  className="py-3 px-3 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500/30 bg-white md:w-48"
+                >
+                  <option value="">결제수단 전체</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               {/* 데스크탑 */}
               <div className="hidden md:block">

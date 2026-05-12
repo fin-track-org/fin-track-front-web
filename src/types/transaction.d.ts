@@ -31,6 +31,7 @@ interface Transaction {
 
 interface FetchTransactionsParams {
   categoryIds?: string[];
+  accountId?: string;
   keyword?: string;
   startDate?: string;
   endDate?: string;
