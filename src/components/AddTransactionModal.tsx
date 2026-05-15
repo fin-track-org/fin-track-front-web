@@ -339,7 +339,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
         >
           <DialogHeader>
             <DialogTitle className="text-xl">
-              {mode === "edit" ? "거래 수정" : "거래 추가"}
+              {mode === "edit" ? "거래 수정" : mode === "confirm-draft" ? "임시 내역 분류" : "거래 추가"}
             </DialogTitle>
           </DialogHeader>
 
