@@ -33,6 +33,7 @@ interface AddTransactionModalProps {
   accounts: Account[];
 
   onSubmit: (payload: CreateTransactionPayload) => Promise<void>;
+  onSaveDraft?: (payload: Partial<CreateTransactionPayload>) => Promise<void>;
   defaultValues?: Partial<CreateTransactionPayload>;
   mode: "create" | "edit" | "confirm-draft";
 }

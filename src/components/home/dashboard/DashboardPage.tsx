@@ -249,7 +249,7 @@ export default function DashboardPage() {
             </div>
 
             <p className="text-xs text-gray-400 -mt-2">
-              임시 보관함에 저장됩니다. 나중에 카테고리를 지정해 정식 내역으로 분류하세요.
+              임시 보관함에 저장됩니다. 나중에 카테고리를 지정해 거래 내역으로 분류하세요.
             </p>
 
             <form onSubmit={handleQuickSubmit} className="space-y-4">

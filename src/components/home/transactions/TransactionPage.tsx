@@ -49,7 +49,7 @@ export default function TransactionPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 활성 탭 (정식 내역 / 임시 보관함)
+  // 활성 탭 (거래 내역 / 임시 보관함)
   const [activeTab, setActiveTab] = useState<"transactions" | "drafts">("transactions");
 
   // 임시 내역 분류 모달 모드
@@ -394,6 +394,56 @@ export default function TransactionPage() {
     setEditingTransaction(null);
   };
 
+  /* 임시저장 (날짜, 금액, 메모만 업데이트) */
+  const handleSaveDraft = async (
+    payload: Partial<CreateTransactionPayload>,
+  ): Promise<void> => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) throw new Error("로그인이 필요합니다.");
+
+    if (!editingTransaction?.id) {
+      throw new Error("수정할 임시 내역이 없습니다.");
+    }
+
+    const apiUrl = `${SPRING_BOOT_URL}/api/v1/transactions/${editingTransaction.id}`;
+
+    const bodyForDraft = {
+      date: payload.date,
+      amount: payload.amount,
+      type: payload.type,
+      categoryId: payload.categoryId ?? null,
+      subcategoryId: payload.subCategoryId ?? null,
+      accountId: payload.accountId ?? null,
+      description: payload.description ?? null,
+      isDraft: true, // 임시 상태 유지
+    };
+
+    const res = await fetch(apiUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(bodyForDraft),
+    });
+
+    if (!res.ok) {
+      let msg = "임시저장 실패";
+      try {
+        const errJson = await res.json();
+        msg = errJson?.message || msg;
+      } catch {}
+      throw new Error(msg);
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["drafts"] });
+    setIsModalOpen(false);
+    setEditingTransaction(null);
+  };
+
   /* 날짜 범위 */
   const handleOpenDatePicker = () => {
     if (showDatePicker) {
@@ -465,7 +515,7 @@ export default function TransactionPage() {
                   : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              정식 내역
+              거래 내역
             </button>
             <button
               onClick={() => setActiveTab("drafts")}
@@ -978,6 +1028,7 @@ export default function TransactionPage() {
             categories={rawCategories}
             accounts={accounts}
             onSubmit={handleSubmitTransaction}
+            onSaveDraft={isDraftMode ? handleSaveDraft : undefined}
             defaultValues={modalDefaultValues}
             mode={isDraftMode ? "confirm-draft" : editingTransaction ? "edit" : "create"}
           />

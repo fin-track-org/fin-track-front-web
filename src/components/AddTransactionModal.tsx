@@ -43,6 +43,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     categories,
     accounts,
     onSubmit,
+    onSaveDraft,
     defaultValues,
     mode,
   } = props;
@@ -154,14 +155,24 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     selectedCategory?.code === "ETC_EXPENSE" ||
     selectedCategory?.code === "ETC_INCOME";
 
-  // jsg [2026.04.21] accountId는 일단 필수에서 제외 -> 백엔드에서 현금 작업 후 필수로 변경 예정
-  const canSubmit =
+  // 임시저장: 날짜, 금액, 메모만 필요
+  const canSaveDraft =
+    Boolean(date) &&
+    isAmountValid &&
+    Boolean(description) &&
+    !isSaving;
+
+  // 등록(완전한 거래): 카테고리, 결제수단 필수 (세부 항목은 선택)
+  const canRegister =
     Boolean(date) &&
     Boolean(category) &&
     isAmountValid &&
-    !isSaving &&
-    // Boolean(accountId) &&
-    Boolean(description);
+    Boolean(accountId) &&
+    Boolean(description) &&
+    !isSaving;
+
+  // 기존 create/edit 모드는 등록 조건 사용
+  const canSubmit = mode === "confirm-draft" ? canRegister : canRegister;
 
   // ----------------------------
   // Effects
@@ -294,6 +305,35 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       setSubCatError(e?.message || "세부 항목 추가에 실패했습니다.");
     } finally {
       setIsAddingSubCat(false);
+    }
+  }
+
+  async function handleSaveDraft() {
+    setError("");
+    if (!canSaveDraft || !onSaveDraft) return;
+
+    const payload: Partial<CreateTransactionPayload> = {
+      date,
+      type,
+      amount: amountAbs,
+      categoryId: category || undefined,
+      subCategoryId: subCategory || undefined,
+      accountId: accountId || undefined,
+      description: description.trim() ? description.trim() : null,
+    };
+
+    try {
+      setIsSaving(true);
+      await onSaveDraft(payload);
+
+      onOpenChange(false);
+
+      setAmountText("");
+      setDescription("");
+    } catch (e: any) {
+      setError(e?.message || "임시저장에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -554,14 +594,28 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
             >
               취소
             </Button>
+            {mode === "confirm-draft" && onSaveDraft && (
+              <Button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={!canSaveDraft}
+                className="bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200 hover:border-amber-300"
+              >
+                {isSaving ? "저장 중..." : "임시저장"}
+              </Button>
+            )}
             <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
               {isSaving
                 ? mode === "edit"
                   ? "수정 중..."
-                  : "저장 중..."
+                  : mode === "confirm-draft"
+                    ? "등록 중..."
+                    : "저장 중..."
                 : mode === "edit"
                   ? "수정"
-                  : "저장"}
+                  : mode === "confirm-draft"
+                    ? "등록"
+                    : "저장"}
             </Button>
           </DialogFooter>
         </DialogContent>
