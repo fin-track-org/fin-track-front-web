@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import logoImg from "@/public/images/logo.jpg";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
@@ -54,10 +56,7 @@ export default function Sidebar() {
     <aside className="w-64 flex-1 bg-white flex flex-col">
       {/* Logo */}
       <div className="hidden lg:block p-6 border-b border-gray-200">
-        <h1 className="flex items-center gap-2 text-sky-700">
-          <DollarSign className="w-8 h-8" />
-          <span className="text-2xl font-bold">게으른 가계부</span>
-        </h1>
+        <Image src={logoImg} alt="게으른 가계부 로고" className="rounded-lg w-40 h-auto" />
       </div>
 
       {/* Profile */}

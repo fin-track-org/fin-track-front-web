@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-query";
 import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
-import { fetchTransactions } from "@/src/lib/api/transaction/transactions";
+import { fetchTransactions, getDrafts } from "@/src/lib/api/transaction/transactions";
 import { getAccounts } from "@/src/lib/api/accountApi";
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
@@ -48,6 +48,12 @@ export default function TransactionPage() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // 활성 탭 (거래 내역 / 임시 보관함)
+  const [activeTab, setActiveTab] = useState<"transactions" | "drafts">("transactions");
+
+  // 임시 내역 분류 모달 모드
+  const [isDraftMode, setIsDraftMode] = useState(false);
 
   // 날짜 범위 필터
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -217,6 +223,15 @@ export default function TransactionPage() {
   // LedgerTable에 넘길 실제 거래 배열 추출
   const transactions = data?.pages.flatMap((page) => page.content) ?? [];
 
+  /* 임시 보관함 조회 */
+  const {
+    data: drafts = [],
+    isLoading: isDraftsLoading,
+  } = useQuery({
+    queryKey: ["drafts"],
+    queryFn: getDrafts,
+  });
+
   /* 무한 스크롤 */
   useEffect(() => {
     const target = loadMoreRef.current;
@@ -295,12 +310,29 @@ export default function TransactionPage() {
     setIsModalOpen(true);
   };
 
+  // 임시 내역 분류 모달 열기
+  const handleOpenDraftModal = (draft: DraftTransaction) => {
+    setEditingTransaction(draft as unknown as Transaction);
+    setIsDraftMode(true);
+    setModalDefaultValues({
+      date: draft.date,
+      type: draft.type ?? "EXPENSE",
+      amount: Math.abs(draft.amount),
+      categoryId: draft.category?.id ?? "",
+      subCategoryId: draft.subcategory?.id ?? "",
+      accountId: draft.account?.id ?? "",
+      description: draft.description ?? "",
+    });
+    setIsModalOpen(true);
+  };
+
   // 모달 닫기(새 props 방식)
   const handleOpenChange = (open: boolean) => {
     setIsModalOpen(open);
     if (!open) {
       setEditingTransaction(null);
       setModalDefaultValues(undefined);
+      setIsDraftMode(false);
     }
   };
 
@@ -332,6 +364,7 @@ export default function TransactionPage() {
       subcategoryId: payload.subCategoryId ?? null,
       description: payload.description ?? null,
       accountId: payload.accountId ?? null,
+      ...(isDraftMode && { isDraft: false }),
     };
 
     const res = await fetch(apiUrl, {
@@ -353,7 +386,60 @@ export default function TransactionPage() {
     }
 
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    if (isDraftMode) {
+      queryClient.invalidateQueries({ queryKey: ["drafts"] });
+    }
     // 모달 닫기 + 수정 해제
+    setIsModalOpen(false);
+    setEditingTransaction(null);
+  };
+
+  /* 임시저장 (날짜, 금액, 메모만 업데이트) */
+  const handleSaveDraft = async (
+    payload: Partial<CreateTransactionPayload>,
+  ): Promise<void> => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) throw new Error("로그인이 필요합니다.");
+
+    if (!editingTransaction?.id) {
+      throw new Error("수정할 임시 내역이 없습니다.");
+    }
+
+    const apiUrl = `${SPRING_BOOT_URL}/api/v1/transactions/${editingTransaction.id}`;
+
+    const bodyForDraft = {
+      date: payload.date,
+      amount: payload.amount,
+      type: payload.type,
+      categoryId: payload.categoryId ?? null,
+      subcategoryId: payload.subCategoryId ?? null,
+      accountId: payload.accountId ?? null,
+      description: payload.description ?? null,
+      isDraft: true, // 임시 상태 유지
+    };
+
+    const res = await fetch(apiUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(bodyForDraft),
+    });
+
+    if (!res.ok) {
+      let msg = "임시저장 실패";
+      try {
+        const errJson = await res.json();
+        msg = errJson?.message || msg;
+      } catch {}
+      throw new Error(msg);
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["drafts"] });
     setIsModalOpen(false);
     setEditingTransaction(null);
   };
@@ -418,95 +504,130 @@ export default function TransactionPage() {
   return (
     <>
       <section className="space-y-4 md:space-y-6">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
-            <MonthSelector
-              currentMonth={currentMonth}
-              onPrev={handlePreviousMonth}
-              onNext={handleNextMonth}
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={handleOpenDatePicker}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  dateRangeMode === "custom"
-                    ? "bg-sky-50 text-sky-700 border-sky-300"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                <CalendarDays size={16} />
-                <span>
-                  {dateRangeMode === "custom"
-                    ? `${customStart} ~ ${customEnd}`
-                    : "기간 지정"}
+        {/* 탭 바 */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
+            <button
+              onClick={() => setActiveTab("transactions")}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                activeTab === "transactions"
+                  ? "bg-sky-600 text-white shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              거래 내역
+            </button>
+            <button
+              onClick={() => setActiveTab("drafts")}
+              className={`relative flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                activeTab === "drafts"
+                  ? "bg-amber-500 text-white shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              임시 보관함
+              {drafts.length > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[11px] font-bold">
+                  {drafts.length}
                 </span>
-                {dateRangeMode === "custom" && (
-                  <X
-                    size={14}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearCustomRange();
-                    }}
-                  />
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setEditingTransaction(null);
-                  setModalDefaultValues({
-                    date: new Date().toISOString().split("T")[0],
-                    type: "EXPENSE",
-                    categoryId: rawCategories.find((c) => c.type === "EXPENSE")?.id,
-                    accountId: accounts[0]?.id,
-                  });
-                  setIsModalOpen(true);
-                }}
-                className="flex-1 md:flex-none bg-sky-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-700 transition-colors text-sm md:text-base shadow-sm"
-              >
-                + 새 거래 추가
-              </button>
-            </div>
+              )}
+            </button>
           </div>
 
-          {showDatePicker && (
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-end gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500">시작일</label>
-                <input
-                  type="date"
-                  value={tempStart}
-                  onChange={(e) => setTempStart(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-                />
-              </div>
-              <span className="mb-2 text-gray-400">~</span>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500">종료일</label>
-                <input
-                  type="date"
-                  value={tempEnd}
-                  onChange={(e) => setTempEnd(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={applyDateRange}
-                  disabled={!tempStart || !tempEnd || tempStart > tempEnd}
-                  className="px-4 py-2 bg-sky-600 text-white text-sm rounded-lg font-medium hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  적용
-                </button>
-                <button
-                  onClick={() => setShowDatePicker(false)}
-                  className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                >
-                  닫기
-                </button>
-              </div>
-            </div>
-          )}
+          <button
+            onClick={() => {
+              setEditingTransaction(null);
+              setIsDraftMode(false);
+              setModalDefaultValues({
+                date: new Date().toISOString().split("T")[0],
+                type: "EXPENSE",
+                categoryId: rawCategories.find((c) => c.type === "EXPENSE")?.id,
+                accountId: accounts[0]?.id,
+              });
+              setIsModalOpen(true);
+            }}
+            className="bg-sky-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-700 transition-colors text-sm shadow-sm"
+          >
+            + 새 거래 추가
+          </button>
         </div>
+
+        {activeTab === "transactions" && (
+          <>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
+                <MonthSelector
+                  currentMonth={currentMonth}
+                  onPrev={handlePreviousMonth}
+                  onNext={handleNextMonth}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleOpenDatePicker}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                      dateRangeMode === "custom"
+                        ? "bg-sky-50 text-sky-700 border-sky-300"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    <CalendarDays size={16} />
+                    <span>
+                      {dateRangeMode === "custom"
+                        ? `${customStart} ~ ${customEnd}`
+                        : "기간 지정"}
+                    </span>
+                    {dateRangeMode === "custom" && (
+                      <X
+                        size={14}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          clearCustomRange();
+                        }}
+                      />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {showDatePicker && (
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-end gap-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-gray-500">시작일</label>
+                    <input
+                      type="date"
+                      value={tempStart}
+                      onChange={(e) => setTempStart(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                    />
+                  </div>
+                  <span className="mb-2 text-gray-400">~</span>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-gray-500">종료일</label>
+                    <input
+                      type="date"
+                      value={tempEnd}
+                      onChange={(e) => setTempEnd(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={applyDateRange}
+                      disabled={!tempStart || !tempEnd || tempStart > tempEnd}
+                      className="px-4 py-2 bg-sky-600 text-white text-sm rounded-lg font-medium hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      적용
+                    </button>
+                    <button
+                      onClick={() => setShowDatePicker(false)}
+                      className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                    >
+                      닫기
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
         {/* 검색/필터 */}
         <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
@@ -853,6 +974,49 @@ export default function TransactionPage() {
             모든 거래 내역을 불러왔습니다.
           </div>
         )}
+        </>
+        )}
+
+        {activeTab === "drafts" && (
+          <div className="space-y-3">
+            {isDraftsLoading ? (
+              <div className="py-12 text-center text-sm text-gray-500">임시 보관함 불러오는 중...</div>
+            ) : drafts.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-gray-400 text-sm">임시 보관함이 비어 있습니다.</p>
+                <p className="text-gray-300 text-xs mt-1">빠른 추가로 등록한 내역이 여기에 쌓입니다.</p>
+              </div>
+            ) : (
+              drafts.map((draft) => (
+                <button
+                  key={draft.id}
+                  onClick={() => handleOpenDraftModal(draft)}
+                  className="w-full flex items-center justify-between px-5 py-4 bg-white border border-amber-100 rounded-xl shadow-sm hover:bg-amber-50 hover:border-amber-300 transition-colors text-left group"
+                >
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium text-gray-800">
+                      {draft.description || "(설명 없음)"}
+                    </span>
+                    <span className="text-xs text-gray-400">{draft.date}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-sm font-semibold ${
+                        draft.amount < 0 ? "text-red-500" : "text-blue-500"
+                      }`}
+                    >
+                      {draft.amount < 0 ? "-" : "+"}
+                      {Math.abs(draft.amount).toLocaleString()}원
+                    </span>
+                    <span className="text-xs text-amber-400 group-hover:text-amber-600 transition-colors whitespace-nowrap">
+                      탭하여 분류하기 →
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        )}
       </section>
 
       {(isModalOpen || editingTransaction) && (
@@ -864,8 +1028,9 @@ export default function TransactionPage() {
             categories={rawCategories}
             accounts={accounts}
             onSubmit={handleSubmitTransaction}
+            onSaveDraft={isDraftMode ? handleSaveDraft : undefined}
             defaultValues={modalDefaultValues}
-            mode={editingTransaction ? "edit" : "create"}
+            mode={isDraftMode ? "confirm-draft" : editingTransaction ? "edit" : "create"}
           />
         </>
       )}

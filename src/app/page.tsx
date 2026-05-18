@@ -1,6 +1,8 @@
 // app/page.tsx
 // 'next/link' 임포트 제거 (빌드 오류 해결)
 // import Link from 'next/link';
+import Image from 'next/image';
+import logoImg from "@/public/images/logo.jpg";
 
 export default function LandingPage() {
   const features = [
@@ -26,7 +28,8 @@ export default function LandingPage() {
       {/* ===== 헤더 ===== */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <span className="text-xl font-bold text-sky-700">🦥 게으른 가계부</span>
+          <Image src={logoImg} alt="게으른 가계부 로고" className="rounded-lg w-40 h-auto" />
+          
           <a href="/login">
             <span className="bg-sky-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-sky-700 transition-colors">
               로그인 / 회원가입
