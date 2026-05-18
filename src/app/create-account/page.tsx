@@ -2,6 +2,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import logoImg from "@/public/images/logo.jpg";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/src/lib/supabase/client";
@@ -74,9 +76,9 @@ export default function CreateAccountPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-3xl font-bold text-center text-sky-700 mb-8">
-          게으른 가계부
-        </h1>
+        <div className="flex justify-center mb-8">
+          <Image src={logoImg} alt="게으른 가계부 로고" className="rounded-lg w-60 h-auto" />
+        </div>
 
         {/* (22) 폼 태그. "submit" 이벤트가 발생하면 handleSubmit 함수를 실행 */}
         <form className="space-y-6" onSubmit={handleSubmit}>

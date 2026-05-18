@@ -47,6 +47,18 @@ interface TransactionsPage {
   nextCursorSortOrder: number | null;
 }
 
+interface DraftTransaction {
+  id: string;
+  date: string;
+  amount: number;
+  type: TransactionType;
+  category: TransactionCategory | null;
+  subcategory: TransactionSubcategory | null;
+  description: string;
+  sortOrder: number;
+  account: TransactionAccount | null;
+}
+
 interface ApiResponse<T> {
   statusCode: number;
   message: string;

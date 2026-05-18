@@ -79,6 +79,61 @@ export const fetchTransactions = async (
 
 /* 추가 */
 
+export const getDrafts = async (): Promise<DraftTransaction[]> => {
+  const supabase = createClient();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    throw new AuthError();
+  }
+
+  const response = await fetch(`${SPRING_BOOT_URL}/api/v1/transactions/drafts`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+
+  if (response.status === 401) {
+    throw new AuthError();
+  }
+
+  if (!response.ok) {
+    throw new Error("임시 보관함을 불러오는데 실패했습니다.");
+  }
+
+  const result: ApiResponse<DraftTransaction[]> = await response.json();
+  return result.data ?? [];
+};
+
+/* 빠른 추가 */
+export const quickAddTransaction = async (payload: {
+  date: string;
+  amount: number;
+  description: string;
+}): Promise<void> => {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new AuthError();
+
+  const response = await fetch(`${SPRING_BOOT_URL}/api/v1/transactions/quick`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (response.status === 401) throw new AuthError();
+  if (!response.ok) throw new Error("빠른 추가에 실패했습니다.");
+};
+
 /* 수정 */
 
 /* 삭제 */
