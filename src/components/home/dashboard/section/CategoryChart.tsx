@@ -16,7 +16,7 @@ export default function CategoryChart({
     !data || data.length === 0 || data.every((d) => d.value === 0);
 
   return (
-    <section className="lg:flex-1 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+    <section className="xl:flex-1 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-gray-900">카테고리별 지출</h3>
         <div className="flex gap-2">

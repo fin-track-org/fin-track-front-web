@@ -2,8 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import MonthSelector from "./section/MonthSelector";
-import SummaryCards from "./section/SummaryCards";
-import BalanceChart from "./section/BalanceChart";
+import MonthlyCalendar from "./section/MonthlyCalendar";
 import CategoryChart from "./section/CategoryChart";
 import BudgetBar from "./section/BudgetBar";
 import RecentTransactions from "./section/RecentTransactions";
@@ -192,14 +191,6 @@ export default function DashboardPage() {
   
   return (
     <div className="space-y-6">
-      {/* 0. 결제수단별 잔액 카드 */}
-      {balanceData && (
-        <BalanceCard
-          totalBalance={balanceData.totalBalance}
-          paymentMethods={balanceData.paymentMethods}
-        />
-      )}
-
       {/* 1. 월 선택 버튼 */}
       <MonthSelector
         currentMonth={currentMonth}
@@ -207,19 +198,25 @@ export default function DashboardPage() {
         onNext={handleNextMonth}
       />
 
-      {/* 2. 공통 요약 카드 (반응형 그리드) */}
-      <SummaryCards summary={summary} />
+      {/* 2. 결제수단별 잔액 카드 */}
+      {balanceData && (
+        <BalanceCard
+          totalBalance={balanceData.totalBalance}
+          paymentMethods={balanceData.paymentMethods}
+        />
+      )}
 
       {/* 3. Chart */}
       <div className="flex flex-col xl:flex-row gap-6">
-        {/* Left - 이번 달 자산 변화 */}
-        <BalanceChart
-          data={dailyData.map((d) => ({
-            date: d.date.substring(5),
-            income: d.income,
-            expense: d.expense,
-            balance: d.balance,
-          }))}
+        {/* Left - 이번 달 거래 현황 달력 */}
+        <MonthlyCalendar 
+          data={dailyData} 
+          currentMonth={currentMonth}
+          summary={summary ? {
+            balance: summary.balance,
+            income: summary.income,
+            expense: summary.expense,
+          } : undefined}
         />
 
         {/* Right - 카테고리별 지출 */}
