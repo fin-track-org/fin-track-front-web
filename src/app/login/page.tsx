@@ -2,6 +2,8 @@
 "use client"; // 👈 (1) "이 파일은 브라우저에서 동작해야 합니다!"
 
 import Link from "next/link";
+import Image from "next/image";
+import logoImg from "@/public/images/logo.jpg";
 import { useState } from "react"; // (2) 리액트 "상태" 관리
 // (3) Supabase 접속기 (경로 수정: '@/' 별칭 대신 상대 경로 사용)
 import { useRouter } from "next/navigation"; // (4) 페이지 이동 기능
@@ -51,7 +53,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex">
       {/* ===== 왼쪽 브랜드 패널 (데스크톱 전용) ===== */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-sky-600 to-indigo-700 flex-col justify-between p-12 text-white">
-        <span className="text-2xl font-bold tracking-tight">🦥 게으른 가계부</span>
+        <Image src={logoImg} alt="게으른 가계부 로고" className="rounded-lg w-60 h-auto" />
 
         <div>
           <h2 className="text-4xl font-bold leading-tight mb-4">
@@ -86,8 +88,8 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           {/* 모바일 전용 로고 */}
           <div className="lg:hidden text-center mb-8">
-            <span className="text-2xl font-bold text-sky-700">🦥 게으른 가계부</span>
-            <p className="mt-1 text-sm text-gray-500">복잡한 건 우리가 할게. 넌 대충 적기만 해 ✨</p>
+            <Image src="/images/logo.jpg" alt="게으른 가계부 로고" width={200} height={54} className="rounded-lg mx-auto" />
+            <p className="mt-3 text-sm text-gray-500">복잡한 건 우리가 할게. 넌 대충 적기만 해 ✨</p>
           </div>
 
           <h2 className="text-2xl font-bold text-gray-900 mb-1">다시 오셨군요 👋</h2>
