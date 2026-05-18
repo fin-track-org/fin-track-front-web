@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Wallet } from "lucide-react";
+import { ChevronDown, ChevronUp, Wallet, Eye, EyeOff } from "lucide-react";
 
 interface BalanceCardProps {
   totalBalance: number;
@@ -13,27 +13,41 @@ export default function BalanceCard({
   paymentMethods = [],
 }: BalanceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isBalanceVisible, setIsBalanceVisible] = useState(false);
 
   return (
-    <div className="bg-linear-to-br from-sky-500 to-indigo-600 rounded-2xl shadow-lg overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-6">
         {/* 헤더 - 총 잔액 */}
-        <div
-          className="flex items-center justify-between cursor-pointer"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
+        <div className="flex items-center justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-2 text-sky-100 text-sm font-medium mb-2">
+            <div className="flex items-center gap-2 text-gray-600 text-sm font-medium mb-2">
               <Wallet size={18} />
               <span>총 잔액</span>
             </div>
-            <div className="text-white text-3xl font-bold">
-              {totalBalance.toLocaleString()}
-              <span className="text-xl font-normal ml-1">원</span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsBalanceVisible(!isBalanceVisible)}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 hover:bg-gray-100 rounded-lg"
+                aria-label={isBalanceVisible ? "잔액 숨기기" : "잔액 보기"}
+              >
+                {isBalanceVisible ? <Eye size={20} /> : <EyeOff size={20} />}
+              </button>
+              <div className="text-gray-900 text-3xl font-bold">
+                {isBalanceVisible ? (
+                  <>
+                    {totalBalance.toLocaleString()}
+                    <span className="text-xl font-normal ml-1 text-gray-600">원</span>
+                  </>
+                ) : (
+                  <span className="text-gray-400">••••••••</span>
+                )}
+              </div>
             </div>
           </div>
           <button
-            className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
             aria-label={isExpanded ? "접기" : "펼치기"}
           >
             {isExpanded ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
@@ -42,23 +56,29 @@ export default function BalanceCard({
 
         {/* 확장된 내용 - 결제수단별 잔액 */}
         {isExpanded && (
-          <div className="mt-6 pt-6 border-t border-white/20 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="mt-6 pt-6 border-t border-gray-200 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
             {!paymentMethods || paymentMethods.length === 0 ? (
-              <p className="text-sky-100 text-sm text-center py-4">
+              <p className="text-gray-500 text-sm text-center py-4">
                 등록된 결제수단이 없습니다.
               </p>
             ) : (
               paymentMethods.map((method, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3 hover:bg-white/15 transition-colors"
+                  className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3 hover:bg-gray-100 transition-colors"
                 >
-                  <span className="text-white font-medium">
+                  <span className="text-gray-700 font-medium">
                     {method.paymentMethodName}
                   </span>
-                  <span className="text-white font-semibold">
-                    {method.balance.toLocaleString()}
-                    <span className="text-sm font-normal ml-1">원</span>
+                  <span className="text-gray-900 font-semibold">
+                    {isBalanceVisible ? (
+                      <>
+                        {method.balance.toLocaleString()}
+                        <span className="text-sm font-normal ml-1 text-gray-600">원</span>
+                      </>
+                    ) : (
+                      <span className="text-gray-400">••••••</span>
+                    )}
                   </span>
                 </div>
               ))
