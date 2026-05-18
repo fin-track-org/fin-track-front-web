@@ -59,3 +59,25 @@ interface RecentTransactionResponse {
   data: RecentTransaction[];
 }
 /* ---------------------------------------- */
+/* 결제수단별 잔액 api 타입 */
+interface AccountBalance {
+  accountId: string;
+  accountName: string;
+  accountType: string;
+  balance: number;
+}
+
+interface PaymentMethodBalance {
+  paymentMethodName: string;
+  balance: number;
+}
+
+interface DashboardBalanceApiResponse {
+  statusCode: number;
+  message: string;
+  data: {
+    totalBalance: number;
+    accounts: AccountBalance[];
+  };
+}
+/* ---------------------------------------- */

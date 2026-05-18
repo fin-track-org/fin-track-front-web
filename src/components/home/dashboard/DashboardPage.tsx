@@ -7,6 +7,7 @@ import BalanceChart from "./section/BalanceChart";
 import CategoryChart from "./section/CategoryChart";
 import BudgetBar from "./section/BudgetBar";
 import RecentTransactions from "./section/RecentTransactions";
+import BalanceCard from "./section/BalanceCard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DashboardSkeleton from "../../skeleton/DashboardSkeleton";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,7 @@ import { getDashboardExpenseCategory } from "@/src/lib/api/dashboard/pie";
 import { AuthError } from "@/src/lib/api/authError";
 import { getRecentTransactions } from "@/src/lib/api/dashboard/recent";
 import { quickAddTransaction } from "@/src/lib/api/transaction/transactions";
+import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
 import { Plus, X } from "lucide-react";
 
 export default function DashboardPage() {
@@ -48,6 +50,7 @@ export default function DashboardPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["drafts"] });
       queryClient.invalidateQueries({ queryKey: ["recentTransactions"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboardBalances"] });
       setIsQuickModalOpen(false);
     },
     onError: (err: Error) => {
@@ -77,6 +80,16 @@ export default function DashboardPage() {
   const { data: rawCategories = [] } = useQuery({
     queryKey: ["categories"],
     queryFn: () => getCategories(),
+  });
+
+  /* 결제수단별 잔액 조회 */
+  const {
+    data: balanceData,
+    isLoading: isBalanceLoading,
+  } = useQuery({
+    queryKey: ["dashboardBalances"],
+    queryFn: () => getDashboardBalances(),
+    retry: false,
   });
 
   /* Summary 요약 내용 */
@@ -149,7 +162,7 @@ export default function DashboardPage() {
   };
 
   const pageIsLoading =
-    isSummaryLoading || isDailyLoading || isExpenseCategoryLoading;
+    isSummaryLoading || isDailyLoading || isExpenseCategoryLoading || isBalanceLoading;
 
   const pageIsError = isSummaryError || isDailyError || isExpenseCategoryError;
 
@@ -176,19 +189,28 @@ export default function DashboardPage() {
       </div>
     );
   }
+  
   return (
     <div className="space-y-6">
-      {/* 0. 월 선택 버튼 */}
+      {/* 0. 결제수단별 잔액 카드 */}
+      {balanceData && (
+        <BalanceCard
+          totalBalance={balanceData.totalBalance}
+          paymentMethods={balanceData.paymentMethods}
+        />
+      )}
+
+      {/* 1. 월 선택 버튼 */}
       <MonthSelector
         currentMonth={currentMonth}
         onPrev={handlePreviousMonth}
         onNext={handleNextMonth}
       />
 
-      {/* 1. 공통 요약 카드 (반응형 그리드) */}
+      {/* 2. 공통 요약 카드 (반응형 그리드) */}
       <SummaryCards summary={summary} />
 
-      {/* 2. Chart */}
+      {/* 3. Chart */}
       <div className="flex flex-col xl:flex-row gap-6">
         {/* Left - 이번 달 자산 변화 */}
         <BalanceChart
@@ -208,7 +230,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* 3. 예산 및 소비 분석 */}
+      {/* 4. 예산 및 소비 분석 */}
       <div className="mb-8">
         {/* 예산 Budget Bar */}
         <BudgetBar month={selectedMonth} />
