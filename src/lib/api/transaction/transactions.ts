@@ -157,7 +157,7 @@ export const reorderTransactions = async (
       body: JSON.stringify({
         items: transactionIds.map((id, index) => ({
           transactionId: id,
-          sortOrder: index + 1,
+          sortOrder: transactionIds.length - index,
         })),
       }),
     },
