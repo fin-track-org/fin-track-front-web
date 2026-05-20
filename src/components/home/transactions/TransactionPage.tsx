@@ -18,6 +18,7 @@ import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
 import { fetchTransactions, getDrafts, reorderTransactions } from "@/src/lib/api/transaction/transactions";
 import { getAccounts } from "@/src/lib/api/accountApi";
+import { useToast } from "@/src/hook/useToast";
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
@@ -25,6 +26,7 @@ const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 export default function TransactionPage() {
   const supabase = createClient();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // 무한 스크롤 로더
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
@@ -273,9 +275,11 @@ export default function TransactionPage() {
     try {
       await reorderTransactions(transactionIds);
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast.success("순서가 변경되었습니다.");
     } catch {
       // 실패 시 서버 데이터로 복원
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast.error("순서 변경에 실패했습니다. 다시 시도해주세요.");
     }
   };
   // -------------------------------------------------
