@@ -154,12 +154,20 @@ export const reorderTransactions = async (
         "Content-Type": "application/json",
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ transactionIds }),
+      body: JSON.stringify({
+        items: transactionIds.map((id, index) => ({
+          transactionId: id,
+          sortOrder: index + 1,
+        })),
+      }),
     },
   );
 
   if (response.status === 401) throw new AuthError();
-  if (!response.ok) throw new Error("순서 변경에 실패했습니다.");
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    throw new Error(`순서 변경에 실패했습니다. (${response.status}) ${errText}`);
+  }
 };
 
 /* 수정 */
