@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-query";
 import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
-import { fetchTransactions, getDrafts } from "@/src/lib/api/transaction/transactions";
+import { fetchTransactions, getDrafts, reorderTransactions } from "@/src/lib/api/transaction/transactions";
 import { getAccounts } from "@/src/lib/api/accountApi";
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
@@ -262,6 +262,23 @@ export default function TransactionPage() {
       observer.disconnect();
     };
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, isTransactionsLoading]);
+
+  // ------------------- 순서 변경 -----------------------
+  const handleReorder = async (transactionIds: string[]) => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+
+    try {
+      await reorderTransactions(transactionIds);
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    } catch {
+      // 실패 시 서버 데이터로 복원
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    }
+  };
+  // -------------------------------------------------
 
   // ------------------- 삭제 -----------------------
   const deleteMutation = useMutation({
@@ -959,6 +976,7 @@ export default function TransactionPage() {
           error={pageError?.message ?? null}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onReorder={handleReorder}
         />
 
         <div ref={loadMoreRef} className="h-4" />
