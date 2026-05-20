@@ -134,6 +134,42 @@ export const quickAddTransaction = async (payload: {
   if (!response.ok) throw new Error("빠른 추가에 실패했습니다.");
 };
 
+/* 순서 변경 */
+export const reorderTransactions = async (
+  transactionIds: string[],
+): Promise<void> => {
+  const supabase = createClient();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) throw new AuthError();
+
+  const response = await fetch(
+    `${SPRING_BOOT_URL}/api/v1/transactions/reorder`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        items: transactionIds.map((id, index) => ({
+          transactionId: id,
+          sortOrder: transactionIds.length - index,
+        })),
+      }),
+    },
+  );
+
+  if (response.status === 401) throw new AuthError();
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    throw new Error(`순서 변경에 실패했습니다. (${response.status}) ${errText}`);
+  }
+};
+
 /* 수정 */
 
 /* 삭제 */

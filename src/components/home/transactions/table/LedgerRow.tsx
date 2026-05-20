@@ -1,20 +1,42 @@
-import { MoreVertical, Pencil, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { GripVertical, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { forwardRef, useState } from "react";
+import type { DraggableAttributes } from "@dnd-kit/core";
+import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
 
 interface Props {
   transaction: Transaction;
   onEdit: (t: Transaction) => void;
   onDelete: (id: string) => void;
+  dragHandleAttributes?: DraggableAttributes;
+  dragHandleListeners?: SyntheticListenerMap;
+  style?: React.CSSProperties;
 }
 
-export default function LedgerRow({ transaction, onEdit, onDelete }: Props) {
+const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
+  { transaction, onEdit, onDelete, dragHandleAttributes, dragHandleListeners, style },
+  ref,
+) {
   const isExpense = transaction.type === "EXPENSE";
 
   return (
     <tr
-      key={transaction.id}
+      ref={ref}
+      style={style}
       className="group hover:bg-gray-50 transition-colors"
     >
+      {/* 드래그 핸들 */}
+      <td className="pl-3 pr-0 py-4 w-8">
+        <button
+          {...dragHandleAttributes}
+          {...dragHandleListeners}
+          className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none p-1 rounded transition-colors"
+          title="드래그하여 순서 변경"
+          aria-label="순서 변경"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+      </td>
+
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
         {transaction.date}
       </td>
@@ -35,8 +57,9 @@ export default function LedgerRow({ transaction, onEdit, onDelete }: Props) {
         {transaction.account?.name ?? "-"}
       </td>
       <td
-        className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${!isExpense ? "text-green-600" : "text-red-600"
-          }`}
+        className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${
+          !isExpense ? "text-green-600" : "text-red-600"
+        }`}
       >
         {!isExpense ? "+" : "-"}
         {Math.abs(transaction.amount).toLocaleString()}원
@@ -73,7 +96,9 @@ export default function LedgerRow({ transaction, onEdit, onDelete }: Props) {
       </td>
     </tr>
   );
-}
+});
+
+export default LedgerRow;
 
 function MobileActionMenu({
   onEdit,
