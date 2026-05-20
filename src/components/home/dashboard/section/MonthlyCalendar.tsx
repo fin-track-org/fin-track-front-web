@@ -72,24 +72,30 @@ export default function MonthlyCalendar({
 
       {/* 요약 정보 */}
       {summary && (
-        <div className="flex items-center gap-6 mb-4 pb-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">이번 달 총 수입</span>
+        <div className="flex items-center gap-4 mb-4 pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">수입</span>
             <span className="text-sm font-semibold text-blue-600">
               +{summary.income.toLocaleString()}원
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">이번 달 총 지출</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">지출</span>
             <span className="text-sm font-semibold text-red-600">
               -{summary.expense.toLocaleString()}원
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500">전체</span>
+            <span className={`text-sm font-semibold ${summary.balance >= 0 ? "text-gray-800" : "text-orange-600"}`}>
+              {summary.balance >= 0 ? "+" : ""}{summary.balance.toLocaleString()}원
             </span>
           </div>
         </div>
       )}
 
       {/* 요일 헤더 */}
-      <div className="grid grid-cols-7 gap-2 mb-2">
+      <div className="grid grid-cols-7 gap-0 sm:gap-2 mb-2">
         {weekDays.map((day, idx) => (
           <div
             key={day}
@@ -107,7 +113,7 @@ export default function MonthlyCalendar({
       </div>
 
       {/* 달력 날짜 */}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-0 sm:gap-2">
         {calendarDays.map((item, idx) => {
           const isWeekend = idx % 7 === 0 || idx % 7 === 6;
           const isSunday = idx % 7 === 0;
@@ -115,7 +121,7 @@ export default function MonthlyCalendar({
           return (
             <div
               key={idx}
-              className={`min-h-20 rounded-lg border transition-colors ${
+              className={`min-h-20 sm:rounded-lg border transition-colors ${
                 item.day
                   ? "border-gray-200 hover:border-sky-300 hover:shadow-sm bg-white"
                   : "border-transparent"
@@ -140,15 +146,15 @@ export default function MonthlyCalendar({
                   {item.data && (item.data.income > 0 || item.data.expense > 0) ? (
                     <div className="flex-1 flex flex-col gap-1 text-xs">
                       {item.data.income > 0 && (
-                        <div className="flex items-center justify-end bg-blue-50 rounded px-1.5 py-0.5">
-                          <span className="text-blue-700 font-semibold">
+                        <div className="flex items-center justify-end bg-blue-50 sm:rounded px-1 sm:px-1.5 py-0.5">
+                          <span className="text-blue-700 font-semibold text-[9px] sm:text-xs">
                             +{item.data.income.toLocaleString()}
                           </span>
                         </div>
                       )}
                       {item.data.expense > 0 && (
-                        <div className="flex items-center justify-end bg-red-50 rounded px-1.5 py-0.5">
-                          <span className="text-red-700 font-semibold">
+                        <div className="flex items-center justify-end bg-red-50 sm:rounded px-1 sm:px-1.5 py-0.5">
+                          <span className="text-red-700 font-semibold text-[9px] sm:text-xs">
                             -{item.data.expense.toLocaleString()}
                           </span>
                         </div>
