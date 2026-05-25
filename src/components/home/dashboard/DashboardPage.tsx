@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import MonthSelector from "./section/MonthSelector";
 import MonthlyCalendar from "./section/MonthlyCalendar";
 import CategoryChart from "./section/CategoryChart";
+import AccountChart from "./section/AccountChart";
 import BudgetBar from "./section/BudgetBar";
 import RecentTransactions from "./section/RecentTransactions";
 import BalanceCard from "./section/BalanceCard";
@@ -15,6 +16,8 @@ import { getDashboardSummary } from "@/src/lib/api/dashboard/summary";
 import { getDashboardDaily } from "@/src/lib/api/dashboard/daily";
 import { getCategories } from "@/src/lib/api/categoryApi";
 import { getDashboardExpenseCategory } from "@/src/lib/api/dashboard/pie";
+import { getDashboardExpenseAccount } from "@/src/lib/api/dashboard/account";
+import { getAccounts } from "@/src/lib/api/accountApi";
 import { AuthError } from "@/src/lib/api/authError";
 import { getRecentTransactions } from "@/src/lib/api/dashboard/recent";
 import { quickAddTransaction } from "@/src/lib/api/transaction/transactions";
@@ -74,11 +77,18 @@ export default function DashboardPage() {
   );
 
   const [viewType, setViewType] = useState<"chart" | "table">("chart");
+  const [accountViewType, setAccountViewType] = useState<"chart" | "table">("chart");
 
   /* 카테고리 조회 api */
   const { data: rawCategories = [] } = useQuery({
     queryKey: ["categories"],
     queryFn: () => getCategories(),
+  });
+
+  /* 결제수단 조회 api */
+  const { data: rawAccounts = [] } = useQuery({
+    queryKey: ["accounts"],
+    queryFn: () => getAccounts(),
   });
 
   /* 결제수단별 잔액 조회 */
@@ -127,10 +137,39 @@ export default function DashboardPage() {
     retry: false,
   });
 
+  /* 결제수단별 파이 차트 */
+  const {
+    data: expenseAccountData = [],
+    isLoading: isExpenseAccountLoading,
+    isError: isExpenseAccountError,
+    error: expenseAccountError,
+  } = useQuery({
+    queryKey: ["dashboardExpenseAccount", selectedMonth],
+    queryFn: () => getDashboardExpenseAccount(selectedMonth),
+    retry: false,
+  });
+
   /* 카테고리 colorCode 매핑 */
   const categoryColorByName = useMemo(() => {
     return Object.fromEntries(rawCategories.map((c) => [c.name, c.colorCode]));
   }, [rawCategories]);
+
+  /* 결제수단별 색상 매핑 */
+  const accountColors: Record<string, string> = {
+    "CASH": "#10b981",
+    "BANK": "#3b82f6",
+    "CREDIT_CARD": "#f59e0b",
+    "CHECK_CARD": "#8b5cf6",
+    "ETC": "#6b7280",
+  };
+
+  const accountColorByName = useMemo(() => {
+    const colorMap: Record<string, string> = {};
+    rawAccounts.forEach((acc) => {
+      colorMap[acc.name] = accountColors[acc.type] ?? "#9ca3af";
+    });
+    return colorMap;
+  }, [rawAccounts]);
 
   /* 파이 데이터 매핑 */
   const pieData = expenseCategoryData.map((item) => ({
@@ -138,6 +177,14 @@ export default function DashboardPage() {
     value: item.amount,
     percentage: item.percentage,
     color: categoryColorByName[item.category] ?? "#9ca3af",
+  }));
+
+  /* 결제수단별 파이 데이터 매핑 */
+  const accountPieData = expenseAccountData.map((item) => ({
+    name: item.account,
+    value: item.amount,
+    percentage: item.percentage,
+    color: accountColorByName[item.account] ?? "#9ca3af",
   }));
 
   /* 최근 거래 내역 */
@@ -161,11 +208,11 @@ export default function DashboardPage() {
   };
 
   const pageIsLoading =
-    isSummaryLoading || isDailyLoading || isExpenseCategoryLoading || isBalanceLoading;
+    isSummaryLoading || isDailyLoading || isExpenseCategoryLoading || isExpenseAccountLoading || isBalanceLoading;
 
-  const pageIsError = isSummaryError || isDailyError || isExpenseCategoryError;
+  const pageIsError = isSummaryError || isDailyError || isExpenseCategoryError || isExpenseAccountError;
 
-  const pageError = summaryError || dailyError || expenseCategoryError;
+  const pageError = summaryError || dailyError || expenseCategoryError || expenseAccountError;
 
   /* 로그인 안되어 있으면 로그인 페이지로 이동 */
   useEffect(() => {
@@ -173,6 +220,12 @@ export default function DashboardPage() {
       router.replace("/login");
     }
   }, [pageError, router]);
+
+  useEffect(() => {
+    if (expenseAccountError instanceof AuthError) {
+      router.replace("/login");
+    }
+  }, [expenseAccountError, router]);
 
   /* 로딩 */
   if (pageIsLoading) {
@@ -227,7 +280,16 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* 4. 예산 및 소비 분석 */}
+      {/* 4. 결제수단별 지출 차트 */}
+      <div className="flex flex-col xl:flex-row gap-6">
+        <AccountChart
+          data={accountPieData}
+          viewType={accountViewType}
+          onChangeView={setAccountViewType}
+        />
+      </div>
+
+      {/* 5. 예산 및 소비 분석 */}
       <div className="mb-8">
         {/* 예산 Budget Bar */}
         <BudgetBar month={selectedMonth} />

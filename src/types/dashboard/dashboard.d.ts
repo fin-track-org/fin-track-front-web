@@ -43,6 +43,19 @@ interface DashboardExpenseCategoryApiResponse {
   data: DashboardExpenseCategory[];
 }
 /* ---------------------------------------- */
+/* 결제수단별 지출 파이 차트 정보 api 타입 */
+interface DashboardExpenseAccount {
+  account: string;
+  amount: number;
+  percentage: number;
+}
+
+interface DashboardExpenseAccountApiResponse {
+  statusCode: number;
+  message: string;
+  data: DashboardExpenseAccount[];
+}
+/* ---------------------------------------- */
 /* 최근 거래 내역 api 타입 */
 interface RecentTransaction {
   id: string;
