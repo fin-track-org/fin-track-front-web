@@ -252,12 +252,13 @@ export default function DashboardPage() {
       />
 
       {/* 2. 결제수단별 잔액 카드 */}
-      {balanceData && (
+      {/* FIXME 금액 채우기, 계좌 간 금액 이동 등의 기능이 추가되기 전까지 숨김 (보류) */}
+      {/* {balanceData && (
         <BalanceCard
           totalBalance={balanceData.totalBalance}
           paymentMethods={balanceData.paymentMethods}
         />
-      )}
+      )} */}
 
       {/* 3. 달력 + 예산 현황 */}
       <div className="flex flex-col xl:flex-row xl:items-stretch gap-6">
