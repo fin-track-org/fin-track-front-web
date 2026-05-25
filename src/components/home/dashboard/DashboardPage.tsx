@@ -259,8 +259,8 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* 3. Chart */}
-      <div className="flex flex-col xl:flex-row gap-6">
+      {/* 3. 달력 + 예산 현황 */}
+      <div className="flex flex-col xl:flex-row xl:items-stretch gap-6">
         {/* Left - 이번 달 거래 현황 달력 */}
         <MonthlyCalendar 
           data={dailyData} 
@@ -272,27 +272,25 @@ export default function DashboardPage() {
           } : undefined}
         />
 
-        {/* Right - 카테고리별 지출 */}
+        {/* Right - 월 예산 및 사용 현황 */}
+        <BudgetBar month={selectedMonth} />
+      </div>
+
+      {/* 4. 카테고리별 지출 + 결제수단별 지출 */}
+      <div className="flex flex-col xl:flex-row gap-6">
+        {/* Left - 카테고리별 지출 */}
         <CategoryChart
           data={pieData}
           viewType={viewType}
           onChangeView={setViewType}
         />
-      </div>
 
-      {/* 4. 결제수단별 지출 차트 */}
-      <div className="flex flex-col xl:flex-row gap-6">
+        {/* Right - 결제수단별 지출 */}
         <AccountChart
           data={accountPieData}
           viewType={accountViewType}
           onChangeView={setAccountViewType}
         />
-      </div>
-
-      {/* 5. 예산 및 소비 분석 */}
-      <div className="mb-8">
-        {/* 예산 Budget Bar */}
-        <BudgetBar month={selectedMonth} />
       </div>
 
       {/* 최근 거래 내역 테이블 */}

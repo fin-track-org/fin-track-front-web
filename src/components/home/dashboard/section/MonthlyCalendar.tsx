@@ -67,7 +67,7 @@ export default function MonthlyCalendar({
   const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 xl:flex-2">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 xl:flex-[3] flex flex-col">
       <h3 className="text-lg font-bold text-gray-900 mb-4">이번 달 거래 현황</h3>
 
       {/* 요약 정보 */}

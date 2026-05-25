@@ -21,14 +21,14 @@ export default function BudgetBar({ month }: BudgetBarProps) {
 
   if (isLoading) {
     return (
-      <section className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+      <section className="xl:flex-1 p-6 bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col">
         <div className="flex items-center justify-between mb-5">
           <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
           <div className="h-4 w-16 bg-gray-200 rounded animate-pulse" />
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="p-4 rounded-lg border border-gray-100 bg-gray-50 space-y-2 animate-pulse">
+        <div className="space-y-3 flex-1">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="p-3 rounded-lg border border-gray-100 bg-gray-50 space-y-2 animate-pulse">
               <div className="h-4 w-20 bg-gray-200 rounded" />
               <div className="h-5 w-24 bg-gray-200 rounded" />
             </div>
@@ -40,7 +40,7 @@ export default function BudgetBar({ month }: BudgetBarProps) {
 
   if (isError || budgetUsages.length === 0) {
     return (
-      <section className="p-8 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+      <section className="xl:flex-1 p-8 bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col items-center justify-center text-center">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           아직 예산이 없어요
         </h3>
@@ -62,7 +62,7 @@ export default function BudgetBar({ month }: BudgetBarProps) {
   const totalUsed = budgetUsages.reduce((sum, b) => sum + (b?.spentAmount ?? 0), 0);
 
   return (
-    <section className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+    <section className="xl:flex-1 p-6 bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">월 예산 및 사용 현황</h3>
@@ -79,7 +79,7 @@ export default function BudgetBar({ month }: BudgetBarProps) {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="space-y-3 flex-1 overflow-y-auto">
         {budgetUsages.map((budget) => {
           if (!budget) return null;
           
@@ -93,30 +93,41 @@ export default function BudgetBar({ month }: BudgetBarProps) {
           return (
             <div
               key={`${budget.categoryId}-${budget.subcategoryId ?? "none"}`}
-              className="p-4 rounded-lg border border-gray-100 bg-gray-50"
+              className="p-3 rounded-lg border border-gray-100 bg-gray-50"
             >
-              <p className="text-sm font-medium text-gray-800 truncate mb-0.5">
-                {budget.categoryName ?? "카테고리"}
-              </p>
-              {budget.subcategoryName && (
-                <p className="text-xs text-gray-400 mb-1 truncate">{budget.subcategoryName}</p>
-              )}
-              <div className="flex items-baseline gap-1 mb-1">
-                <p className={`text-base font-semibold ${textColor}`}>
-                  {spentAmount.toLocaleString("ko-KR")}원
+              {/* 카테고리명 (대분류 · 소분류) */}
+              <div className="flex items-center gap-1.5 mb-2">
+                <p className="text-sm font-medium text-gray-800 truncate">
+                  {budget.categoryName ?? "카테고리"}
                 </p>
-                <p className="text-xs text-gray-400">/ {targetAmount.toLocaleString("ko-KR")}원</p>
+                {budget.subcategoryName && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <p className="text-xs text-gray-500 truncate">{budget.subcategoryName}</p>
+                  </>
+                )}
               </div>
-              <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+
+              {/* 금액 정보 및 사용률 */}
+              <div className="flex items-baseline justify-between gap-2 mb-2">
+                <div className="flex items-baseline gap-1">
+                  <p className={`text-sm font-semibold ${textColor}`}>
+                    {spentAmount.toLocaleString("ko-KR")}원
+                  </p>
+                  <p className="text-xs text-gray-400">/ {targetAmount.toLocaleString("ko-KR")}원</p>
+                </div>
+                <p className={`text-xs ${textColor} whitespace-nowrap`}>
+                  {usagePercentage.toFixed(1)}% 사용{isOverBudget && " (초과)"}
+                </p>
+              </div>
+
+              {/* 프로그레스 바 */}
+              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className={`h-full ${barColor} rounded-full transition-all`}
                   style={{ width: `${Math.min(usagePercentage, 100)}%` }}
                 />
               </div>
-              <p className={`mt-1 text-xs ${textColor}`}>
-                {usagePercentage.toFixed(1)}% 사용
-                {isOverBudget && " (초과)"}
-              </p>
             </div>
           );
         })}
