@@ -16,6 +16,10 @@ export default function CreateAccountPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isEmailVerificationPending, setIsEmailVerificationPending] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   const router = useRouter();
   const supabase = createClient();
@@ -59,7 +63,16 @@ export default function CreateAccountPage() {
       // auth.users -> public.profiles로 데이터를 자동으로 복사(INSERT)합니다.
       // 모든 작업이 Supabase 내부에서 트랜잭션으로 처리됩니다.
 
-      // [4단계] 모든 것이 성공! 로그인 페이지로 이동
+      // [4단계] 이메일 인증 확인
+      // 이메일 인증이 활성화된 경우 session이 null로 옴
+      if (!authData.session) {
+        // 이메일 인증 대기 상태로 전환
+        setRegisteredEmail(email);
+        setIsEmailVerificationPending(true);
+        return;
+      }
+
+      // [5단계] 이메일 인증이 비활성화된 경우 - 바로 로그인 가능
       alert("회원가입 성공! 로그인 페이지로 이동합니다.");
       router.push("/login");
     } catch (err: any) {
@@ -72,9 +85,120 @@ export default function CreateAccountPage() {
     }
   };
 
+  const handleResendEmail = async () => {
+    setResendLoading(true);
+    setResendMessage(null);
+
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: registeredEmail,
+      });
+
+      if (resendError) {
+        throw new Error(resendError.message);
+      }
+
+      setResendMessage("인증 메일을 다시 발송했습니다. 메일함을 확인해 주세요.");
+    } catch (err: any) {
+      setResendMessage(err.message || "메일 재발송에 실패했습니다.");
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   // (21) 사용자 눈에 보이는 HTML (JSX) 부분
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      {/* 이메일 인증 안내 모달 */}
+      {isEmailVerificationPending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 space-y-6">
+            {/* 아이콘 */}
+            <div className="flex justify-center">
+              <div className="w-16 h-16 bg-sky-100 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-8 h-8 text-sky-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+            </div>
+
+            {/* 제목 */}
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                이메일을 확인해 주세요 ✉️
+              </h2>
+              <p className="text-sm text-gray-600">
+                회원가입이 거의 완료되었습니다!
+              </p>
+            </div>
+
+            {/* 설명 */}
+            <div className="bg-sky-50 rounded-lg p-4 space-y-2">
+              <p className="text-sm text-gray-700 leading-relaxed">
+                <span className="font-semibold text-sky-700">{registeredEmail}</span>
+                <br />
+                위 이메일로 인증 메일을 발송했습니다.
+              </p>
+              <p className="text-sm text-gray-600">
+                메일함을 확인하시고 <strong>&apos;이메일 인증하기&apos;</strong> 버튼을 클릭하시면
+                회원가입이 최종 완료됩니다.
+              </p>
+            </div>
+
+            {/* 안내사항 */}
+            <div className="space-y-2 text-xs text-gray-500">
+              <p className="flex items-start gap-2">
+                <span className="text-sky-600 mt-0.5">•</span>
+                <span>메일이 도착하지 않았다면 스팸함을 확인해 주세요.</span>
+              </p>
+              <p className="flex items-start gap-2">
+                <span className="text-sky-600 mt-0.5">•</span>
+                <span>인증 후 로그인 페이지에서 바로 이용하실 수 있습니다.</span>
+              </p>
+            </div>
+
+            {/* 재발송 메시지 */}
+            {resendMessage && (
+              <div className={`text-sm text-center p-3 rounded-lg ${
+                resendMessage.includes("실패") 
+                  ? "bg-red-50 text-red-600" 
+                  : "bg-green-50 text-green-600"
+              }`}>
+                {resendMessage}
+              </div>
+            )}
+
+            {/* 버튼 */}
+            <div className="space-y-3">
+              <button
+                onClick={handleResendEmail}
+                disabled={resendLoading}
+                className="w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold text-sm hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {resendLoading ? "발송 중..." : "인증 메일 다시 받기"}
+              </button>
+              <button
+                onClick={() => router.push("/login")}
+                className="w-full bg-sky-600 text-white py-3 rounded-lg font-semibold text-sm hover:bg-sky-700 transition-colors"
+              >
+                로그인 페이지로 이동
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
         <div className="flex justify-center mb-8">
           <Image src={logoImg} alt="게으른 가계부 로고" className="rounded-lg w-60 h-auto" />
