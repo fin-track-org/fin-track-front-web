@@ -116,9 +116,8 @@ function BudgetGroupRow({
           </span>
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${
-            open ? "rotate-180" : ""
-          }`}
+          className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""
+            }`}
         />
       </button>
 
@@ -349,8 +348,8 @@ function CategoryRow({ category }: { category: Category }) {
           <span className="text-sm font-medium text-gray-800 truncate">{category.name}</span>
           <span
             className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${isIncome
-                ? "bg-emerald-50 text-emerald-600"
-                : "bg-sky-50 text-sky-600"
+              ? "bg-emerald-50 text-emerald-600"
+              : "bg-sky-50 text-sky-600"
               }`}
           >
             {isIncome ? "수입" : "지출"}
@@ -581,10 +580,10 @@ export default function ProfilePage() {
   const handleAddSubmit = () => {
     const amount = Number(newAmount);
     if (!newCategoryId || !amount || amount <= 0) return;
-    mutateCreate({ 
-      categoryId: newCategoryId, 
+    mutateCreate({
+      categoryId: newCategoryId,
       subCategoryId: newSubCategoryId || null,
-      targetAmount: amount 
+      targetAmount: amount
     });
   };
 
@@ -674,10 +673,10 @@ export default function ProfilePage() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="flex items-center gap-4 px-6 py-5 border-b border-gray-100">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-500 to-purple-500 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
-            {data.nickname[0]}
+            {data.nickname?.[0] || "G"}
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{data.nickname}</p>
+            <p className="font-semibold text-gray-900">{data.nickname || "Guest"}</p>
             <p className="text-xs text-gray-400 mt-0.5">Free 플랜</p>
           </div>
         </div>
@@ -702,7 +701,7 @@ export default function ProfilePage() {
                   {nicknameError && <p className="text-xs text-red-500">{(nicknameError as Error).message}</p>}
                 </div>
               ) : (
-                <dd className="text-sm font-medium text-gray-800">{data.nickname}</dd>
+                <dd className="text-sm font-medium text-gray-800">{data.nickname || "닉네임을 수정해주세요."}</dd>
               )}
             </div>
             <div className="ml-4 flex items-center gap-1 flex-shrink-0">
@@ -752,9 +751,9 @@ export default function ProfilePage() {
           </div>
           {!showAddForm && categories.length > 0 && (
             <button
-              onClick={() => { 
-                setShowAddForm(true); 
-                setNewCategoryId(categories[0]?.id ?? ""); 
+              onClick={() => {
+                setShowAddForm(true);
+                setNewCategoryId(categories[0]?.id ?? "");
                 setNewSubCategoryId("");
               }}
               className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
@@ -777,9 +776,9 @@ export default function ProfilePage() {
           <div className="px-6 py-10 text-center">
             <p className="text-sm text-gray-500 mb-4">아직 설정된 예산 템플릿이 없어요.</p>
             <button
-              onClick={() => { 
-                setShowAddForm(true); 
-                setNewCategoryId(categories[0]?.id ?? ""); 
+              onClick={() => {
+                setShowAddForm(true);
+                setNewCategoryId(categories[0]?.id ?? "");
                 setNewSubCategoryId("");
               }}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors"

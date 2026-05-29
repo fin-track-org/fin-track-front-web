@@ -49,6 +49,30 @@ export default function LoginPage() {
     }
   };
 
+  // 🔥 [추가] 카카오 로그인 핸들러 함수
+  const handleKakaoLogin = async () => {
+    setError(null);
+    setLoading(true);
+
+    try {
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: "kakao",
+        options: {
+          // 카카오 인증이 끝나면 우리 서비스의 콜백 라우터로 리다이렉트 시킵니다.
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (authError) {
+        throw new Error(`카카오 로그인 실패: ${authError.message}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "카카오 로그인 중 에러가 발생했습니다.");
+      setLoading(false); // OAuth 창으로 이동 실패 시에만 로딩을 풀어줍니다.
+    }
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* ===== 왼쪽 브랜드 패널 (데스크톱 전용) ===== */}
@@ -144,6 +168,28 @@ export default function LoginPage() {
               {loading ? "로그인 중..." : "로그인"}
             </button>
           </form>
+
+          {/* 🔥 [추가] "또는" 구분선 및 카카오 로그인 버튼 영역 */}
+          <div className="space-y-4">
+            <div className="relative flex py-2 items-center">
+              <div className="flex-grow border-t border-gray-200"></div>
+              <span className="flex-shrink mx-4 text-xs text-gray-400 bg-gray-50 px-2">또는</span>
+              <div className="flex-grow border-t border-gray-200"></div>
+            </div>
+
+            <button
+              type="button"
+              disabled={loading}
+              onClick={handleKakaoLogin}
+              className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-[#FEE500] hover:bg-[#FDD835] disabled:opacity-50 disabled:cursor-not-allowed text-[#191919] font-semibold rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FEE500]"
+            >
+              {/* 카카오 공식 브랜드 컬러 심볼 메타포 배치 */}
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.558 1.712 4.8 4.32 6.04-.173.579-.623 2.098-.713 2.42-.113.407.135.402.285.302.119-.079 1.907-1.282 2.662-1.79.79.117 1.606.18 2.446.18 4.97 0 9-3.186 9-7.116C21 6.185 16.97 3 12 3z" />
+              </svg>
+              카카오로 시작하기
+            </button>
+          </div>
 
           <p className="mt-6 text-center text-sm text-gray-500">
             아직 계정이 없으신가요?{" "}
