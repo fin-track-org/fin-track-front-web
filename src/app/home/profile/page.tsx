@@ -41,6 +41,7 @@ import {
   deleteAccount,
   setDefaultAccount,
 } from "@/src/lib/api/accountApi";
+import { createClient } from "@/src/lib/supabase/client";
 
 const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   CASH: "현금",
@@ -491,6 +492,7 @@ export default function ProfilePage() {
   /* ── 사용자 정보 ── */
   const [isEditing, setIsEditing] = useState(false);
   const [nicknameInput, setNicknameInput] = useState("");
+  const [isLinking, setIsLinking] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["me"],
@@ -519,6 +521,28 @@ export default function ProfilePage() {
     const trimmed = nicknameInput.trim();
     if (!trimmed || trimmed === data?.nickname) { setIsEditing(false); return; }
     mutateNickname({ nickname: trimmed });
+  };
+
+  const handleKakaoLink = async () => {
+    try {
+      setIsLinking(true);
+      const supabase = createClient();
+      const { error } = await supabase.auth.linkIdentity({
+        provider: "kakao",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "";
+      alert(
+        message.includes("already linked")
+          ? "이 카카오 계정은 이미 다른 가계부와 연동되어 있습니다."
+          : "카카오 연동 중 오류가 발생했습니다."
+      );
+      setIsLinking(false);
+    }
   };
 
   /* ── 카테고리 목록 ── */
@@ -731,13 +755,24 @@ export default function ProfilePage() {
             <dd className="flex items-center justify-between text-sm font-medium text-gray-800">
               <span className="truncate">{data.email}</span>
 
-              {data.isKakao && (
+              {data.isKakao ? (
                 <span className="flex items-center gap-1 bg-[#FEE500] text-[#191919] text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
                   <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.558 1.712 4.8 4.32 6.04-.173.579-.623 2.098-.713 2.42-.113.407.135.402.285.302.119-.079 1.907-1.282 2.662-1.79.79.117 1.606.18 2.446.18 4.97 0 9-3.186 9-7.116C21 6.185 16.97 3 12 3z" />
                   </svg>
                   카카오 연동됨
                 </span>
+              ) : (
+                <button
+                  onClick={handleKakaoLink}
+                  disabled={isLinking}
+                  className="flex items-center gap-1 bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors flex-shrink-0 disabled:opacity-50"
+                >
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.558 1.712 4.8 4.32 6.04-.173.579-.623 2.098-.713 2.42-.113.407.135.402.285.302.119-.079 1.907-1.282 2.662-1.79.79.117 1.606.18 2.446.18 4.97 0 9-3.186 9-7.116C21 6.185 16.97 3 12 3z" />
+                  </svg>
+                  {isLinking ? "연동 중..." : "카카오 연동하기"}
+                </button>
               )}
             </dd>
           </div>
