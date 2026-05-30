@@ -3,6 +3,7 @@ interface MeResponse {
   email: string;
   nickname: string;
   profileImageUrl?: string | null;
+  isKakao?: boolean | null;
   createdAt: string | null;
   updatedAt: string | null;
 }

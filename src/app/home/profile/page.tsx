@@ -724,8 +724,22 @@ export default function ProfilePage() {
 
           {/* 이메일 */}
           <div className="px-6 py-5">
-            <dt className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-1"><Mail className="w-3.5 h-3.5" />이메일</dt>
-            <dd className="text-sm font-medium text-gray-800">{data.email}</dd>
+            <dt className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-1">
+              <Mail className="w-3.5 h-3.5" />이메일
+            </dt>
+            {/* 💡 핵심: 겉 div가 아니라, dd 태그에 flex와 justify-between을 줍니다! */}
+            <dd className="flex items-center justify-between text-sm font-medium text-gray-800">
+              <span className="truncate">{data.email}</span>
+
+              {data.isKakao && (
+                <span className="flex items-center gap-1 bg-[#FEE500] text-[#191919] text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+                  <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.558 1.712 4.8 4.32 6.04-.173.579-.623 2.098-.713 2.42-.113.407.135.402.285.302.119-.079 1.907-1.282 2.662-1.79.79.117 1.606.18 2.446.18 4.97 0 9-3.186 9-7.116C21 6.185 16.97 3 12 3z" />
+                  </svg>
+                  카카오 연동됨
+                </span>
+              )}
+            </dd>
           </div>
 
           {/* 가입일 */}
