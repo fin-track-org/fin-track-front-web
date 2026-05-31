@@ -502,6 +502,33 @@ export default function ProfilePage() {
     retry: false,
   });
 
+  // 💡 [추가할 부분] URL Hash에 담긴 Supabase 에러를 잡아서 Toast 띄우고 청소하기!
+  useEffect(() => {
+    const hash = window.location.hash; // 예: #error=server_error&error_code=...
+
+    if (hash && hash.includes("error_description")) {
+      // 1. Hash 문자열을 파싱하기 쉽게 변환
+      const params = new URLSearchParams(hash.substring(1)); // 맨 앞의 '#' 제거
+      const errorCode = params.get("error_code");
+      const errorDesc = params.get("error_description");
+
+      if (errorDesc) {
+        // '+' 기호를 공백으로 바꾸고 디코딩
+        const decodedError = decodeURIComponent(errorDesc.replace(/\+/g, " "));
+
+        // 2. 에러 종류에 따라 알맞은 예쁜 Toast 띄우기
+        if (errorCode === "identity_already_exists" || decodedError.includes("already linked")) {
+          toast.error("이 카카오 계정은 이미 다른 가계부와 연동되어 있습니다.");
+        } else {
+          toast.error(`카카오 연동 실패: ${decodedError}`);
+        }
+
+        // 3. 🧹 [가장 중요] 유저 모르게 못생긴 URL 꼬리표를 싹 지워버립니다! (새로고침 안 됨)
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
+  }, [toast]);
+
   useEffect(() => {
     if (error instanceof AuthError) router.replace("/login");
   }, [error, router]);
