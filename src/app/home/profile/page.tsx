@@ -540,7 +540,8 @@ export default function ProfilePage() {
       const { data, error } = await supabase.auth.linkIdentity({
         provider: "kakao",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          // 콜백 라우터로 리다이렉트 시, query에 action=link를 붙여서 "연동 중"임을 알립니다.
+          redirectTo: `${window.location.origin}/auth/callback?action=link`,
         },
       });
 
