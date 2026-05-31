@@ -526,23 +526,34 @@ export default function ProfilePage() {
   };
 
   const handleKakaoLink = async () => {
+
     try {
       setIsLinking(true);
-      const supabase = createClient();
+      const supabase = createClient(); // 프론트엔드용 Supabase
+
+      // 💡 1. 로컬 스토리지에 있는 내 로그인 세션을 강제로 멱살 잡고 끌고 옵니다.
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
       if (sessionError || !session) {
         throw new Error("로그인 세션이 만료되었습니다. 다시 로그인해 주세요.");
       }
+
+      // 💡 2. 확실하게 쥔 세션을 바탕으로 카카오 연동 URL을 발급받습니다.
       const { data, error } = await supabase.auth.linkIdentity({
         provider: "kakao",
         options: {
+          // 콜백 라우터로 리다이렉트 시, query에 action=link를 붙여서 "연동 중"임을 알립니다.
           redirectTo: `${window.location.origin}/auth/callback?action=link`,
         },
       });
+
       if (error) throw error;
+
+      // 💡 3. 카카오 로그인 페이지 주소가 도착하면, 그곳으로 유저를 보내버립니다.
       if (data?.url) {
         window.location.href = data.url;
       }
+
     } catch (err: unknown) {
       console.error("🚨 카카오 연동 에러 상세 원인:", err);
       const message = err instanceof Error ? err.message : "알 수 없는 오류";
@@ -553,6 +564,7 @@ export default function ProfilePage() {
       );
       setIsLinking(false);
     }
+
   };
 
   /* ── 카테고리 목록 ── */
