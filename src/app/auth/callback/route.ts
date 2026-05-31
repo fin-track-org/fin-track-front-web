@@ -49,7 +49,14 @@ export async function GET(request: Request) {
 
         } else {
             console.error('세션 교환 에러:', error?.message);
+            // 연동 중 세션 교환 실패 시 프로필로 복귀
+            if (action === 'link') {
+                return NextResponse.redirect(`${actualOrigin}/home/profile`);
+            }
         }
+    } else if (action === 'link') {
+        // code가 없는 경우 (카카오 인증 취소 또는 에러) → 프로필로 복귀
+        return NextResponse.redirect(`${actualOrigin}/home/profile`);
     }
 
     return NextResponse.redirect(`${actualOrigin}/login`);
