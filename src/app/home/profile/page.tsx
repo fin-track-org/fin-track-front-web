@@ -18,8 +18,9 @@ import {
   Star,
   Tags,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
-import { fetchMe, updateMe } from "@/src/lib/api/userApi";
+import { fetchMe, updateMe, deleteMe } from "@/src/lib/api/userApi";
 import {
   getBudgetTemplates,
   createBudgetTemplate,
@@ -41,6 +42,8 @@ import {
   deleteAccount,
   setDefaultAccount,
 } from "@/src/lib/api/accountApi";
+import { createClient } from "@/src/lib/supabase/client";
+import { useToast } from "@/src/hook/useToast";
 
 const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   CASH: "현금",
@@ -116,9 +119,8 @@ function BudgetGroupRow({
           </span>
         </div>
         <ChevronDown
-          className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${
-            open ? "rotate-180" : ""
-          }`}
+          className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""
+            }`}
         />
       </button>
 
@@ -349,8 +351,8 @@ function CategoryRow({ category }: { category: Category }) {
           <span className="text-sm font-medium text-gray-800 truncate">{category.name}</span>
           <span
             className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${isIncome
-                ? "bg-emerald-50 text-emerald-600"
-                : "bg-sky-50 text-sky-600"
+              ? "bg-emerald-50 text-emerald-600"
+              : "bg-sky-50 text-sky-600"
               }`}
           >
             {isIncome ? "수입" : "지출"}
@@ -486,18 +488,47 @@ function CategoryRow({ category }: { category: Category }) {
 }
 
 export default function ProfilePage() {
+  const { toast } = useToast();
   const router = useRouter();
   const queryClient = useQueryClient();
 
   /* ── 사용자 정보 ── */
   const [isEditing, setIsEditing] = useState(false);
   const [nicknameInput, setNicknameInput] = useState("");
+  const [isLinking, setIsLinking] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["me"],
     queryFn: fetchMe,
     retry: false,
   });
+
+  // 💡 [추가할 부분] URL Hash에 담긴 Supabase 에러를 잡아서 Toast 띄우고 청소하기!
+  useEffect(() => {
+    const hash = window.location.hash; // 예: #error=server_error&error_code=...
+
+    if (hash && hash.includes("error_description")) {
+      // 1. Hash 문자열을 파싱하기 쉽게 변환
+      const params = new URLSearchParams(hash.substring(1)); // 맨 앞의 '#' 제거
+      const errorCode = params.get("error_code");
+      const errorDesc = params.get("error_description");
+
+      if (errorDesc) {
+        // '+' 기호를 공백으로 바꾸고 디코딩
+        const decodedError = decodeURIComponent(errorDesc.replace(/\+/g, " "));
+
+        // 2. 에러 종류에 따라 알맞은 예쁜 Toast 띄우기
+        if (errorCode === "identity_already_exists" || decodedError.includes("already linked")) {
+          toast.error("이 카카오 계정은 이미 다른 가계부와 연동되어 있습니다.");
+        } else {
+          toast.error(`카카오 연동 실패: ${decodedError}`);
+        }
+
+        // 3. 🧹 [가장 중요] 유저 모르게 못생긴 URL 꼬리표를 싹 지워버립니다! (새로고침 안 됨)
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
+  }, [toast]);
 
   useEffect(() => {
     if (error instanceof AuthError) router.replace("/login");
@@ -520,6 +551,88 @@ export default function ProfilePage() {
     const trimmed = nicknameInput.trim();
     if (!trimmed || trimmed === data?.nickname) { setIsEditing(false); return; }
     mutateNickname({ nickname: trimmed });
+  };
+
+  const handleKakaoLink = async () => {
+
+    try {
+      setIsLinking(true);
+      const supabase = createClient(); // 프론트엔드용 Supabase
+
+      // 💡 1. 로컬 스토리지에 있는 내 로그인 세션을 강제로 멱살 잡고 끌고 옵니다.
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        throw new Error("로그인 세션이 만료되었습니다. 다시 로그인해 주세요.");
+      }
+
+      // 💡 2. 확실하게 쥔 세션을 바탕으로 카카오 연동 URL을 발급받습니다.
+      const { data, error } = await supabase.auth.linkIdentity({
+        provider: "kakao",
+        options: {
+          // 콜백 라우터로 리다이렉트 시, query에 action=link를 붙여서 "연동 중"임을 알립니다.
+          redirectTo: `${window.location.origin}/auth/callback?action=link`,
+        },
+      });
+
+      if (error) throw error;
+
+      // 💡 3. 카카오 로그인 페이지 주소가 도착하면, 그곳으로 유저를 보내버립니다.
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+
+    } catch (err: unknown) {
+      console.error("🚨 카카오 연동 에러 상세 원인:", err);
+      const message = err instanceof Error ? err.message : "알 수 없는 오류";
+      toast.error(
+        message.includes("already linked")
+          ? "이 카카오 계정은 이미 다른 가계부와 연동되어 있습니다."
+          : `연동 실패: ${message}`
+      );
+      setIsLinking(false);
+    }
+
+  };
+
+  const [isUnlinking, setIsUnlinking] = useState(false);
+
+  const handleKakaoUnlink = async () => {
+    try {
+      setIsUnlinking(true);
+      const supabase = createClient();
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("사용자 정보를 확인할 수 없습니다.");
+
+      const identities = user.identities ?? [];
+      const isOnlyKakao = identities.length === 1 && identities[0].provider === "kakao";
+
+      if (isOnlyKakao) {
+        toast.error("카카오 로그인으로만 가입된 계정입니다. 연동을 해제하시려면 화면 하단의 [회원 탈퇴]를 이용해 주세요.");
+        return;
+      }
+
+      const kakaoIdentity = identities.find((id) => id.provider === "kakao");
+      if (!kakaoIdentity) {
+        toast.error("연결된 카카오 계정이 없습니다.");
+        return;
+      }
+
+      const { error: unlinkError } = await supabase.auth.unlinkIdentity(kakaoIdentity);
+      if (unlinkError) throw unlinkError;
+
+      await updateMe({ isKakao: false, avatarUrl: null });
+
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      toast.success("카카오 연동이 해제되었습니다.");
+    } catch (err: unknown) {
+      console.error("🚨 카카오 연동 해제 실패:", err);
+      const message = err instanceof Error ? err.message : "알 수 없는 오류";
+      toast.error(`해제 실패: ${message}`);
+    } finally {
+      setIsUnlinking(false);
+    }
   };
 
   /* ── 카테고리 목록 ── */
@@ -581,10 +694,10 @@ export default function ProfilePage() {
   const handleAddSubmit = () => {
     const amount = Number(newAmount);
     if (!newCategoryId || !amount || amount <= 0) return;
-    mutateCreate({ 
-      categoryId: newCategoryId, 
+    mutateCreate({
+      categoryId: newCategoryId,
       subCategoryId: newSubCategoryId || null,
-      targetAmount: amount 
+      targetAmount: amount
     });
   };
 
@@ -636,6 +749,31 @@ export default function ProfilePage() {
     setEditingAccount((prev) => { const next = { ...prev }; delete next[id]; return next; });
   };
 
+  /* ── 회원 탈퇴 ── */
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawInput, setWithdrawInput] = useState("");
+  const CONFIRM_TEXT = "탈퇴에 동의합니다";
+
+  const { mutate: mutateWithdraw, isPending: isWithdrawing } = useMutation({
+    mutationFn: deleteMe,
+    onSuccess: async () => {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      queryClient.clear();
+      toast.success("회원 탈퇴가 완료되었습니다.");
+      router.replace("/login");
+    },
+    onError: (e: Error) => {
+      toast.error(`탈퇴 실패: ${e.message}`);
+    },
+  });
+
+  const handleWithdraw = () => {
+    if (withdrawInput === CONFIRM_TEXT) {
+      mutateWithdraw();
+    }
+  };
+
   /* ── 로딩 ── */
   if (isLoading) {
     return (
@@ -674,10 +812,10 @@ export default function ProfilePage() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="flex items-center gap-4 px-6 py-5 border-b border-gray-100">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-500 to-purple-500 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
-            {data.nickname[0]}
+            {data.nickname?.[0] || "G"}
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{data.nickname}</p>
+            <p className="font-semibold text-gray-900">{data.nickname || "Guest"}</p>
             <p className="text-xs text-gray-400 mt-0.5">Free 플랜</p>
           </div>
         </div>
@@ -702,7 +840,7 @@ export default function ProfilePage() {
                   {nicknameError && <p className="text-xs text-red-500">{(nicknameError as Error).message}</p>}
                 </div>
               ) : (
-                <dd className="text-sm font-medium text-gray-800">{data.nickname}</dd>
+                <dd className="text-sm font-medium text-gray-800">{data.nickname || "닉네임을 수정해주세요."}</dd>
               )}
             </div>
             <div className="ml-4 flex items-center gap-1 flex-shrink-0">
@@ -725,8 +863,42 @@ export default function ProfilePage() {
 
           {/* 이메일 */}
           <div className="px-6 py-5">
-            <dt className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-1"><Mail className="w-3.5 h-3.5" />이메일</dt>
-            <dd className="text-sm font-medium text-gray-800">{data.email}</dd>
+            <dt className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-1">
+              <Mail className="w-3.5 h-3.5" />이메일
+            </dt>
+            {/* 💡 핵심: 겉 div가 아니라, dd 태그에 flex와 justify-between을 줍니다! */}
+            <dd className="flex items-center justify-between text-sm font-medium text-gray-800">
+              <span className="truncate">{data.email}</span>
+
+              {data.isKakao ? (
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="flex items-center gap-1 bg-[#FEE500] text-[#191919] text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.558 1.712 4.8 4.32 6.04-.173.579-.623 2.098-.713 2.42-.113.407.135.402.285.302.119-.079 1.907-1.282 2.662-1.79.79.117 1.606.18 2.446.18 4.97 0 9-3.186 9-7.116C21 6.185 16.97 3 12 3z" />
+                    </svg>
+                    카카오 연동됨
+                  </span>
+                  <button
+                    onClick={handleKakaoUnlink}
+                    disabled={isUnlinking}
+                    className="text-[11px] font-medium text-gray-400 hover:text-gray-600 transition-colors underline underline-offset-2 disabled:opacity-50"
+                  >
+                    {isUnlinking ? "해제 중..." : "해제"}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleKakaoLink}
+                  disabled={isLinking}
+                  className="flex items-center gap-1 bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors flex-shrink-0 disabled:opacity-50"
+                >
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.558 1.712 4.8 4.32 6.04-.173.579-.623 2.098-.713 2.42-.113.407.135.402.285.302.119-.079 1.907-1.282 2.662-1.79.79.117 1.606.18 2.446.18 4.97 0 9-3.186 9-7.116C21 6.185 16.97 3 12 3z" />
+                  </svg>
+                  {isLinking ? "연동 중..." : "카카오 연동하기"}
+                </button>
+              )}
+            </dd>
           </div>
 
           {/* 가입일 */}
@@ -752,9 +924,9 @@ export default function ProfilePage() {
           </div>
           {!showAddForm && categories.length > 0 && (
             <button
-              onClick={() => { 
-                setShowAddForm(true); 
-                setNewCategoryId(categories[0]?.id ?? ""); 
+              onClick={() => {
+                setShowAddForm(true);
+                setNewCategoryId(categories[0]?.id ?? "");
                 setNewSubCategoryId("");
               }}
               className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
@@ -777,9 +949,9 @@ export default function ProfilePage() {
           <div className="px-6 py-10 text-center">
             <p className="text-sm text-gray-500 mb-4">아직 설정된 예산 템플릿이 없어요.</p>
             <button
-              onClick={() => { 
-                setShowAddForm(true); 
-                setNewCategoryId(categories[0]?.id ?? ""); 
+              onClick={() => {
+                setShowAddForm(true);
+                setNewCategoryId(categories[0]?.id ?? "");
                 setNewSubCategoryId("");
               }}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors"
@@ -1065,6 +1237,75 @@ export default function ProfilePage() {
           </ul>
         )}
       </div>
+
+      {/* ── 위험 구역 카드 ── */}
+      <div className="bg-white rounded-xl border border-red-200 shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2 px-6 py-5 border-b border-red-100">
+          <AlertTriangle className="w-4 h-4 text-red-500" />
+          <h2 className="font-semibold text-red-600">주의</h2>
+        </div>
+        <div className="px-6 py-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-800">회원 탈퇴</p>
+            <p className="text-xs text-gray-500 mt-0.5">계정과 모든 데이터가 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
+          </div>
+          <button
+            onClick={() => { setWithdrawInput(""); setShowWithdrawModal(true); }}
+            className="shrink-0 px-4 py-2 text-sm font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+          >
+            회원 탈퇴하기
+          </button>
+        </div>
+      </div>
+
+      {/* ── 회원 탈퇴 확인 모달 ── */}
+      {showWithdrawModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 flex flex-col gap-5">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-red-100">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">정말로 탈퇴하시겠어요?</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  계정과 모든 거래 내역, 예산, 자산 정보가 <span className="font-medium text-red-500">영구적으로 삭제</span>되며 복구할 수 없습니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-xs text-gray-600 mb-2">
+                탈퇴를 진행하려면 아래 칸에 정확히 입력하세요:
+              </p>
+              <p className="text-sm font-bold text-gray-800 mb-3 text-center tracking-wide">{CONFIRM_TEXT}</p>
+              <input
+                type="text"
+                value={withdrawInput}
+                onChange={(e) => setWithdrawInput(e.target.value)}
+                placeholder={CONFIRM_TEXT}
+                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowWithdrawModal(false)}
+                className="flex-1 py-2.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleWithdraw}
+                disabled={withdrawInput !== CONFIRM_TEXT || isWithdrawing}
+                className="flex-1 py-2.5 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {isWithdrawing ? "처리 중..." : "탈퇴 확인"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
