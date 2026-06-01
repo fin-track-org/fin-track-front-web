@@ -16,7 +16,19 @@ export async function GET(request: Request) {
     if (code) {
         const supabase = await createClient();
 
-        const { data: { user, session }, error } = await supabase.auth.exchangeCodeForSession(code);
+        let { data: { user, session }, error } = await supabase.auth.exchangeCodeForSession(code);
+
+        // 💡 [심폐소생술 로직]: PKCE 에러가 났지만, 이미 로그인된 유저라면 기존 세션을 강제로 끌어옵니다!
+        if (error) {
+            console.warn('세션 교환 중 에러 발생 (PKCE 증발 등), 기존 세션으로 복구를 시도합니다:', error.message);
+            const { data: existingAuth } = await supabase.auth.getSession();
+
+            if (existingAuth.session && existingAuth.session.user) {
+                user = existingAuth.session.user;
+                session = existingAuth.session;
+                error = null; // 에러 무효화!
+            }
+        }
 
         if (!error && user && session) {
 
