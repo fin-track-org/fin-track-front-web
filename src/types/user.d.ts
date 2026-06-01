@@ -9,7 +9,9 @@ interface MeResponse {
 }
 
 interface UserUpdateReq {
-  nickname: string;
+  nickname?: string;
+  isKakao?: boolean | null;
+  avatarUrl?: string | null;
 }
 
 interface ApiResponse<T> {

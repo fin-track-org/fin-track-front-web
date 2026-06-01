@@ -595,6 +595,46 @@ export default function ProfilePage() {
 
   };
 
+  const [isUnlinking, setIsUnlinking] = useState(false);
+
+  const handleKakaoUnlink = async () => {
+    try {
+      setIsUnlinking(true);
+      const supabase = createClient();
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("사용자 정보를 확인할 수 없습니다.");
+
+      const identities = user.identities ?? [];
+      const isOnlyKakao = identities.length === 1 && identities[0].provider === "kakao";
+
+      if (isOnlyKakao) {
+        toast.error("카카오 로그인으로만 가입된 계정입니다. 연동을 해제하시려면 화면 하단의 [회원 탈퇴]를 이용해 주세요.");
+        return;
+      }
+
+      const kakaoIdentity = identities.find((id) => id.provider === "kakao");
+      if (!kakaoIdentity) {
+        toast.error("연결된 카카오 계정이 없습니다.");
+        return;
+      }
+
+      const { error: unlinkError } = await supabase.auth.unlinkIdentity(kakaoIdentity);
+      if (unlinkError) throw unlinkError;
+
+      await updateMe({ isKakao: false, avatarUrl: null });
+
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      toast.success("카카오 연동이 해제되었습니다.");
+    } catch (err: unknown) {
+      console.error("🚨 카카오 연동 해제 실패:", err);
+      const message = err instanceof Error ? err.message : "알 수 없는 오류";
+      toast.error(`해제 실패: ${message}`);
+    } finally {
+      setIsUnlinking(false);
+    }
+  };
+
   /* ── 카테고리 목록 ── */
   const { data: categories = [] } = useQuery({
     queryKey: ["categories", "EXPENSE"],
@@ -831,12 +871,21 @@ export default function ProfilePage() {
               <span className="truncate">{data.email}</span>
 
               {data.isKakao ? (
-                <span className="flex items-center gap-1 bg-[#FEE500] text-[#191919] text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0">
-                  <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.558 1.712 4.8 4.32 6.04-.173.579-.623 2.098-.713 2.42-.113.407.135.402.285.302.119-.079 1.907-1.282 2.662-1.79.79.117 1.606.18 2.446.18 4.97 0 9-3.186 9-7.116C21 6.185 16.97 3 12 3z" />
-                  </svg>
-                  카카오 연동됨
-                </span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="flex items-center gap-1 bg-[#FEE500] text-[#191919] text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.558 1.712 4.8 4.32 6.04-.173.579-.623 2.098-.713 2.42-.113.407.135.402.285.302.119-.079 1.907-1.282 2.662-1.79.79.117 1.606.18 2.446.18 4.97 0 9-3.186 9-7.116C21 6.185 16.97 3 12 3z" />
+                    </svg>
+                    카카오 연동됨
+                  </span>
+                  <button
+                    onClick={handleKakaoUnlink}
+                    disabled={isUnlinking}
+                    className="text-[11px] font-medium text-gray-400 hover:text-gray-600 transition-colors underline underline-offset-2 disabled:opacity-50"
+                  >
+                    {isUnlinking ? "해제 중..." : "해제"}
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={handleKakaoLink}
