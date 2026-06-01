@@ -63,10 +63,10 @@ export default function Sidebar() {
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-linear-to-br from-sky-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
-            {data?.nickname[0]}
+            {data?.nickname?.[0] || "G"}
           </div>
           <div>
-            <div className="font-semibold text-gray-900">{data?.nickname}</div>
+            <div className="font-semibold text-gray-900">{data?.nickname || "Guest"}</div>
             <div className="text-sm text-gray-500">Free 플랜</div>
           </div>
         </div>
@@ -84,11 +84,10 @@ export default function Sidebar() {
                 key={item.path}
                 href={item.path}
                 onClick={() => setIsOpen(false)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  active
-                    ? "bg-sky-50 text-sky-600 font-bold"
-                    : "text-gray-700 hover:bg-gray-50"
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${active
+                  ? "bg-sky-50 text-sky-600 font-bold"
+                  : "text-gray-700 hover:bg-gray-50"
+                  }`}
               >
                 <Icon className="w-5 h-5" />
                 <span>{item.label}</span>
@@ -139,9 +138,8 @@ export default function Sidebar() {
 
       {/* ===== 모바일 슬라이드 사이드바 ===== */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col w-64 transform bg-white transition-transform duration-300 lg:hidden ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col w-64 transform bg-white transition-transform duration-300 lg:hidden ${isOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <div className="h-15 flex justify-end p-4 border-b border-gray-200">
           <button onClick={() => setIsOpen(false)}>

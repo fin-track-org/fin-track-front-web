@@ -3,12 +3,15 @@ interface MeResponse {
   email: string;
   nickname: string;
   profileImageUrl?: string | null;
+  isKakao?: boolean | null;
   createdAt: string | null;
   updatedAt: string | null;
 }
 
 interface UserUpdateReq {
-  nickname: string;
+  nickname?: string;
+  isKakao?: boolean | null;
+  avatarUrl?: string | null;
 }
 
 interface ApiResponse<T> {
