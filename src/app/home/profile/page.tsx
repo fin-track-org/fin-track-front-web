@@ -18,8 +18,9 @@ import {
   Star,
   Tags,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
-import { fetchMe, updateMe } from "@/src/lib/api/userApi";
+import { fetchMe, updateMe, deleteMe } from "@/src/lib/api/userApi";
 import {
   getBudgetTemplates,
   createBudgetTemplate,
@@ -708,6 +709,31 @@ export default function ProfilePage() {
     setEditingAccount((prev) => { const next = { ...prev }; delete next[id]; return next; });
   };
 
+  /* ── 회원 탈퇴 ── */
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawInput, setWithdrawInput] = useState("");
+  const CONFIRM_TEXT = "탈퇴에 동의합니다";
+
+  const { mutate: mutateWithdraw, isPending: isWithdrawing } = useMutation({
+    mutationFn: deleteMe,
+    onSuccess: async () => {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      queryClient.clear();
+      toast.success("회원 탈퇴가 완료되었습니다.");
+      router.replace("/login");
+    },
+    onError: (e: Error) => {
+      toast.error(`탈퇴 실패: ${e.message}`);
+    },
+  });
+
+  const handleWithdraw = () => {
+    if (withdrawInput === CONFIRM_TEXT) {
+      mutateWithdraw();
+    }
+  };
+
   /* ── 로딩 ── */
   if (isLoading) {
     return (
@@ -1162,6 +1188,75 @@ export default function ProfilePage() {
           </ul>
         )}
       </div>
+
+      {/* ── 위험 구역 카드 ── */}
+      <div className="bg-white rounded-xl border border-red-200 shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2 px-6 py-5 border-b border-red-100">
+          <AlertTriangle className="w-4 h-4 text-red-500" />
+          <h2 className="font-semibold text-red-600">주의</h2>
+        </div>
+        <div className="px-6 py-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-800">회원 탈퇴</p>
+            <p className="text-xs text-gray-500 mt-0.5">계정과 모든 데이터가 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
+          </div>
+          <button
+            onClick={() => { setWithdrawInput(""); setShowWithdrawModal(true); }}
+            className="shrink-0 px-4 py-2 text-sm font-medium text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
+          >
+            회원 탈퇴하기
+          </button>
+        </div>
+      </div>
+
+      {/* ── 회원 탈퇴 확인 모달 ── */}
+      {showWithdrawModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 flex flex-col gap-5">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full bg-red-100">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">정말로 탈퇴하시겠어요?</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  계정과 모든 거래 내역, 예산, 자산 정보가 <span className="font-medium text-red-500">영구적으로 삭제</span>되며 복구할 수 없습니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-xs text-gray-600 mb-2">
+                탈퇴를 진행하려면 아래 칸에 정확히 입력하세요:
+              </p>
+              <p className="text-sm font-bold text-gray-800 mb-3 text-center tracking-wide">{CONFIRM_TEXT}</p>
+              <input
+                type="text"
+                value={withdrawInput}
+                onChange={(e) => setWithdrawInput(e.target.value)}
+                placeholder={CONFIRM_TEXT}
+                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowWithdrawModal(false)}
+                className="flex-1 py-2.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleWithdraw}
+                disabled={withdrawInput !== CONFIRM_TEXT || isWithdrawing}
+                className="flex-1 py-2.5 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {isWithdrawing ? "처리 중..." : "탈퇴 확인"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

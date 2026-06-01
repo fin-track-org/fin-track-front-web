@@ -37,7 +37,32 @@ export const fetchMe = async (): Promise<MeResponse> => {
 
   return result.data;
 };
+export const deleteMe = async (): Promise<void> => {
+  const supabase = createClient();
 
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    throw new AuthError();
+  }
+
+  const response = await fetch(`${SPRING_BOOT_URL}/api/v1/users/me`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+
+  if (response.status === 401) {
+    throw new AuthError();
+  }
+
+  if (!response.ok) {
+    throw new Error("회원 탈퇴에 실패했습니다.");
+  }
+};
 export const updateMe = async (body: UserUpdateReq): Promise<MeResponse> => {
   const supabase = createClient();
 
