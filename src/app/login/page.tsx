@@ -84,20 +84,20 @@ export default function LoginPage() {
             귀찮을수록<br />더 잘 맞는 가계부
           </h2>
           <p className="text-sky-200 text-lg mb-10">
-            게으른 완벽주의자를 위한<br />가장 스마트한 가계부
+            복잡한 과정은 다 덜어냈습니다.<br />가장 스마트한 나만의 맞춤 가계부
           </p>
           <ul className="space-y-4 text-sm text-sky-100">
             <li className="flex items-start gap-3">
               <span className="text-sky-300 mt-0.5">✦</span>
-              <span>숨만 쉬어도 정리되는 지출 분석</span>
+              <span>입력은 가볍게, 분석은 깊고 완벽하게</span>
             </li>
             <li className="flex items-start gap-3">
               <span className="text-sky-300 mt-0.5">✦</span>
-              <span>한 줄 입력으로 완성되는 월별 리포트</span>
+              <span>예산부터 결제수단별 맞춤 통계까지 한눈에</span>
             </li>
             <li className="flex items-start gap-3">
               <span className="text-sky-300 mt-0.5">✦</span>
-              <span>당신은 쓰기만 하세요. 통계는 우리가 합니다</span>
+              <span>기록에만 집중할 수 있도록 저희가 다 해드릴게요</span>
             </li>
           </ul>
         </div>
@@ -113,7 +113,7 @@ export default function LoginPage() {
           {/* 모바일 전용 로고 */}
           <div className="lg:hidden text-center mb-8">
             <Image src="/images/logo.jpg" alt="게으른 가계부 로고" width={200} height={54} className="rounded-lg mx-auto" />
-            <p className="mt-3 text-sm text-gray-500">복잡한 건 우리가 할게. 넌 대충 적기만 해 ✨</p>
+            <p className="mt-3 text-sm text-gray-500">최소한의 입력으로 최대한의 효율을 ✨</p>
           </div>
 
           <h2 className="text-2xl font-bold text-gray-900 mb-1">다시 오셨군요 👋</h2>
@@ -181,13 +181,12 @@ export default function LoginPage() {
               type="button"
               disabled={loading}
               onClick={handleKakaoLogin}
-              className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-[#FEE500] hover:bg-[#FDD835] disabled:opacity-50 disabled:cursor-not-allowed text-[#191919] font-semibold rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FEE500]"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-[#FEE500] hover:bg-[#FCD81B] active:bg-[#F0C900] disabled:opacity-50 disabled:cursor-not-allowed text-black/85 font-medium rounded-lg text-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FEE500] shadow-sm"
             >
-              {/* 카카오 공식 브랜드 컬러 심볼 메타포 배치 */}
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-5 h-5 text-black/85" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.558 1.712 4.8 4.32 6.04-.173.579-.623 2.098-.713 2.42-.113.407.135.402.285.302.119-.079 1.907-1.282 2.662-1.79.79.117 1.606.18 2.446.18 4.97 0 9-3.186 9-7.116C21 6.185 16.97 3 12 3z" />
               </svg>
-              카카오로 시작하기
+              카카오로 계속하기
             </button>
           </div>
 
