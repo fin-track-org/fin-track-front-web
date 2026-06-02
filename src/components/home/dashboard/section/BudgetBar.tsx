@@ -21,7 +21,7 @@ export default function BudgetBar({ month }: BudgetBarProps) {
 
   if (isLoading) {
     return (
-      <section className="xl:flex-1 p-6 bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col">
+      <section className="xl:flex-1 p-6 bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col xl:min-h-0">
         <div className="flex items-center justify-between mb-5">
           <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
           <div className="h-4 w-16 bg-gray-200 rounded animate-pulse" />
@@ -40,7 +40,7 @@ export default function BudgetBar({ month }: BudgetBarProps) {
 
   if (isError || budgetUsages.length === 0) {
     return (
-      <section className="xl:flex-1 p-8 bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col items-center justify-center text-center">
+      <section className="xl:flex-1 p-8 bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col items-center justify-center text-center xl:min-h-0">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           아직 예산이 없어요
         </h3>
@@ -62,7 +62,7 @@ export default function BudgetBar({ month }: BudgetBarProps) {
   const totalUsed = budgetUsages.reduce((sum, b) => sum + (b?.spentAmount ?? 0), 0);
 
   return (
-    <section className="xl:flex-1 p-6 bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col">
+    <section className="xl:flex-1 p-6 bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col xl:min-h-0">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">월 예산 및 사용 현황</h3>
@@ -79,7 +79,7 @@ export default function BudgetBar({ month }: BudgetBarProps) {
         </button>
       </div>
 
-      <div className="space-y-3 flex-1 overflow-y-auto">
+      <div className="space-y-3 flex-1 overflow-y-auto pr-1">
         {budgetUsages.map((budget) => {
           if (!budget) return null;
           
