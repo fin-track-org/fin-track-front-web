@@ -576,72 +576,71 @@ export default function TransactionPage() {
         {activeTab === "transactions" && (
           <>
             <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
+              <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100">
                 <MonthSelector
                   currentMonth={currentMonth}
                   onPrev={handlePreviousMonth}
                   onNext={handleNextMonth}
                 />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleOpenDatePicker}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                      dateRangeMode === "custom"
-                        ? "bg-sky-50 text-sky-700 border-sky-300"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    }`}
-                  >
-                    <CalendarDays size={16} />
-                    <span>
-                      {dateRangeMode === "custom"
-                        ? `${customStart} ~ ${customEnd}`
-                        : "기간 지정"}
-                    </span>
-                    {dateRangeMode === "custom" && (
-                      <X
-                        size={14}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          clearCustomRange();
-                        }}
-                      />
-                    )}
-                  </button>
-                </div>
+                <button
+                  onClick={handleOpenDatePicker}
+                  className={`whitespace-nowrap shrink-0 flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                    dateRangeMode === "custom"
+                      ? "bg-sky-50 text-sky-700 border-sky-300"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  <CalendarDays size={16} />
+                  <span>
+                    {dateRangeMode === "custom"
+                      ? `${customStart} ~ ${customEnd}`
+                      : "기간 지정"}
+                  </span>
+                  {dateRangeMode === "custom" && (
+                    <X
+                      size={14}
+                      className="ml-1 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearCustomRange();
+                      }}
+                    />
+                  )}
+                </button>
               </div>
 
               {showDatePicker && (
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-end gap-4">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-gray-500">시작일</label>
+                <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-end gap-4">
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-[120px]">
+                    <label className="text-xs font-semibold text-gray-500">시작일</label>
                     <input
                       type="date"
                       value={tempStart}
                       onChange={(e) => setTempStart(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
                     />
                   </div>
-                  <span className="mb-2 text-gray-400">~</span>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-gray-500">종료일</label>
+                  <span className="mb-3 text-gray-400 font-medium">~</span>
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-[120px]">
+                    <label className="text-xs font-semibold text-gray-500">종료일</label>
                     <input
                       type="date"
                       value={tempEnd}
                       onChange={(e) => setTempEnd(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
                     />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                     <button
                       onClick={applyDateRange}
                       disabled={!tempStart || !tempEnd || tempStart > tempEnd}
-                      className="px-4 py-2 bg-sky-600 text-white text-sm rounded-lg font-medium hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 sm:flex-none px-4 py-2 bg-sky-600 text-white text-sm rounded-lg font-medium hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       적용
                     </button>
                     <button
                       onClick={() => setShowDatePicker(false)}
-                      className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                      className="flex-1 sm:flex-none px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-colors"
                     >
                       닫기
                     </button>
@@ -651,18 +650,16 @@ export default function TransactionPage() {
             </div>
 
         {/* 검색/필터 */}
-        <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
+        <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 mb-6 mt-4">
           {/* 모바일에서만 검색/필터 접기/펼치기 헤더 표시 */}
-          <div className="flex items-center justify-between md:hidden">
-            <p className="text-sm font-semibold text-gray-900">검색 / 필터</p>
-
+          <div className="flex items-center justify-between md:hidden cursor-pointer" onClick={() => setIsMobileFilterOpen((prev) => !prev)}>
+            <p className="text-sm font-semibold text-gray-900">검색 및 필터</p>
             <button
               type="button"
-              onClick={() => setIsMobileFilterOpen((prev) => !prev)}
-              className="inline-flex items-center gap-1 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="inline-flex items-center gap-1 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 p-1"
             >
               <ChevronDown
-                size={28}
+                size={22}
                 className={`transition-transform duration-300 ease-in-out ${
                   isMobileFilterOpen ? "rotate-180" : "rotate-0"
                 }`}
@@ -670,38 +667,30 @@ export default function TransactionPage() {
             </button>
           </div>
 
-          {/* 모바일에서 접혀 있을 때 여백 보정 */}
-          <div className="md:hidden" />
-
           <div
             className={`overflow-hidden transition-all duration-300 ease-in-out md:overflow-visible ${
               isMobileFilterOpen
-                ? "max-h-[1000px] opacity-100 mt-4"
+                ? "max-h-[1500px] opacity-100 mt-4"
                 : "max-h-0 opacity-0"
             } md:max-h-none md:opacity-100 md:mt-0`}
           >
-            {/* 데스크탑은 항상 보이고, 모바일은 펼쳤을 때만 보이도록 처리 */}
-            <div
-              className={`flex flex-col gap-3 ${
-                isMobileFilterOpen ? "mt-4 md:mt-0" : "hidden md:flex"
-              }`}
-            >
+            <div className="flex flex-col gap-5">
               {/* 검색 + 결제수단 필터 */}
               <div className="flex flex-col gap-3 md:flex-row">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="text"
                     placeholder="거래 내역 검색..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:bg-white transition-colors"
                   />
                 </div>
                 <select
                   value={selectedAccountId}
                   onChange={(e) => setSelectedAccountId(e.target.value)}
-                  className="py-3 px-3 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500/30 bg-white md:w-48"
+                  className="py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:bg-white transition-colors md:w-56"
                 >
                   <option value="">결제수단 전체</option>
                   {accounts.map((a) => (
@@ -711,38 +700,37 @@ export default function TransactionPage() {
                   ))}
                 </select>
               </div>
-              {/* 데스크탑 */}
-              <div className="hidden md:block">
+
+              {/* 카테고리 필터 섹션 */}
+              <div className="pt-4 border-t border-gray-100">
                 {/* 전체일 때만 전체 / 수입 전체 / 지출 전체 버튼 노출 */}
                 {selectedType === "ALL" ? (
-                  <div className="mb-3 flex flex-wrap gap-2">
+                  <div className="mb-4 flex flex-wrap gap-2">
                     <button
                       onClick={handleSelectAllCategories}
                       className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
                         isAllCategoriesSelected
-                          ? "bg-sky-600 text-white"
+                          ? "bg-gray-800 text-white shadow-sm"
                           : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                     >
                       전체
                     </button>
-
                     <button
                       onClick={handleSelectAllIncomeCategories}
                       className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
                         isAllIncomeCategoriesSelected
-                          ? "bg-emerald-600 text-white"
+                          ? "bg-emerald-600 text-white shadow-sm"
                           : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                       }`}
                     >
                       수입 전체
                     </button>
-
                     <button
                       onClick={handleSelectAllExpenseCategories}
                       className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
                         isAllExpenseCategoriesSelected
-                          ? "bg-sky-600 text-white"
+                          ? "bg-sky-600 text-white shadow-sm"
                           : "bg-sky-50 text-sky-700 hover:bg-sky-100"
                       }`}
                     >
@@ -752,9 +740,9 @@ export default function TransactionPage() {
                 ) : (
                   <button
                     onClick={handleSelectAllCategories}
-                    className={`mb-3 px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
+                    className={`mb-4 px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
                       isAllCategoriesSelected
-                        ? "bg-sky-600 text-white"
+                        ? "bg-gray-800 text-white shadow-sm"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
@@ -764,24 +752,21 @@ export default function TransactionPage() {
 
                 {/* 거래 유형이 전체일 때는 수입 / 지출 카테고리를 섹션으로 분리해서 표시 */}
                 {selectedType === "ALL" ? (
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     {/* 수입 카테고리 섹션 */}
                     <div>
-                      <p className="mb-2 text-xs font-semibold text-gray-500">
-                        수입
-                      </p>
+                      <p className="mb-2.5 text-xs font-semibold text-gray-400">수입 카테고리</p>
                       <div className="flex flex-wrap gap-2">
                         {incomeCategories.map((c) => {
                           const selected = selectedCategoryIds.includes(c.id);
-
                           return (
                             <button
                               key={c.id}
                               onClick={() => toggleCategory(c.id)}
-                              className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
+                              className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
                                 selected
-                                  ? "bg-emerald-600 text-white"
-                                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                  ? "bg-emerald-50 border-emerald-500 text-emerald-700"
+                                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
                               }`}
                             >
                               {c.name}
@@ -793,21 +778,18 @@ export default function TransactionPage() {
 
                     {/* 지출 카테고리 섹션 */}
                     <div>
-                      <p className="mb-2 text-xs font-semibold text-gray-500">
-                        지출
-                      </p>
+                      <p className="mb-2.5 text-xs font-semibold text-gray-400">지출 카테고리</p>
                       <div className="flex flex-wrap gap-2">
                         {expenseCategories.map((c) => {
                           const selected = selectedCategoryIds.includes(c.id);
-
                           return (
                             <button
                               key={c.id}
                               onClick={() => toggleCategory(c.id)}
-                              className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
+                              className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
                                 selected
-                                  ? "bg-sky-600 text-white"
-                                  : "bg-sky-50 text-sky-700 hover:bg-sky-100"
+                                  ? "bg-sky-50 border-sky-500 text-sky-700"
+                                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
                               }`}
                             >
                               {c.name}
@@ -819,148 +801,19 @@ export default function TransactionPage() {
                   </div>
                 ) : (
                   // 거래 유형이 지출/수입으로 선택된 경우에는 기존처럼 한 그룹으로 표시
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {filteredCategories.map((c) => {
                       const selected = selectedCategoryIds.includes(c.id);
-
                       return (
                         <button
                           key={c.id}
                           onClick={() => toggleCategory(c.id)}
-                          className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
-                            selected
-                              ? "bg-sky-600 text-white"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          }`}
-                        >
-                          {c.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* 모바일 */}
-              <div className="md:hidden">
-                {/* 전체일 때만 전체 / 수입 전체 / 지출 전체 버튼 노출 */}
-                {selectedType === "ALL" ? (
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    <button
-                      onClick={handleSelectAllCategories}
-                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
-                        isAllCategoriesSelected
-                          ? "bg-sky-600 text-white"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      전체
-                    </button>
-
-                    <button
-                      onClick={handleSelectAllIncomeCategories}
-                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
-                        isAllIncomeCategoriesSelected
-                          ? "bg-emerald-600 text-white"
-                          : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      }`}
-                    >
-                      수입 전체
-                    </button>
-
-                    <button
-                      onClick={handleSelectAllExpenseCategories}
-                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
-                        isAllExpenseCategoriesSelected
-                          ? "bg-sky-600 text-white"
-                          : "bg-sky-50 text-sky-700 hover:bg-sky-100"
-                      }`}
-                    >
-                      지출 전체
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleSelectAllCategories}
-                    className={`mb-3 px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
-                      isAllCategoriesSelected
-                        ? "bg-sky-600 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    전체
-                  </button>
-                )}
-
-                {/* 모바일도 거래 유형이 전체일 때 수입 / 지출 카테고리를 섹션으로 분리 */}
-                {selectedType === "ALL" ? (
-                  <div className="space-y-4">
-                    {/* 모바일 수입 카테고리 섹션 */}
-                    <div>
-                      <p className="mb-2 text-xs font-semibold text-gray-500">
-                        수입
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {incomeCategories.map((c) => {
-                          const selected = selectedCategoryIds.includes(c.id);
-
-                          return (
-                            <button
-                              key={c.id}
-                              onClick={() => toggleCategory(c.id)}
-                              className={`px-3 py-2 text-sm rounded-lg ${
-                                selected
-                                  ? "bg-emerald-600 text-white"
-                                  : "bg-emerald-50 text-emerald-700"
-                              }`}
-                            >
-                              {c.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* 모바일 지출 카테고리 섹션 */}
-                    <div>
-                      <p className="mb-2 text-xs font-semibold text-gray-500">
-                        지출
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {expenseCategories.map((c) => {
-                          const selected = selectedCategoryIds.includes(c.id);
-
-                          return (
-                            <button
-                              key={c.id}
-                              onClick={() => toggleCategory(c.id)}
-                              className={`px-3 py-2 text-sm rounded-lg ${
-                                selected
-                                  ? "bg-sky-600 text-white"
-                                  : "bg-sky-50 text-sky-700"
-                              }`}
-                            >
-                              {c.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  // 모바일도 거래 유형이 지출/수입으로 선택된 경우에는 기존처럼 한 그룹으로 표시
-                  <div className="flex flex-wrap gap-2">
-                    {filteredCategories.map((c) => {
-                      const selected = selectedCategoryIds.includes(c.id);
-
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => toggleCategory(c.id)}
-                          className={`px-3 py-2 text-sm rounded-lg ${
-                            selected
-                              ? "bg-sky-600 text-white"
-                              : "bg-gray-100 text-gray-700"
+                          className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
+                             selected
+                               ? selectedType === "INCOME"
+                                 ? "bg-emerald-50 border-emerald-500 text-emerald-700"
+                                 : "bg-sky-50 border-sky-500 text-sky-700"
+                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
                           }`}
                         >
                           {c.name}
