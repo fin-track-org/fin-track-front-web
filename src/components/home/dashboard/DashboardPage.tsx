@@ -274,7 +274,11 @@ export default function DashboardPage() {
         />
 
         {/* Right - 월 예산 및 사용 현황 */}
-        <BudgetBar month={selectedMonth} />
+        <div className="xl:flex-1 xl:relative">
+          <div className="h-full w-full xl:absolute xl:inset-0">
+            <BudgetBar month={selectedMonth} />
+          </div>
+        </div>
       </div>
 
       {/* 4. 카테고리별 지출 + 결제수단별 지출 */}
