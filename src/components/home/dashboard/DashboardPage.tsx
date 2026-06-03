@@ -20,6 +20,7 @@ import { getDashboardExpenseAccount } from "@/src/lib/api/dashboard/account";
 import { getAccounts } from "@/src/lib/api/accountApi";
 import { AuthError } from "@/src/lib/api/authError";
 import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
+import { getRecentTransactions } from "@/src/lib/api/dashboard/recent";
 import { useUserSettings } from "@/src/hook/useUserSettings";
 
 export default function DashboardPage() {
