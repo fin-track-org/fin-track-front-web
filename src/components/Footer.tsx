@@ -55,15 +55,17 @@ export default function Footer() {
             </a>
 
             <a 
-              href="mailto:support@lazy-kit.com" 
-              className="flex items-center gap-4 p-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors"
+              href="mailto:lazykit.official@gmail.com"
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="w-full flex items-center gap-4 p-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors"
             >
               <div className="w-12 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center shrink-0 shadow-sm">
                 <Mail className="text-gray-600" size={24} />
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-gray-900">이메일 문의</span>
-                <span className="text-xs text-gray-600">support@lazy-kit.com</span>
+                <span className="text-xs text-gray-600">lazykit.official@gmail.com</span>
               </div>
             </a>
           </div>
