@@ -23,10 +23,12 @@ import { getRecentTransactions } from "@/src/lib/api/dashboard/recent";
 import { quickAddTransaction } from "@/src/lib/api/transaction/transactions";
 import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
 import { Plus, X } from "lucide-react";
+import { useUserSettings } from "@/src/hook/useUserSettings";
 
 export default function DashboardPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { userSetting } = useUserSettings();
 
   // 날짜
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -252,13 +254,12 @@ export default function DashboardPage() {
       />
 
       {/* 2. 결제수단별 잔액 카드 */}
-      {/* FIXME 금액 채우기, 계좌 간 금액 이동 등의 기능이 추가되기 전까지 숨김 (보류) */}
-      {/* {balanceData && (
+      {userSetting?.ledgerMode === "ASSET_MANAGEMENT" && balanceData && (
         <BalanceCard
           totalBalance={balanceData.totalBalance}
           paymentMethods={balanceData.paymentMethods}
         />
-      )} */}
+      )}
 
       {/* 3. 달력 + 예산 현황 */}
       <div className="flex flex-col xl:flex-row xl:items-stretch gap-6">
