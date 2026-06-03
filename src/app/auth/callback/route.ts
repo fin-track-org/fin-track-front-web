@@ -36,7 +36,6 @@ export async function GET(request: Request) {
             if (action === 'link') {
                 const identities = user.identities ?? [];
                 const linkedProviders = identities.map((id) => id.provider);
-                const isKakao = linkedProviders.includes('kakao');
 
                 const availableAvatars: Record<string, string> = {};
                 let latestAvatarUrl: string | null = null;
@@ -59,7 +58,6 @@ export async function GET(request: Request) {
                         },
                         body: JSON.stringify({ 
                             avatarUrl: latestAvatarUrl, 
-                            isKakao,
                             linkedProviders,
                             availableAvatars
                         }),

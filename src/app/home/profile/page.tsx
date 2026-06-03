@@ -631,8 +631,7 @@ export default function ProfilePage() {
 
       await updateMe({ 
           linkedProviders, 
-          availableAvatars,
-          isKakao: linkedProviders.includes("kakao") // 백엔드 마이그레이션 호환성
+          availableAvatars
       });
 
       queryClient.invalidateQueries({ queryKey: ["me"] });
@@ -890,7 +889,7 @@ export default function ProfilePage() {
                   <span>카카오</span>
                 </div>
                 
-                {data.linkedProviders?.includes('kakao') || data.isKakao ? (
+                {data.linkedProviders?.includes('kakao') ? (
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-500">연동됨</span>
                     <button
