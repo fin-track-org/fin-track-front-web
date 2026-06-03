@@ -20,6 +20,7 @@ import {
   ChevronDown,
   AlertTriangle,
   Settings,
+  Camera,
 } from "lucide-react";
 import { fetchMe, updateMe, deleteMe } from "@/src/lib/api/userApi";
 import {
@@ -44,6 +45,18 @@ import {
   setDefaultAccount,
 } from "@/src/lib/api/accountApi";
 import { createClient } from "@/src/lib/supabase/client";
+
+const BUILT_IN_AVATARS = [
+  "https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=Felix",
+  "https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=Aneka",
+  "https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=Garfield",
+  "https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=Tinkerbell",
+  "https://api.dicebear.com/7.x/adventurer-neutral/svg?seed=Leo",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Lucky",
+  "https://api.dicebear.com/7.x/bottts/svg?seed=Midnight",
+  "https://api.dicebear.com/7.x/identicon/svg?seed=Bandit",
+];
+
 import { useToast } from "@/src/hook/useToast";
 import { useUserSettings } from "@/src/hook/useUserSettings";
 
@@ -497,6 +510,7 @@ export default function ProfilePage() {
   /* ── 사용자 정보 ── */
   const [isEditing, setIsEditing] = useState(false);
   const [nicknameInput, setNicknameInput] = useState("");
+  const [showAvatarSelector, setShowAvatarSelector] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["me"],
@@ -561,6 +575,16 @@ export default function ProfilePage() {
     mutateNickname({ nickname: trimmed });
   };
 
+  const { mutate: mutateAvatar, isPending: isAvatarUpdating } = useMutation({
+    mutationFn: updateMe,
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["me"], updated);
+      toast.success("프로필 사진이 변경되었습니다.");
+      setShowAvatarSelector(false);
+    },
+    onError: (e: Error) => toast.error(`변경 실패: ${e.message}`)
+  });
+
   const [isLinking, setIsLinking] = useState<string | null>(null);
 
   const handleLink = async (provider: string) => {
@@ -623,15 +647,15 @@ export default function ProfilePage() {
       const newIdentities = identities.filter((id) => id.provider !== provider);
       const linkedProviders = newIdentities.map(id => id.provider);
       const availableAvatars: Record<string, string> = {};
-      
+
       newIdentities.forEach((id) => {
-         const url = id.identity_data?.avatar_url ?? id.identity_data?.picture;
-         if (url) availableAvatars[id.provider] = url;
+        const url = id.identity_data?.avatar_url ?? id.identity_data?.picture;
+        if (url) availableAvatars[id.provider] = url;
       });
 
-      await updateMe({ 
-          linkedProviders, 
-          availableAvatars
+      await updateMe({
+        linkedProviders,
+        availableAvatars
       });
 
       queryClient.invalidateQueries({ queryKey: ["me"] });
@@ -821,12 +845,32 @@ export default function ProfilePage() {
       {/* ── 프로필 카드 ── */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="flex items-center gap-4 px-6 py-5 border-b border-gray-100">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-sky-500 to-purple-500 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
-            {data.nickname?.[0] || "G"}
-          </div>
+          <button
+            onClick={() => {
+              if (Object.keys(data.availableAvatars || {}).length > 0) {
+                setShowAvatarSelector(true);
+              } else {
+                toast.error("연동된 소셜 계정의 프로필 사진이 없습니다. 소셜 연동을 추가해 보세요!");
+              }
+            }}
+            className="relative group w-14 h-14 rounded-full flex-shrink-0 focus:outline-none transition-transform hover:scale-105"
+          >
+            {data.avatarUrl ? (
+              <img src={data.avatarUrl} alt="profile" className="w-14 h-14 rounded-full object-cover shadow-sm ring-2 ring-gray-100" />
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-sky-500 to-purple-500 flex items-center justify-center text-white text-xl font-bold shadow-sm ring-2 ring-gray-100">
+                {data.nickname?.[0] || "G"}
+              </div>
+            )}
+
+            <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
+              <Camera className="w-5 h-5 text-white" />
+            </div>
+          </button>
+
           <div>
-            <p className="font-semibold text-gray-900">{data.nickname || "Guest"}</p>
-            <p className="text-xs text-gray-400 mt-0.5">Free 플랜</p>
+            <p className="font-semibold text-gray-900 text-lg">{data.nickname || "Guest"}</p>
+            <p className="text-xs text-sky-600 font-medium mt-0.5 bg-sky-50 inline-block px-2 py-0.5 rounded-full">Free 플랜</p>
           </div>
         </div>
 
@@ -876,7 +920,7 @@ export default function ProfilePage() {
             <dt className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-2">
               <Mail className="w-3.5 h-3.5" />계정 연동 상태
             </dt>
-            
+
             <dd className="space-y-3">
               {/* 카카오 연동 블록 */}
               <div className="flex items-center justify-between text-sm font-medium text-gray-800">
@@ -888,7 +932,7 @@ export default function ProfilePage() {
                   </span>
                   <span>카카오</span>
                 </div>
-                
+
                 {data.linkedProviders?.includes('kakao') ? (
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-500">연동됨</span>
@@ -916,15 +960,15 @@ export default function ProfilePage() {
                 <div className="flex items-center gap-2">
                   <span className="w-8 h-8 flex items-center justify-center bg-gray-50 border border-gray-200 rounded-full">
                     <svg className="w-4 h-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                     </svg>
                   </span>
                   <span>Google</span>
                 </div>
-                
+
                 {data.linkedProviders?.includes('google') ? (
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-500">연동됨</span>
@@ -1333,7 +1377,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* ── 회원 탈퇴 확인 모달 ── */}
+      {/* ── 회원 탈퇴 모달 ── */}
       {showWithdrawModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 flex flex-col gap-5">
@@ -1378,6 +1422,79 @@ export default function ProfilePage() {
                 {isWithdrawing ? "처리 중..." : "탈퇴 확인"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 아바타 선택 모달 ── */}
+      {showAvatarSelector && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-gray-900/40 backdrop-blur-sm"
+          onClick={() => setShowAvatarSelector(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 shadow-2xl max-w-[320px] w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold text-gray-900 mb-1 text-center">프로필 사진 변경</h3>
+            <p className="text-xs text-gray-500 mb-4 text-center">원하는 프로필 사진을 선택해 주세요.</p>
+
+            <div className="flex flex-wrap justify-center gap-3 max-h-[300px] overflow-y-auto py-2">
+              {/* 소셜 연동 아바타들 */}
+              {Object.entries(data.availableAvatars || {}).map(([provider, url]) => (
+                <button
+                  key={provider}
+                  onClick={() => mutateAvatar({ avatarUrl: url })}
+                  disabled={isAvatarUpdating}
+                  className={`relative w-14 h-14 rounded-full border-4 overflow-hidden transition-all duration-200 ${data.avatarUrl === url ? 'border-sky-500 scale-110 shadow-lg' : 'border-transparent hover:scale-105 hover:shadow-md'}`}
+                >
+                  <img src={url} alt={provider} className="w-full h-full object-cover" />
+                  {data.avatarUrl === url && (
+                    <div className="absolute inset-0 bg-sky-500/20 flex items-center justify-center">
+                      <Check className="w-5 h-5 text-white drop-shadow-md" />
+                    </div>
+                  )}
+                </button>
+              ))}
+
+              {/* 기본 제공 아바타 (DiceBear) */}
+              {BUILT_IN_AVATARS.map((url, idx) => (
+                <button
+                  key={`builtin-${idx}`}
+                  onClick={() => mutateAvatar({ avatarUrl: url })}
+                  disabled={isAvatarUpdating}
+                  className={`relative w-14 h-14 rounded-full border-4 overflow-hidden bg-gray-50 transition-all duration-200 ${data.avatarUrl === url ? 'border-sky-500 scale-110 shadow-lg' : 'border-transparent hover:scale-105 hover:shadow-md'}`}
+                >
+                  <img src={url} alt={`기본 프사 ${idx}`} className="w-full h-full object-cover" />
+                  {data.avatarUrl === url && (
+                    <div className="absolute inset-0 bg-sky-500/20 flex items-center justify-center">
+                      <Check className="w-5 h-5 text-white drop-shadow-md" />
+                    </div>
+                  )}
+                </button>
+              ))}
+
+              {/* 기본 아바타 (텍스트) */}
+              <button
+                onClick={() => mutateAvatar({ avatarUrl: "" })}
+                disabled={isAvatarUpdating}
+                className={`relative w-14 h-14 rounded-full border-4 flex items-center justify-center bg-gradient-to-br from-sky-500 to-purple-500 transition-all duration-200 ${!data.avatarUrl ? 'border-sky-500 scale-110 shadow-lg' : 'border-transparent hover:scale-105 hover:shadow-md'}`}
+              >
+                <span className="text-white text-xl font-bold">{data.nickname?.[0] || "G"}</span>
+                {!data.avatarUrl && (
+                  <div className="absolute inset-0 bg-sky-500/20 flex items-center justify-center rounded-full">
+                    <Check className="w-5 h-5 text-white drop-shadow-md" />
+                  </div>
+                )}
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowAvatarSelector(false)}
+              className="mt-6 w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-semibold rounded-xl transition-colors"
+            >
+              닫기
+            </button>
           </div>
         </div>
       )}

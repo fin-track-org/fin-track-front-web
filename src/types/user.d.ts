@@ -2,7 +2,7 @@ interface MeResponse {
   id: string;
   email: string;
   nickname: string;
-  profileImageUrl?: string | null;
+  avatarUrl?: string | null;
   linkedProviders?: string[];
   availableAvatars?: Record<string, string>;
   createdAt: string | null;
