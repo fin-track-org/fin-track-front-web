@@ -55,7 +55,7 @@ export default function Sidebar() {
   const SidebarContent = (
     <aside className="w-64 flex-1 bg-white flex flex-col">
       {/* Logo */}
-      <div className="hidden lg:block p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-gray-200 flex justify-center lg:justify-start">
         <Image src={logoImg} alt="게으른 가계부 로고" className="rounded-lg w-40 h-auto" />
       </div>
 
@@ -118,12 +118,11 @@ export default function Sidebar() {
     <>
       {/* ===== 모바일 헤더 ===== */}
       <header className="lg:hidden h-15 flex items-center justify-between gap-2 p-4 border-b border-gray-200 bg-white">
-        <h1 className="flex items-center gap-1 text-sky-700">
-          <DollarSign className="w-5 h-5" />
-          <span className="text-xl font-bold">게으른 가계부</span>
-        </h1>
+        <div className="flex items-center">
+          <Image src={logoImg} alt="게으른 가계부 로고" className="rounded-lg w-28 h-auto" />
+        </div>
         <button onClick={() => setIsOpen(true)}>
-          <Menu className="text-gray-700" />
+          <Menu className="text-gray-700 w-6 h-6" />
         </button>
       </header>
 
