@@ -1,4 +1,5 @@
 import Sidebar from "@/src/components/home/sidebar/Sidebar";
+import GlobalQuickAdd from "@/src/components/home/GlobalQuickAdd";
 
 export default function DashboardLayout({
   children,
@@ -14,6 +15,9 @@ export default function DashboardLayout({
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">{children}</main>
       </div>
+      
+      {/* 글로벌 빠른 추가 모달 (FAB) */}
+      <GlobalQuickAdd />
     </div>
   );
 }
