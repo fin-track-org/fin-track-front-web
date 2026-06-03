@@ -19,3 +19,13 @@ interface ApiResponse<T> {
   message: string;
   data: T;
 }
+
+type LedgerMode = "SIMPLE" | "ASSET_MANAGEMENT";
+
+interface UserSettingRes {
+  ledgerMode: LedgerMode;
+}
+
+interface UserSettingModeUpdateReq {
+  ledgerMode: LedgerMode;
+}
