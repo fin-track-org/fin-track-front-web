@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 // import Link from 'next/link';
 import Image from 'next/image';
 import logoImg from "@/public/images/logo.jpg";
+import Footer from '@/src/components/Footer';
 
 export default function LandingPage() {
   const [showBanner, setShowBanner] = useState(false);
@@ -155,9 +156,7 @@ export default function LandingPage() {
       </main>
 
       {/* ===== 푸터 ===== */}
-      <footer className="py-8 text-center text-gray-400 text-xs bg-white border-t border-gray-100">
-        &copy; {new Date().getFullYear()} 게으른 가계부. All rights reserved.
-      </footer>
+      <Footer />
     </div>
   );
 }
