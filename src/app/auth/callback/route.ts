@@ -32,45 +32,54 @@ export async function GET(request: Request) {
 
         if (!error && user && session) {
 
-            // 분기 A: 마이페이지에서 소셜 연동(link) 버튼을 통해 온 경우
-            if (action === 'link') {
-                const identities = user.identities ?? [];
-                const linkedProviders = identities.map((id) => id.provider);
+            // 💡 [핵심 버그 수정]: 'link' 액션 여부와 상관없이 무조건 현재 user.identities를 파싱합니다.
+            // (동일 이메일로 가입해 Supabase가 자동 연동(Update)한 경우에도 DB를 최신 상태로 동기화하기 위함)
+            const identities = user.identities ?? [];
+            const linkedProviders = identities.map((id) => id.provider);
 
-                const availableAvatars: Record<string, string> = {};
-                let latestAvatarUrl: string | null = null;
+            const availableAvatars: Record<string, string> = {};
+            let latestAvatarUrl: string | null = null;
 
-                // 모든 identity를 순회하며 아바타 추출
-                identities.forEach((id) => {
-                    const url = id.identity_data?.avatar_url ?? id.identity_data?.picture;
-                    if (url) {
-                        availableAvatars[id.provider] = url;
-                        latestAvatarUrl = url; // 배열의 마지막 요소(보통 방금 연동한 계정)의 프사로 덮어쓰기
-                    }
-                });
-
-                try {
-                    await fetch(`${SPRING_BOOT_URL}/api/v1/users/me`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${session.access_token}`,
-                        },
-                        body: JSON.stringify({ 
-                            avatarUrl: latestAvatarUrl, 
-                            linkedProviders,
-                            availableAvatars
-                        }),
-                    });
-                } catch (e) {
-                    console.error('카카오 연동 사용자 정보 업데이트 실패:', e);
+            // 모든 identity를 순회하며 아바타 추출
+            identities.forEach((id) => {
+                const url = id.identity_data?.avatar_url ?? id.identity_data?.picture;
+                if (url) {
+                    availableAvatars[id.provider] = url;
+                    latestAvatarUrl = url;
                 }
+            });
 
-                return NextResponse.redirect(`${actualOrigin}/home/profile`);
+            // PUT 요청 Payload 구성
+            const payload: any = {
+                linkedProviders,
+                availableAvatars
+            };
+            
+            // 마이페이지에서 명시적으로 연동(link)을 누른 경우에만, 프사를 새로 연동한 계정 프사로 덮어씌웁니다.
+            if (action === 'link') {
+                payload.avatarUrl = latestAvatarUrl;
             }
 
-            // 분기 B: 일반 카카오 로그인/회원가입인 경우
-            return NextResponse.redirect(`${actualOrigin}${next}`);
+            try {
+                // 백엔드에 최신 소셜 계정 상태 동기화
+                await fetch(`${SPRING_BOOT_URL}/api/v1/users/me`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify(payload),
+                });
+            } catch (e) {
+                console.error('소셜 계정 상태 동기화 실패:', e);
+            }
+
+            // 분기 처리: 마이페이지 연동 vs 일반 로그인
+            if (action === 'link') {
+                return NextResponse.redirect(`${actualOrigin}/home/profile`);
+            } else {
+                return NextResponse.redirect(`${actualOrigin}${next}`);
+            }
 
         } else {
             console.error('세션 교환 에러:', error?.message);
