@@ -19,6 +19,7 @@ import {
   Tags,
   ChevronDown,
   AlertTriangle,
+  Settings,
 } from "lucide-react";
 import { fetchMe, updateMe, deleteMe } from "@/src/lib/api/userApi";
 import {
@@ -44,6 +45,7 @@ import {
 } from "@/src/lib/api/accountApi";
 import { createClient } from "@/src/lib/supabase/client";
 import { useToast } from "@/src/hook/useToast";
+import { useUserSettings } from "@/src/hook/useUserSettings";
 
 const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   CASH: "현금",
@@ -503,6 +505,13 @@ export default function ProfilePage() {
     retry: false,
   });
 
+  const {
+    userSetting,
+    isLoading: isSettingLoading,
+    changeLedgerMode,
+    isUpdating: isSettingUpdating,
+  } = useUserSettings();
+
   // 💡 [추가할 부분] URL Hash에 담긴 Supabase 에러를 잡아서 Toast 띄우고 청소하기!
   useEffect(() => {
     const hash = window.location.hash; // 예: #error=server_error&error_code=...
@@ -775,7 +784,7 @@ export default function ProfilePage() {
   };
 
   /* ── 로딩 ── */
-  if (isLoading) {
+  if (isLoading || isSettingLoading) {
     return (
       <div className="space-y-6 max-w-xl">
         <Skeleton className="h-7 w-32" />
@@ -911,6 +920,33 @@ export default function ProfilePage() {
           <div className="px-6 py-5">
             <dt className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-1"><Clock className="w-3.5 h-3.5" />정보 수정일</dt>
             <dd className="text-sm font-medium text-gray-800">{formatDate(data.updatedAt)}</dd>
+          </div>
+
+          {/* 가계부 모드 */}
+          <div className="flex items-center justify-between px-6 py-5">
+            <div>
+              <dt className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-1">
+                <Settings className="w-3.5 h-3.5" />가계부 모드
+              </dt>
+              <dd className="text-sm font-medium text-gray-800">
+                {userSetting?.ledgerMode === "ASSET_MANAGEMENT" ? "자산 관리 모드" : "간편 모드"}
+              </dd>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={userSetting?.ledgerMode === "ASSET_MANAGEMENT"}
+                  disabled={isSettingUpdating}
+                  onChange={(e) => {
+                    const newMode = e.target.checked ? "ASSET_MANAGEMENT" : "SIMPLE";
+                    changeLedgerMode(newMode);
+                  }}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600 disabled:opacity-50"></div>
+              </label>
+            </div>
           </div>
         </dl>
       </div>
