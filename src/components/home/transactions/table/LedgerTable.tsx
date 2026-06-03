@@ -202,11 +202,20 @@ export default function LedgerTable({
     return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a));
   }, [localTransactions]);
 
-  const handleDragEnd = (event: DragEndEvent, date: string) => {
+  const handleDragEnd = (event: DragEndEvent, date?: string) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const dateItems = localTransactions.filter((t) => t.date === date);
+    const draggedItem = localTransactions.find((t) => t.id === active.id);
+    if (!draggedItem) return;
+
+    const targetDate = date || draggedItem.date;
+    const dateItems = localTransactions.filter((t) => t.date === targetDate);
+    
+    // Prevent dragging between different dates
+    const overItem = localTransactions.find((t) => t.id === over.id);
+    if (overItem && overItem.date !== targetDate) return;
+
     const oldIndex = dateItems.findIndex((t) => t.id === active.id);
     const newIndex = dateItems.findIndex((t) => t.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
@@ -219,7 +228,7 @@ export default function LedgerTable({
       const result: Transaction[] = [];
       let inserted = false;
       for (const t of prev) {
-        if (t.date === date) {
+        if (t.date === targetDate) {
           if (!inserted) {
             result.push(...reordered);
             inserted = true;
@@ -232,13 +241,13 @@ export default function LedgerTable({
     });
 
     // Debounced API call (1.5s after last drag in this date group)
-    const existing = debounceRefs.current.get(date);
+    const existing = debounceRefs.current.get(targetDate);
     if (existing) clearTimeout(existing);
     debounceRefs.current.set(
-      date,
+      targetDate,
       setTimeout(() => {
         onReorder(reorderedIds);
-        debounceRefs.current.delete(date);
+        debounceRefs.current.delete(targetDate);
       }, 1500),
     );
   };
@@ -311,8 +320,14 @@ export default function LedgerTable({
       </div>
 
       {/* ✅ 데스크탑: 테이블 */}
-      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-        <table className="w-full min-w-[900px]">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+      >
+        <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+          <table className="w-full min-w-[900px]">
           <thead className="bg-gray-50 text-gray-500 text-sm">
             <tr>
               <th className="px-3 py-3 w-8" />
@@ -383,14 +398,7 @@ export default function LedgerTable({
           {!loading &&
             !error &&
             groupedByDate.map(([date, items]) => (
-              <DndContext
-                key={date}
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={(e) => handleDragEnd(e, date)}
-                modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-              >
-                <tbody>
+                <tbody key={date}>
                   <tr>
                     <td
                       colSpan={8}
@@ -413,10 +421,10 @@ export default function LedgerTable({
                     ))}
                   </SortableContext>
                 </tbody>
-              </DndContext>
             ))}
         </table>
       </div>
+      </DndContext>
     </>
   );
 }
