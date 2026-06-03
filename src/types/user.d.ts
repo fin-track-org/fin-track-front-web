@@ -4,6 +4,8 @@ interface MeResponse {
   nickname: string;
   profileImageUrl?: string | null;
   isKakao?: boolean | null;
+  linkedProviders?: string[];
+  availableAvatars?: Record<string, string>;
   createdAt: string | null;
   updatedAt: string | null;
 }
@@ -11,6 +13,8 @@ interface MeResponse {
 interface UserUpdateReq {
   nickname?: string;
   isKakao?: boolean | null;
+  linkedProviders?: string[];
+  availableAvatars?: Record<string, string>;
   avatarUrl?: string | null;
 }
 

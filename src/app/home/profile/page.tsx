@@ -497,7 +497,6 @@ export default function ProfilePage() {
   /* ── 사용자 정보 ── */
   const [isEditing, setIsEditing] = useState(false);
   const [nicknameInput, setNicknameInput] = useState("");
-  const [isLinking, setIsLinking] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["me"],
@@ -562,85 +561,88 @@ export default function ProfilePage() {
     mutateNickname({ nickname: trimmed });
   };
 
-  const handleKakaoLink = async () => {
+  const [isLinking, setIsLinking] = useState<string | null>(null);
 
+  const handleLink = async (provider: string) => {
     try {
-      setIsLinking(true);
-      const supabase = createClient(); // 프론트엔드용 Supabase
-
-      // 💡 1. 로컬 스토리지에 있는 내 로그인 세션을 강제로 멱살 잡고 끌고 옵니다.
+      setIsLinking(provider);
+      const supabase = createClient();
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError || !session) {
         throw new Error("로그인 세션이 만료되었습니다. 다시 로그인해 주세요.");
       }
 
-      // 💡 2. 확실하게 쥔 세션을 바탕으로 카카오 연동 URL을 발급받습니다.
       const { data, error } = await supabase.auth.linkIdentity({
-        provider: "kakao",
+        provider: provider as any,
         options: {
-          // 콜백 라우터로 리다이렉트 시, query에 action=link를 붙여서 "연동 중"임을 알립니다.
           redirectTo: `${window.location.origin}/auth/callback?action=link`,
         },
       });
 
       if (error) throw error;
-
-      // 💡 3. 카카오 로그인 페이지 주소가 도착하면, 그곳으로 유저를 보내버립니다.
-      if (data?.url) {
-        window.location.href = data.url;
-      }
-
+      if (data?.url) window.location.href = data.url;
     } catch (err: unknown) {
-      console.error("🚨 카카오 연동 에러 상세 원인:", err);
+      console.error(`🚨 ${provider} 연동 에러:`, err);
       const message = err instanceof Error ? err.message : "알 수 없는 오류";
       toast.error(
         message.includes("already linked")
-          ? "이 카카오 계정은 이미 다른 가계부와 연동되어 있습니다."
+          ? `이 ${provider === 'kakao' ? '카카오' : '구글'} 계정은 이미 다른 가계부와 연동되어 있습니다.`
           : `연동 실패: ${message}`
       );
-      setIsLinking(false);
+      setIsLinking(null);
     }
-
   };
 
-  const [isUnlinking, setIsUnlinking] = useState(false);
+  const [isUnlinking, setIsUnlinking] = useState<string | null>(null);
 
-  const handleKakaoUnlink = async () => {
+  const handleUnlink = async (provider: string) => {
     try {
-      setIsUnlinking(true);
+      setIsUnlinking(provider);
       const supabase = createClient();
-
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) throw new Error("사용자 정보를 확인할 수 없습니다.");
 
       const identities = user.identities ?? [];
-      const isOnlyKakao = identities.length === 1 && identities[0].provider === "kakao";
+      const isOnlyProvider = identities.length === 1 && identities[0].provider === provider;
 
-      if (isOnlyKakao) {
-        toast.error("카카오 로그인으로만 가입된 계정입니다. 연동을 해제하시려면 화면 하단의 [회원 탈퇴]를 이용해 주세요.");
+      if (isOnlyProvider) {
+        toast.error(`현재 ${provider === 'kakao' ? '카카오' : '구글'} 계정으로만 로그인되어 있습니다. 연동을 해제하시려면 화면 하단의 [회원 탈퇴]를 이용해 주세요.`);
         return;
       }
 
-      const kakaoIdentity = identities.find((id) => id.provider === "kakao");
-      if (!kakaoIdentity) {
-        toast.error("연결된 카카오 계정이 없습니다.");
+      const targetIdentity = identities.find((id) => id.provider === provider);
+      if (!targetIdentity) {
+        toast.error(`연결된 ${provider === 'kakao' ? '카카오' : '구글'} 계정이 없습니다.`);
         return;
       }
 
-      const { error: unlinkError } = await supabase.auth.unlinkIdentity(kakaoIdentity);
+      const { error: unlinkError } = await supabase.auth.unlinkIdentity(targetIdentity);
       if (unlinkError) throw unlinkError;
 
-      await updateMe({ isKakao: false, avatarUrl: null });
+      const newIdentities = identities.filter((id) => id.provider !== provider);
+      const linkedProviders = newIdentities.map(id => id.provider);
+      const availableAvatars: Record<string, string> = {};
+      
+      newIdentities.forEach((id) => {
+         const url = id.identity_data?.avatar_url ?? id.identity_data?.picture;
+         if (url) availableAvatars[id.provider] = url;
+      });
+
+      await updateMe({ 
+          linkedProviders, 
+          availableAvatars,
+          isKakao: linkedProviders.includes("kakao") // 백엔드 마이그레이션 호환성
+      });
 
       queryClient.invalidateQueries({ queryKey: ["me"] });
-      toast.success("카카오 연동이 해제되었습니다.");
+      toast.success(`${provider === 'kakao' ? '카카오' : '구글'} 연동이 해제되었습니다.`);
     } catch (err: unknown) {
-      console.error("🚨 카카오 연동 해제 실패:", err);
+      console.error(`🚨 ${provider} 연동 해제 실패:`, err);
       const message = err instanceof Error ? err.message : "알 수 없는 오류";
       toast.error(`해제 실패: ${message}`);
     } finally {
-      setIsUnlinking(false);
+      setIsUnlinking(null);
     }
   };
 
@@ -870,43 +872,81 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* 이메일 */}
+          {/* 소셜 계정 연동 */}
           <div className="px-6 py-5">
-            <dt className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-1">
-              <Mail className="w-3.5 h-3.5" />이메일
+            <dt className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-2">
+              <Mail className="w-3.5 h-3.5" />계정 연동 상태
             </dt>
-            {/* 💡 핵심: 겉 div가 아니라, dd 태그에 flex와 justify-between을 줍니다! */}
-            <dd className="flex items-center justify-between text-sm font-medium text-gray-800">
-              <span className="truncate">{data.email}</span>
-
-              {data.isKakao ? (
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="flex items-center gap-1 bg-[#FEE500] text-[#191919] text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+            
+            <dd className="space-y-3">
+              {/* 카카오 연동 블록 */}
+              <div className="flex items-center justify-between text-sm font-medium text-gray-800">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 flex items-center justify-center bg-[#FEE500] rounded-full">
+                    <svg className="w-4 h-4 text-[#191919]" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.558 1.712 4.8 4.32 6.04-.173.579-.623 2.098-.713 2.42-.113.407.135.402.285.302.119-.079 1.907-1.282 2.662-1.79.79.117 1.606.18 2.446.18 4.97 0 9-3.186 9-7.116C21 6.185 16.97 3 12 3z" />
                     </svg>
-                    카카오 연동됨
                   </span>
-                  <button
-                    onClick={handleKakaoUnlink}
-                    disabled={isUnlinking}
-                    className="text-[11px] font-medium text-gray-400 hover:text-gray-600 transition-colors underline underline-offset-2 disabled:opacity-50"
-                  >
-                    {isUnlinking ? "해제 중..." : "해제"}
-                  </button>
+                  <span>카카오</span>
                 </div>
-              ) : (
-                <button
-                  onClick={handleKakaoLink}
-                  disabled={isLinking}
-                  className="flex items-center gap-1 bg-[#FEE500] hover:bg-[#FADA0A] text-[#191919] text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors flex-shrink-0 disabled:opacity-50"
-                >
-                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.558 1.712 4.8 4.32 6.04-.173.579-.623 2.098-.713 2.42-.113.407.135.402.285.302.119-.079 1.907-1.282 2.662-1.79.79.117 1.606.18 2.446.18 4.97 0 9-3.186 9-7.116C21 6.185 16.97 3 12 3z" />
-                  </svg>
-                  {isLinking ? "연동 중..." : "카카오 연동하기"}
-                </button>
-              )}
+                
+                {data.linkedProviders?.includes('kakao') || data.isKakao ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500">연동됨</span>
+                    <button
+                      onClick={() => handleUnlink('kakao')}
+                      disabled={isUnlinking === 'kakao'}
+                      className="text-[11px] font-medium text-gray-400 hover:text-gray-600 transition-colors underline underline-offset-2 disabled:opacity-50"
+                    >
+                      {isUnlinking === 'kakao' ? "해제 중..." : "해제"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleLink('kakao')}
+                    disabled={isLinking === 'kakao'}
+                    className="text-[11px] font-medium text-sky-600 hover:text-sky-700 bg-sky-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {isLinking === 'kakao' ? "연동 중..." : "연동하기"}
+                  </button>
+                )}
+              </div>
+
+              {/* 구글 연동 블록 */}
+              <div className="flex items-center justify-between text-sm font-medium text-gray-800">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 flex items-center justify-center bg-gray-50 border border-gray-200 rounded-full">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                  </span>
+                  <span>Google</span>
+                </div>
+                
+                {data.linkedProviders?.includes('google') ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500">연동됨</span>
+                    <button
+                      onClick={() => handleUnlink('google')}
+                      disabled={isUnlinking === 'google'}
+                      className="text-[11px] font-medium text-gray-400 hover:text-gray-600 transition-colors underline underline-offset-2 disabled:opacity-50"
+                    >
+                      {isUnlinking === 'google' ? "해제 중..." : "해제"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleLink('google')}
+                    disabled={isLinking === 'google'}
+                    className="text-[11px] font-medium text-sky-600 hover:text-sky-700 bg-sky-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {isLinking === 'google' ? "연동 중..." : "연동하기"}
+                  </button>
+                )}
+              </div>
             </dd>
           </div>
 

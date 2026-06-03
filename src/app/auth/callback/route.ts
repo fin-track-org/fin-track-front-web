@@ -32,13 +32,23 @@ export async function GET(request: Request) {
 
         if (!error && user && session) {
 
-            // 분기 A: 마이페이지에서 카카오 연동 버튼을 통해 온 경우
+            // 분기 A: 마이페이지에서 소셜 연동(link) 버튼을 통해 온 경우
             if (action === 'link') {
-                const kakaoIdentity = user.identities?.find((id: { provider: string }) => id.provider === 'kakao');
-                const avatarUrl =
-                    kakaoIdentity?.identity_data?.avatar_url ??
-                    kakaoIdentity?.identity_data?.picture ??
-                    null;
+                const identities = user.identities ?? [];
+                const linkedProviders = identities.map((id) => id.provider);
+                const isKakao = linkedProviders.includes('kakao');
+
+                const availableAvatars: Record<string, string> = {};
+                let latestAvatarUrl: string | null = null;
+
+                // 모든 identity를 순회하며 아바타 추출
+                identities.forEach((id) => {
+                    const url = id.identity_data?.avatar_url ?? id.identity_data?.picture;
+                    if (url) {
+                        availableAvatars[id.provider] = url;
+                        latestAvatarUrl = url; // 배열의 마지막 요소(보통 방금 연동한 계정)의 프사로 덮어쓰기
+                    }
+                });
 
                 try {
                     await fetch(`${SPRING_BOOT_URL}/api/v1/users/me`, {
@@ -47,7 +57,12 @@ export async function GET(request: Request) {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${session.access_token}`,
                         },
-                        body: JSON.stringify({ avatarUrl, isKakao: true }),
+                        body: JSON.stringify({ 
+                            avatarUrl: latestAvatarUrl, 
+                            isKakao,
+                            linkedProviders,
+                            availableAvatars
+                        }),
                     });
                 } catch (e) {
                     console.error('카카오 연동 사용자 정보 업데이트 실패:', e);
