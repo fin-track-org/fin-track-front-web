@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { X, RefreshCw } from "lucide-react";
 import { adjustAccountBalance } from "@/src/lib/api/accountApi";
-import { PaymentMethodBalance } from "@/src/types/dashboard";
 
 interface AdjustBalanceModalProps {
   isOpen: boolean;

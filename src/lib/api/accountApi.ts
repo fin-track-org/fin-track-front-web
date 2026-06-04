@@ -87,7 +87,7 @@ export async function setDefaultAccount(accountId: string): Promise<Account> {
 export async function adjustAccountBalance(
   accountId: string,
   body: AccountAdjustReq,
-): Promise<TransactionRes> {
+): Promise<Transaction> {
   const token = await getToken();
   const res = await fetch(
     `${SPRING_BOOT_URL}/api/v1/accounts/${accountId}/adjust`,
@@ -105,7 +105,7 @@ export async function adjustAccountBalance(
     const errorData = await res.json().catch(() => null);
     throw new Error(errorData?.message || "금액 맞추기 실패");
   }
-  const json: ApiResponse<TransactionRes> = await res.json();
+  const json: ApiResponse<Transaction> = await res.json();
   return json.data!;
 }
 
