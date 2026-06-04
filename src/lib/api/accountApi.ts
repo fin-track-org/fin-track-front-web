@@ -84,3 +84,28 @@ export async function setDefaultAccount(accountId: string): Promise<Account> {
   return json.data!;
 }
 
+export async function adjustAccountBalance(
+  accountId: string,
+  body: AccountAdjustReq,
+): Promise<TransactionRes> {
+  const token = await getToken();
+  const res = await fetch(
+    `${SPRING_BOOT_URL}/api/v1/accounts/${accountId}/adjust`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  if (res.status === 401) throw new AuthError();
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.message || "금액 맞추기 실패");
+  }
+  const json: ApiResponse<TransactionRes> = await res.json();
+  return json.data!;
+}
+

@@ -81,6 +81,7 @@ interface AccountBalance {
 }
 
 interface PaymentMethodBalance {
+  accountId: string;
   paymentMethodName: string;
   balance: number;
 }

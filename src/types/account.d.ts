@@ -33,3 +33,8 @@ interface ApiResponse<T> {
   message: string;
   data: T;
 }
+
+interface AccountAdjustReq {
+  actualBalance: number;
+  reason?: string;
+}
