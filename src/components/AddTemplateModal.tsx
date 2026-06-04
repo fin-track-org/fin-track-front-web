@@ -323,9 +323,10 @@ export default function AddTemplateModal(props: AddTemplateModalProps) {
               </Label>
               <Input
                 id="title"
-                placeholder="예: 스타벅스 아메리카노"
+                placeholder="예: 스타벅스 아메리카노 (최대 15자)"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                maxLength={15}
                 className="focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
               />
             </div>

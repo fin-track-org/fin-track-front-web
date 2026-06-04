@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { X, Bookmark, ChevronLeft, RotateCcw } from "lucide-react";
 
 import {
   Dialog,
@@ -25,6 +25,7 @@ import { Textarea } from "@/src/components/ui/textarea";
 import { todayISODateSeoul, toNumberOrNaN } from "../hook/useTransaction";
 import { createSubCategory, getSubCategories } from "../lib/api/categoryApi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getTransactionTemplates } from "../lib/api/transaction/templateApi";
 
 /* const CARD_PROVIDERS = [
   { id: "SAMSUNG", name: "삼성" },
@@ -99,6 +100,36 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   // ----------------------------
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string>("");
+
+  // ----------------------------
+  // Template State
+  // ----------------------------
+  const [showAllTemplates, setShowAllTemplates] = useState(false);
+
+  const { data: transactionTemplates = [] } = useQuery({
+    queryKey: ["transactionTemplates"],
+    queryFn: getTransactionTemplates,
+    enabled: open && mode === "create",
+  });
+
+  const handleApplyTemplate = (template: any) => {
+    setType(template.type);
+    setAmountText(String(template.amount));
+    setCategory(template.categoryId || "");
+    setSubCategory(template.subcategoryId || "");
+    setAccountId(template.accountId || "");
+    setDescription(template.description || "");
+    setShowAllTemplates(false);
+  };
+
+  const handleClearForm = () => {
+    setType("EXPENSE");
+    setAmountText("");
+    setCategory("");
+    setSubCategory("");
+    setAccountId("");
+    setDescription("");
+  };
 
   // ----------------------------
   // Derived
@@ -181,7 +212,10 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
   // open될 때 type 기본값 리셋/반영
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setShowAllTemplates(false);
+      return;
+    }
 
     // 추가 모드: 항상 지출로 시작
     if (!defaultValues) {
@@ -382,7 +416,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
           <div className="relative w-full sm:max-w-xl mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 space-y-5 animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:fade-in-0 duration-200 max-h-[90vh] overflow-y-auto">
             {/* 헤더 */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pb-1">
               <h2 className="text-xl font-bold text-gray-800">
                 {mode === "edit" ? "거래 수정" : mode === "confirm-draft" ? "임시 내역 분류" : "거래 추가"}
               </h2>
@@ -395,243 +429,238 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               </button>
             </div>
 
-          <div className="space-y-5">
-            {/* 1) 거래유형 + 금액 (가장 먼저) */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="ml-1">거래유형</Label>
-                <Select
-                  value={type}
-                  onValueChange={(v) => setType(v as TransactionType)}
+            {mode === "create" && (
+              <div className="flex flex-wrap items-center gap-2 pb-1 transition-all duration-200">
+                <button
+                  type="button"
+                  onClick={handleClearForm}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-xs font-medium transition-colors"
                 >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EXPENSE">지출</SelectItem>
-                    <SelectItem value="INCOME">수입</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  <RotateCcw size={12} /> 비우기
+                </button>
 
-              <div className="space-y-2">
-                <Label htmlFor="amount" className="ml-1">
-                  금액
-                </Label>
-                <Input
-                  id="amount"
-                  inputMode="numeric"
-                  placeholder="예: 18000"
-                  value={amountText}
-                  onChange={(e) => setAmountText(e.target.value)}
-                  className="focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
-                />
-                {!isAmountValid && amountText.length > 0 && (
-                  <p className="text-xs text-red-600">
-                    금액은 0보다 커야 합니다.
-                  </p>
+                {transactionTemplates.slice(0, showAllTemplates ? undefined : 5).map(template => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => handleApplyTemplate(template)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full text-xs font-medium text-gray-700 transition-colors max-w-[140px]"
+                  >
+                    <span className="text-[10px] flex-shrink-0">{template.type === 'EXPENSE' ? '📉' : '📈'}</span>
+                    <span className="truncate">{template.title}</span>
+                  </button>
+                ))}
+                {transactionTemplates.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllTemplates(!showAllTemplates)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${showAllTemplates ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-sky-50 hover:bg-sky-100 border border-sky-100 text-sky-700'}`}
+                  >
+                    <Bookmark size={12} /> {showAllTemplates ? '접기' : '더보기'}
+                  </button>
                 )}
               </div>
-            </div>
+            )}
 
-            {/* 2) 카테고리 + 세부항목 */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="ml-1">카테고리</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="카테고리 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryOptions.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label
-                  className={`ml-1 ${currentSubCats.length === 0 ? "text-gray-300" : ""}`}
-                >
-                  세부 항목
-                </Label>
-                <Select
-                  value={subCategory}
-                  onValueChange={(v) => setSubCategory(v === "__none__" ? "" : v)}
-                  disabled={currentSubCats.length === 0}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="-" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    <SelectItem value="__none__">-</SelectItem>
-                    {currentSubCats.map((sc) => (
-                      <SelectItem key={sc.id} value={sc.id}>
-                        {sc.name}
-                      </SelectItem>
-                    ))}
-
-                    <div className="border-t mt-1 pt-1">
-                      <Button
-                        size={"sm"}
-                        type="button"
-                        variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => {
-                          setSubCatError("");
-                          setNewSubCatName("");
-                          setSubCatAddOpen(true);
-                        }}
-                      >
-                        + 세부 항목 추가
-                      </Button>
-                    </div>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* 3) 결제수단 / 입금 계좌 */}
-            <div
-              className={`grid grid-cols-1 gap-4 ${isAccountIdCash ? "md:grid-cols-1" : " md:grid-cols-2"}`}
-            >
-              <div className="space-y-2">
-                <Label className="ml-1">
-                  {isIncomeType ? "입금 계좌" : "결제수단"}
-                </Label>
-                {accounts.length === 0 ? (
-                  <div className="flex items-center h-9 w-full rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
-                    {isIncomeType ? "등록된 계좌가 없습니다" : "등록된 결제수단이 없습니다"}
-                  </div>
-                ) : (
-                  <Select value={accountId} onValueChange={setAccountId}>
+            <div className="space-y-5">
+              {/* 1) 거래유형 + 금액 (가장 먼저) */}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="ml-1">거래유형</Label>
+                  <Select
+                    value={type}
+                    onValueChange={(v) => setType(v as TransactionType)}
+                  >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder={isIncomeType ? "입금 계좌 선택" : "결제수단 선택"} />
+                      <SelectValue placeholder="선택" />
                     </SelectTrigger>
                     <SelectContent>
-                      {accounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name}
+                      <SelectItem value="EXPENSE">지출</SelectItem>
+                      <SelectItem value="INCOME">수입</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="amount" className="ml-1">
+                    금액
+                  </Label>
+                  <Input
+                    id="amount"
+                    inputMode="numeric"
+                    placeholder="예: 18000"
+                    value={amountText}
+                    onChange={(e) => setAmountText(e.target.value)}
+                    className="focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
+                  />
+                  {!isAmountValid && amountText.length > 0 && (
+                    <p className="text-xs text-red-600">
+                      금액은 0보다 커야 합니다.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* 2) 카테고리 + 세부항목 */}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="ml-1">카테고리</Label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="카테고리 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categoryOptions.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    className={`ml-1 ${currentSubCats.length === 0 ? "text-gray-300" : ""}`}
+                  >
+                    세부 항목
+                  </Label>
+                  <Select
+                    value={subCategory}
+                    onValueChange={(v) => setSubCategory(v === "__none__" ? "" : v)}
+                    disabled={currentSubCats.length === 0}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="-" />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      <SelectItem value="__none__">-</SelectItem>
+                      {currentSubCats.map((sc) => (
+                        <SelectItem key={sc.id} value={sc.id}>
+                          {sc.name}
+                        </SelectItem>
+                      ))}
+
+                      <div className="border-t mt-1 pt-1">
+                        <Button
+                          size={"sm"}
+                          type="button"
+                          variant="ghost"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            setSubCatError("");
+                            setNewSubCatName("");
+                            setSubCatAddOpen(true);
+                          }}
+                        >
+                          + 세부 항목 추가
+                        </Button>
+                      </div>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              {/* {!isAccountIdCash && (
-                  <div className="space-y-2">
-                    <Label
-                      className={`ml-1 ${accountId === "cash" ? "text-gray-300" : ""}`}
-                    >
-                      카드사(기능 추가 예정)
-                    </Label>
-                    <Select
-                      value={cardProvider}
-                      onValueChange={setCardProvider}
-                      disabled={accountId === "cash"}
-                    >
+              {/* 3) 결제수단 / 입금 계좌 */}
+              <div
+                className={`grid grid-cols-1 gap-4 ${isAccountIdCash ? "md:grid-cols-1" : " md:grid-cols-2"}`}
+              >
+                <div className="space-y-2">
+                  <Label className="ml-1">
+                    {isIncomeType ? "입금 계좌" : "결제수단"}
+                  </Label>
+                  {accounts.length === 0 ? (
+                    <div className="flex items-center h-9 w-full rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+                      {isIncomeType ? "등록된 계좌가 없습니다" : "등록된 결제수단이 없습니다"}
+                    </div>
+                  ) : (
+                    <Select value={accountId} onValueChange={setAccountId}>
                       <SelectTrigger className="w-full">
-                        <SelectValue
-                          placeholder={
-                            accountId === "cash"
-                              ? "현금 선택 시 비활성화"
-                              : "카드사 선택"
-                          }
-                        />
+                        <SelectValue placeholder={isIncomeType ? "입금 계좌 선택" : "결제수단 선택"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {CARD_PROVIDERS.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-
-                    {accountId !== "cash" && !cardProvider && (
-                      <p className="text-xs text-gray-500 ml-1">
-                        카드사를 선택해주세요.
-                      </p>
-                    )}
-                  </div>
-                )} */}
-            </div>
-
-            {/* 4) 날짜 (마지막 확인용) */}
-            <div className="space-y-2">
-              <Label htmlFor="date" className="ml-1">
-                날짜
-              </Label>
-              <Input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
-              />
-            </div>
-
-            {/* 5) 메모 (마지막) */}
-            <div className="space-y-2">
-              <Label htmlFor="description" className="ml-1">
-                메모
-              </Label>
-              <Textarea
-                id="description"
-                placeholder="예: 스타벅스 - 아이스 아메리카노"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="min-h-[88px] focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
-              />
-            </div>
-
-            {error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
+                  )}
+                </div>
               </div>
-            )}
-          </div>
 
-          <div className="flex gap-2 justify-end mt-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => onOpenChange(false)}
-              disabled={isSaving}
-            >
-              취소
-            </Button>
-            {mode === "confirm-draft" && onSaveDraft && (
+              {/* 4) 날짜 (마지막 확인용) */}
+              <div className="space-y-2">
+                <Label htmlFor="date" className="ml-1">
+                  날짜
+                </Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
+                />
+              </div>
+
+              {/* 5) 메모 (마지막) */}
+              <div className="space-y-2">
+                <Label htmlFor="description" className="ml-1">
+                  메모
+                </Label>
+                <Textarea
+                  id="description"
+                  placeholder="예: 스타벅스 - 아이스 아메리카노"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="min-h-[88px] focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
+                />
+              </div>
+
+              {error && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 justify-end mt-4">
               <Button
                 type="button"
-                onClick={handleSaveDraft}
-                disabled={!canSaveDraft}
-                className="bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200 hover:border-amber-300"
+                variant="secondary"
+                onClick={() => onOpenChange(false)}
+                disabled={isSaving}
               >
-                {isSaving ? "저장 중..." : "임시저장"}
+                취소
               </Button>
-            )}
-            <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
-              {isSaving
-                ? mode === "edit"
-                  ? "수정 중..."
-                  : mode === "confirm-draft"
-                    ? "등록 중..."
-                    : "저장 중..."
-                : mode === "edit"
-                  ? "수정"
-                  : mode === "confirm-draft"
-                    ? "등록"
-                    : "저장"}
-            </Button>
+              {mode === "confirm-draft" && onSaveDraft && (
+                <Button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={!canSaveDraft}
+                  className="bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200 hover:border-amber-300"
+                >
+                  {isSaving ? "저장 중..." : "임시저장"}
+                </Button>
+              )}
+              <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
+                {isSaving
+                  ? mode === "edit"
+                    ? "수정 중..."
+                    : mode === "confirm-draft"
+                      ? "등록 중..."
+                      : "저장 중..."
+                  : mode === "edit"
+                    ? "수정"
+                    : mode === "confirm-draft"
+                      ? "등록"
+                      : "저장"}
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
       )}
 
       {/* 세부항목 추가 다이얼로그 */}
