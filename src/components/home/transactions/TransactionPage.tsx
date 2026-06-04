@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-query";
 import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
-import { fetchTransactions, getDrafts, reorderTransactions } from "@/src/lib/api/transaction/transactions";
+import { fetchTransactions, getDrafts, reorderTransactions, createTransfer } from "@/src/lib/api/transaction/transactions";
 import { getAccounts } from "@/src/lib/api/accountApi";
 import { useToast } from "@/src/hook/useToast";
 
@@ -367,43 +367,56 @@ export default function TransactionPage() {
 
     if (!session) throw new Error("로그인이 필요합니다.");
 
-    // 수정 모드면 PUT, 아니면 POST
-    const isEditing = Boolean(editingTransaction?.id);
-    const apiUrl = isEditing
-      ? `${SPRING_BOOT_URL}/api/v1/transactions/${editingTransaction!.id}`
-      : `${SPRING_BOOT_URL}/api/v1/transactions`;
+    if (payload.type === "TRANSFER" || payload.isSavings) {
+      // 수입(INCOME)이면서 저축/투자인 경우, 출발 계좌(from)가 toAccountId(저축계좌), 도착 계좌(to)가 accountId(입금계좌)가 됨.
+      const fromId = payload.type === "INCOME" ? payload.toAccountId! : payload.accountId;
+      const toId = payload.type === "INCOME" ? payload.accountId : payload.toAccountId!;
 
-    const method = isEditing ? "PUT" : "POST";
+      await createTransfer({
+        fromAccountId: fromId,
+        toAccountId: toId,
+        amount: payload.amount,
+        date: payload.date,
+        description: payload.description || "",
+        isSavings: payload.isSavings || false,
+      });
+    } else {
+      // 수정 모드면 PUT, 아니면 POST
+      const isEditing = Boolean(editingTransaction?.id);
+      const apiUrl = isEditing
+        ? `${SPRING_BOOT_URL}/api/v1/transactions/${editingTransaction!.id}`
+        : `${SPRING_BOOT_URL}/api/v1/transactions`;
 
-    // 나머지 필드는 API 확장 후 함께 보낼 예정
-    // jsg [2026.04.21] 서브카테고리 등 추가된 필드도 함께 보내도록 수정
-    const bodyForNow = {
-      date: payload.date,
-      amount: payload.amount,
-      type: payload.type,
-      categoryId: payload.categoryId,
-      subcategoryId: payload.subCategoryId ?? null,
-      description: payload.description ?? null,
-      accountId: payload.accountId ?? null,
-      ...(isDraftMode && { isDraft: false }),
-    };
+      const method = isEditing ? "PUT" : "POST";
 
-    const res = await fetch(apiUrl, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(bodyForNow),
-    });
+      const bodyForNow = {
+        date: payload.date,
+        amount: payload.amount,
+        type: payload.type,
+        categoryId: payload.categoryId,
+        subcategoryId: payload.subCategoryId ?? null,
+        description: payload.description ?? null,
+        accountId: payload.accountId ?? null,
+        ...(isDraftMode && { isDraft: false }),
+      };
 
-    if (!res.ok) {
-      let msg = "저장 실패";
-      try {
-        const errJson = await res.json();
-        msg = errJson?.message || msg;
-      } catch {}
-      throw new Error(msg);
+      const res = await fetch(apiUrl, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(bodyForNow),
+      });
+
+      if (!res.ok) {
+        let msg = "저장 실패";
+        try {
+          const errJson = await res.json();
+          msg = errJson?.message || msg;
+        } catch {}
+        throw new Error(msg);
+      }
     }
 
     queryClient.invalidateQueries({ queryKey: ["transactions"] });

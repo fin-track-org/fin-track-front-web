@@ -9,6 +9,7 @@ import AddTransactionModal from "@/src/components/AddTransactionModal";
 import { getCategories } from "@/src/lib/api/categoryApi";
 import { getAccounts } from "@/src/lib/api/accountApi";
 import { createClient } from "@/src/lib/supabase/client";
+import { createTransfer } from "@/src/lib/api/transaction/transactions";
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
@@ -71,29 +72,43 @@ export default function GlobalQuickAdd() {
 
     if (!session) throw new Error("로그인이 필요합니다.");
 
-    const apiUrl = `${SPRING_BOOT_URL}/api/v1/transactions`;
-    const bodyForNow = {
-      date: payload.date,
-      amount: payload.amount,
-      type: payload.type,
-      categoryId: payload.categoryId,
-      subcategoryId: payload.subCategoryId ?? null,
-      description: payload.description ?? null,
-      accountId: payload.accountId ?? null,
-    };
+    if (payload.type === "TRANSFER" || payload.isSavings) {
+      const fromId = payload.type === "INCOME" ? payload.toAccountId! : payload.accountId;
+      const toId = payload.type === "INCOME" ? payload.accountId : payload.toAccountId!;
 
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(bodyForNow),
-    });
+      await createTransfer({
+        fromAccountId: fromId,
+        toAccountId: toId,
+        amount: payload.amount,
+        date: payload.date,
+        description: payload.description || "",
+        isSavings: payload.isSavings || false,
+      });
+    } else {
+      const apiUrl = `${SPRING_BOOT_URL}/api/v1/transactions`;
+      const bodyForNow = {
+        date: payload.date,
+        amount: payload.amount,
+        type: payload.type,
+        categoryId: payload.categoryId,
+        subcategoryId: payload.subCategoryId ?? null,
+        description: payload.description ?? null,
+        accountId: payload.accountId ?? null,
+      };
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      throw new Error(`저장에 실패했습니다. (${res.status}) ${errText}`);
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(bodyForNow),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`저장에 실패했습니다. (${res.status}) ${errText}`);
+      }
     }
 
     queryClient.invalidateQueries({ queryKey: ["transactions"] });

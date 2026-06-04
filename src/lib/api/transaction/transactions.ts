@@ -173,3 +173,36 @@ export const reorderTransactions = async (
 /* 수정 */
 
 /* 삭제 */
+
+export const createTransfer = async (payload: {
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  date: string;
+  description: string;
+  isSavings: boolean;
+}): Promise<Transaction[]> => {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new AuthError();
+
+  const response = await fetch(`${SPRING_BOOT_URL}/api/v1/transactions/transfer`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (response.status === 401) throw new AuthError();
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    throw new Error(`이체/저축 등록에 실패했습니다. (${response.status}) ${errText}`);
+  }
+  
+  const result: ApiResponse<Transaction[]> = await response.json();
+  return result.data ?? [];
+};

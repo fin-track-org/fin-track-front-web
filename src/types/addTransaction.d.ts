@@ -13,11 +13,13 @@ interface PaymentMethod {
 
 interface CreateTransactionPayload {
   date: string; // YYYY-MM-DD
-  type: TransactionType; // 모달에서 결정
+  type: TransactionType | "TRANSFER"; // 모달에서 결정
   amount: number; // ✅ 서버에 보낼 최종 amount(지출 음수, 수입 양수)
-  categoryId: string; // (현재 서버 DTO 기준 문자열)
+  categoryId: string; // 일반 거래시 필수
   subCategoryId: string;
-  accountId: string;
+  accountId: string; // 출금 계좌 (또는 일반 결제수단)
+  toAccountId?: string; // 입금 계좌 (이체/저축 시)
+  isSavings?: boolean; // 저축/투자 여부 (이체/저축 시)
 
   // 아래는 지금 당장 서버에 안 보내도 됨.
   // TODO(api 확장): 서버 DTO에 추가되면 body에 포함시키면 됨.
