@@ -35,5 +35,5 @@ interface AddTransactionModalProps {
   onSubmit: (payload: CreateTransactionPayload) => Promise<void>;
   onSaveDraft?: (payload: Partial<CreateTransactionPayload>) => Promise<void>;
   defaultValues?: Partial<CreateTransactionPayload>;
-  mode: "create" | "edit" | "confirm-draft";
+  mode: "create" | "edit" | "confirm-draft" | "quick";
 }

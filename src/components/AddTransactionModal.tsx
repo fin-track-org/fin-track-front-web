@@ -102,14 +102,15 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   const [error, setError] = useState<string>("");
 
   // ----------------------------
-  // Template State
+  // Template & Quick Mode State
   // ----------------------------
   const [showAllTemplates, setShowAllTemplates] = useState(false);
+  const [isQuickExpanded, setIsQuickExpanded] = useState(mode !== "quick");
 
   const { data: transactionTemplates = [] } = useQuery({
     queryKey: ["transactionTemplates"],
     queryFn: getTransactionTemplates,
-    enabled: open && mode === "create",
+    enabled: open && (mode === "create" || mode === "quick"),
   });
 
   const handleApplyTemplate = (template: any) => {
@@ -120,6 +121,9 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     setAccountId(template.accountId || "");
     setDescription(template.description || "");
     setShowAllTemplates(false);
+    if (mode === "quick") {
+      setIsQuickExpanded(true);
+    }
   };
 
   const handleClearForm = () => {
@@ -129,6 +133,9 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     setSubCategory("");
     setAccountId("");
     setDescription("");
+    if (mode === "quick") {
+      setIsQuickExpanded(false);
+    }
   };
 
   // ----------------------------
@@ -216,6 +223,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       setShowAllTemplates(false);
       return;
     }
+
+    setIsQuickExpanded(mode !== "quick");
 
     // 추가 모드: 항상 지출로 시작
     if (!defaultValues) {
@@ -418,7 +427,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
             {/* 헤더 */}
             <div className="flex items-center justify-between pb-1">
               <h2 className="text-xl font-bold text-gray-800">
-                {mode === "edit" ? "거래 수정" : mode === "confirm-draft" ? "임시 내역 분류" : "거래 추가"}
+                {mode === "edit" ? "거래 수정" : mode === "confirm-draft" ? "임시 내역 분류" : mode === "quick" ? "빠른 거래 추가" : "거래 추가"}
               </h2>
               <button
                 onClick={() => onOpenChange(false)}
@@ -429,7 +438,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               </button>
             </div>
 
-            {mode === "create" && (
+            {(mode === "create" || mode === "quick") && (
               <div className="flex flex-wrap items-center gap-2 pb-1 transition-all duration-200">
                 <button
                   type="button"
@@ -464,8 +473,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
             <div className="space-y-5">
               {/* 1) 거래유형 + 금액 (가장 먼저) */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
+              <div className={`grid grid-cols-1 gap-4 transition-all duration-300 ${isQuickExpanded ? 'md:grid-cols-2' : ''}`}>
+                <div className={`space-y-2 transition-all duration-300 overflow-hidden ${isQuickExpanded ? 'max-h-[100px] opacity-100' : 'max-h-0 opacity-0 !m-0'}`}>
                   <Label className="ml-1">거래유형</Label>
                   <Select
                     value={type}
@@ -482,9 +491,18 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="amount" className="ml-1">
-                    금액
-                  </Label>
+                  <div className="flex justify-between items-center ml-1">
+                    <Label htmlFor="amount">금액</Label>
+                    {(mode === "quick" || mode === "create") && (
+                      <button
+                        type="button"
+                        onClick={() => setIsQuickExpanded(!isQuickExpanded)}
+                        className="text-xs text-sky-600 hover:underline transition-colors"
+                      >
+                        {isQuickExpanded ? "빠른 등록으로 전환" : "상세 등록으로 전환"}
+                      </button>
+                    )}
+                  </div>
                   <Input
                     id="amount"
                     inputMode="numeric"
@@ -501,93 +519,100 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                 </div>
               </div>
 
-              {/* 2) 카테고리 + 세부항목 */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="ml-1">카테고리</Label>
-                  <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="카테고리 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categoryOptions.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label
-                    className={`ml-1 ${currentSubCats.length === 0 ? "text-gray-300" : ""}`}
-                  >
-                    세부 항목
-                  </Label>
-                  <Select
-                    value={subCategory}
-                    onValueChange={(v) => setSubCategory(v === "__none__" ? "" : v)}
-                    disabled={currentSubCats.length === 0}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="-" />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      <SelectItem value="__none__">-</SelectItem>
-                      {currentSubCats.map((sc) => (
-                        <SelectItem key={sc.id} value={sc.id}>
-                          {sc.name}
-                        </SelectItem>
-                      ))}
-
-                      <div className="border-t mt-1 pt-1">
-                        <Button
-                          size={"sm"}
-                          type="button"
-                          variant="ghost"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            setSubCatError("");
-                            setNewSubCatName("");
-                            setSubCatAddOpen(true);
-                          }}
-                        >
-                          + 세부 항목 추가
-                        </Button>
-                      </div>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* 3) 결제수단 / 입금 계좌 */}
+              {/* 2) 카테고리 + 세부항목 (애니메이션 래퍼) */}
               <div
-                className={`grid grid-cols-1 gap-4 ${isAccountIdCash ? "md:grid-cols-1" : " md:grid-cols-2"}`}
+                className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${isQuickExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  }`}
               >
-                <div className="space-y-2">
-                  <Label className="ml-1">
-                    {isIncomeType ? "입금 계좌" : "결제수단"}
-                  </Label>
-                  {accounts.length === 0 ? (
-                    <div className="flex items-center h-9 w-full rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
-                      {isIncomeType ? "등록된 계좌가 없습니다" : "등록된 결제수단이 없습니다"}
+                <div className="overflow-hidden space-y-5">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 pt-1">
+                    <div className="space-y-2">
+                      <Label className="ml-1">카테고리</Label>
+                      <Select value={category} onValueChange={setCategory}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="카테고리 선택" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categoryOptions.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ) : (
-                    <Select value={accountId} onValueChange={setAccountId}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={isIncomeType ? "입금 계좌 선택" : "결제수단 선택"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {accounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+
+                    <div className="space-y-2">
+                      <Label
+                        className={`ml-1 ${currentSubCats.length === 0 ? "text-gray-300" : ""}`}
+                      >
+                        세부 항목
+                      </Label>
+                      <Select
+                        value={subCategory}
+                        onValueChange={(v) => setSubCategory(v === "__none__" ? "" : v)}
+                        disabled={currentSubCats.length === 0}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="-" />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                          <SelectItem value="__none__">-</SelectItem>
+                          {currentSubCats.map((sc) => (
+                            <SelectItem key={sc.id} value={sc.id}>
+                              {sc.name}
+                            </SelectItem>
+                          ))}
+
+                          <div className="border-t mt-1 pt-1">
+                            <Button
+                              size={"sm"}
+                              type="button"
+                              variant="ghost"
+                              className="w-full justify-start"
+                              onClick={() => {
+                                setSubCatError("");
+                                setNewSubCatName("");
+                                setSubCatAddOpen(true);
+                              }}
+                            >
+                              + 세부 항목 추가
+                            </Button>
+                          </div>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* 3) 결제수단 / 입금 계좌 */}
+                  <div
+                    className={`grid grid-cols-1 gap-4 ${isAccountIdCash ? "md:grid-cols-1" : " md:grid-cols-2"}`}
+                  >
+                    <div className="space-y-2">
+                      <Label className="ml-1">
+                        {isIncomeType ? "입금 계좌" : "결제수단"}
+                      </Label>
+                      {accounts.length === 0 ? (
+                        <div className="flex items-center h-9 w-full rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+                          {isIncomeType ? "등록된 계좌가 없습니다" : "등록된 결제수단이 없습니다"}
+                        </div>
+                      ) : (
+                        <Select value={accountId} onValueChange={setAccountId}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder={isIncomeType ? "입금 계좌 선택" : "결제수단 선택"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {accounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -635,29 +660,34 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               >
                 취소
               </Button>
-              {mode === "confirm-draft" && onSaveDraft && (
-                <Button
-                  type="button"
-                  onClick={handleSaveDraft}
-                  disabled={!canSaveDraft}
-                  className="bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200 hover:border-amber-300"
-                >
-                  {isSaving ? "저장 중..." : "임시저장"}
+
+              {mode === "quick" && !isQuickExpanded ? (
+                <Button type="button" onClick={handleSaveDraft} disabled={!canSaveDraft}>
+                  {isSaving ? "저장 중..." : "임시 저장"}
                 </Button>
+              ) : (
+                <>
+                  {(mode === "confirm-draft" || mode === "quick") && onSaveDraft && (
+                    <Button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      disabled={!canSaveDraft}
+                      className="bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200 hover:border-amber-300"
+                    >
+                      {isSaving ? "저장 중..." : "임시저장"}
+                    </Button>
+                  )}
+                  <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
+                    {isSaving
+                      ? mode === "edit"
+                        ? "수정 중..."
+                        : "등록 중..."
+                      : mode === "edit"
+                        ? "수정"
+                        : "등록"}
+                  </Button>
+                </>
               )}
-              <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
-                {isSaving
-                  ? mode === "edit"
-                    ? "수정 중..."
-                    : mode === "confirm-draft"
-                      ? "등록 중..."
-                      : "저장 중..."
-                  : mode === "edit"
-                    ? "수정"
-                    : mode === "confirm-draft"
-                      ? "등록"
-                      : "저장"}
-              </Button>
             </div>
           </div>
         </div>
