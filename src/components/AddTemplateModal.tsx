@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 
 import {
   Dialog,
@@ -292,16 +293,27 @@ export default function AddTemplateModal(props: AddTemplateModalProps) {
   // ----------------------------
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          aria-describedby={description}
-          className="w-[calc(100%-2rem)] max-w-xl rounded-2xl px-6"
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
         >
-          <DialogHeader>
-            <DialogTitle className="text-xl">
-              자주 사용하는 거래 추가
-            </DialogTitle>
-          </DialogHeader>
+          {/* backdrop */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+
+          <div className="relative w-full sm:max-w-xl mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 space-y-5 animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:fade-in-0 duration-200 max-h-[90vh] overflow-y-auto">
+            {/* 헤더 */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-800">
+                자주 사용하는 거래 추가
+              </h2>
+              <button
+                onClick={() => onOpenChange(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="닫기"
+              >
+                <X size={24} />
+              </button>
+            </div>
 
           <div className="space-y-5">
             {/* 템플릿 이름 */}
@@ -471,7 +483,7 @@ export default function AddTemplateModal(props: AddTemplateModalProps) {
             )}
           </div>
 
-          <DialogFooter className="flex gap-2">
+          <div className="flex gap-2 justify-end mt-4">
             <Button
               type="button"
               variant="secondary"
@@ -483,9 +495,10 @@ export default function AddTemplateModal(props: AddTemplateModalProps) {
             <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
               {isSaving ? "저장 중..." : "저장"}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      </div>
+      )}
 
       {/* 세부항목 추가 다이얼로그 */}
       <Dialog open={subCatAddOpen} onOpenChange={setSubCatAddOpen}>
