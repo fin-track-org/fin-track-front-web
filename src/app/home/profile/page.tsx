@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   Settings,
   Camera,
+  Bookmark,
 } from "lucide-react";
 import { fetchMe, updateMe, deleteMe } from "@/src/lib/api/userApi";
 import {
@@ -59,6 +60,14 @@ const BUILT_IN_AVATARS = [
 
 import { useToast } from "@/src/hook/useToast";
 import { useUserSettings } from "@/src/hook/useUserSettings";
+import AddTemplateModal from "@/src/components/AddTemplateModal";
+import { 
+  createTransactionTemplate, 
+  getTransactionTemplates, 
+  updateTransactionTemplate, 
+  deleteTransactionTemplate, 
+  TransactionTemplateRes 
+} from "@/src/lib/api/transaction/templateApi";
 
 const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   CASH: "현금",
@@ -808,6 +817,53 @@ export default function ProfilePage() {
     }
   };
 
+  /* ── 자주 사용하는 거래 (템플릿) ── */
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<TransactionTemplateRes | null>(null);
+
+  const { data: transactionTemplates = [], isLoading: isTemplatesLoadingList } = useQuery({
+    queryKey: ["transactionTemplates"],
+    queryFn: getTransactionTemplates,
+  });
+
+  const { mutate: mutateCreateTemplate } = useMutation({
+    mutationFn: createTransactionTemplate,
+    onSuccess: () => {
+      toast.success("자주 사용하는 거래가 추가되었습니다.");
+      setShowTemplateModal(false);
+      queryClient.invalidateQueries({ queryKey: ["transactionTemplates"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const { mutate: mutateUpdateTemplate } = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: any }) => updateTransactionTemplate(id, payload),
+    onSuccess: () => {
+      toast.success("자주 사용하는 거래가 수정되었습니다.");
+      setShowTemplateModal(false);
+      setEditingTemplate(null);
+      queryClient.invalidateQueries({ queryKey: ["transactionTemplates"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const { mutate: mutateDeleteTemplate } = useMutation({
+    mutationFn: deleteTransactionTemplate,
+    onSuccess: () => {
+      toast.success("자주 사용하는 거래가 삭제되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["transactionTemplates"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const handleTemplateSubmit = async (payload: any) => {
+    if (editingTemplate) {
+      mutateUpdateTemplate({ id: editingTemplate.id, payload });
+    } else {
+      mutateCreateTemplate(payload);
+    }
+  };
+
   /* ── 로딩 ── */
   if (isLoading || isSettingLoading) {
     return (
@@ -1329,6 +1385,94 @@ export default function ProfilePage() {
         )}
       </div>
 
+      {/* ── 자주 사용하는 거래 (템플릿) ── */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <Bookmark className="w-4 h-4 text-sky-600" />
+            <h2 className="font-semibold text-gray-900">자주 사용하는 거래</h2>
+          </div>
+          <button
+            onClick={() => {
+              setEditingTemplate(null);
+              setShowTemplateModal(true);
+            }}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />추가
+          </button>
+        </div>
+        
+        {isTemplatesLoadingList ? (
+          <div className="divide-y divide-gray-100">
+            {[1, 2].map((i) => (
+              <div key={i} className="flex items-center justify-between px-6 py-4">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : transactionTemplates.length === 0 ? (
+          <div className="px-6 py-10 text-center">
+            <p className="text-sm text-gray-500 mb-4">등록된 자주 사용하는 거래가 없어요.</p>
+            <button
+              onClick={() => {
+                setEditingTemplate(null);
+                setShowTemplateModal(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />자주 사용하는 거래 추가
+            </button>
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {transactionTemplates.map((template) => (
+              <li key={template.id} className="px-6 py-4 flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-gray-800 truncate">{template.title}</p>
+                    <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${template.type === 'INCOME' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                      {template.type === 'INCOME' ? '수입' : '지출'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                    <span>{formatAmount(template.amount)}</span>
+                    <span className="w-1 h-1 bg-gray-300 rounded-full" />
+                    <span className="truncate">
+                      {allCategories.find(c => c.id === template.categoryId)?.name || '카테고리 없음'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => {
+                      setEditingTemplate(template);
+                      setShowTemplateModal(true);
+                    }}
+                    className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm("정말로 이 거래 템플릿을 삭제하시겠습니까?")) {
+                        mutateDeleteTemplate(template.id);
+                      }
+                    }}
+                    className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {/* ── 카테고리 관리 카드 ── */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="flex items-center gap-2 px-6 py-5 border-b border-gray-100">
@@ -1498,6 +1642,19 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* ── 자주 사용하는 거래 추가 모달 ── */}
+      <AddTemplateModal
+        open={showTemplateModal}
+        onOpenChange={(v) => {
+          if (!v) setEditingTemplate(null);
+          setShowTemplateModal(v);
+        }}
+        categories={allCategories}
+        accounts={accounts}
+        defaultValues={editingTemplate || undefined}
+        onSubmit={handleTemplateSubmit}
+      />
     </div>
   );
 }
