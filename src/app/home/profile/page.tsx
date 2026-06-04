@@ -68,6 +68,15 @@ import {
   deleteTransactionTemplate, 
   TransactionTemplateRes 
 } from "@/src/lib/api/transaction/templateApi";
+import {
+  getRecurringTransactions,
+  createRecurringTransaction,
+  updateRecurringTransaction,
+  deleteRecurringTransaction,
+} from "@/src/lib/api/transaction/recurringApi";
+import { RecurringTransactionRes } from "@/src/types/recurringTransaction";
+import AddRecurringModal from "@/src/components/AddRecurringModal";
+import { Repeat } from "lucide-react";
 
 const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   CASH: "현금",
@@ -864,6 +873,53 @@ export default function ProfilePage() {
     }
   };
 
+  /* ── 반복 거래 관리 ── */
+  const [showRecurringModal, setShowRecurringModal] = useState(false);
+  const [editingRecurring, setEditingRecurring] = useState<RecurringTransactionRes | null>(null);
+
+  const { data: recurringTransactions = [], isLoading: isRecurringLoading } = useQuery({
+    queryKey: ["recurringTransactions"],
+    queryFn: getRecurringTransactions,
+  });
+
+  const { mutate: mutateCreateRecurring } = useMutation({
+    mutationFn: createRecurringTransaction,
+    onSuccess: () => {
+      toast.success("반복 거래가 추가되었습니다.");
+      setShowRecurringModal(false);
+      queryClient.invalidateQueries({ queryKey: ["recurringTransactions"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const { mutate: mutateUpdateRecurring } = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: any }) => updateRecurringTransaction(id, payload),
+    onSuccess: () => {
+      toast.success("반복 거래가 수정되었습니다.");
+      setShowRecurringModal(false);
+      setEditingRecurring(null);
+      queryClient.invalidateQueries({ queryKey: ["recurringTransactions"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const { mutate: mutateDeleteRecurring } = useMutation({
+    mutationFn: deleteRecurringTransaction,
+    onSuccess: () => {
+      toast.success("반복 거래가 삭제되었습니다.");
+      queryClient.invalidateQueries({ queryKey: ["recurringTransactions"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const handleRecurringSubmit = async (payload: any) => {
+    if (editingRecurring) {
+      mutateUpdateRecurring({ id: editingRecurring.id, payload });
+    } else {
+      mutateCreateRecurring(payload);
+    }
+  };
+
   /* ── 로딩 ── */
   if (isLoading || isSettingLoading) {
     return (
@@ -1473,6 +1529,98 @@ export default function ProfilePage() {
         )}
       </div>
 
+      {/* ── 반복 거래 관리 카드 ── */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <Repeat className="w-4 h-4 text-sky-600" />
+            <h2 className="font-semibold text-gray-900">반복 거래 관리</h2>
+          </div>
+          <button
+            onClick={() => {
+              setEditingRecurring(null);
+              setShowRecurringModal(true);
+            }}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />추가
+          </button>
+        </div>
+
+        {isRecurringLoading ? (
+          <div className="divide-y divide-gray-100">
+            {[1, 2].map((i) => (
+              <div key={i} className="flex items-center justify-between px-6 py-4">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : recurringTransactions.length === 0 ? (
+          <div className="px-6 py-10 text-center">
+            <p className="text-sm text-gray-500 mb-4">등록된 반복 거래가 없어요.</p>
+            <button
+              onClick={() => {
+                setEditingRecurring(null);
+                setShowRecurringModal(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />반복 거래 추가
+            </button>
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {recurringTransactions.map((recurring) => (
+              <li key={recurring.id} className="px-6 py-4 flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-gray-800 truncate">{recurring.description || '이름 없음'}</p>
+                    <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${recurring.type === 'INCOME' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                      {recurring.type === 'INCOME' ? '수입' : '지출'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                    <span className="font-semibold text-sky-600">
+                      {recurring.repeatType === "MONTHLY" ? `매월 ${recurring.repeatDay}일` : `매주 ${['일','월','화','수','목','금','토'][recurring.repeatDay % 7]}요일`}
+                    </span>
+                    <span className="w-1 h-1 bg-gray-300 rounded-full" />
+                    <span>{formatAmount(recurring.amount)}</span>
+                    <span className="w-1 h-1 bg-gray-300 rounded-full" />
+                    <span className="truncate">
+                      {allCategories.find(c => c.id === recurring.categoryId)?.name || '카테고리 없음'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => {
+                      setEditingRecurring(recurring);
+                      setShowRecurringModal(true);
+                    }}
+                    className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm("정말로 이 반복 거래를 삭제하시겠습니까?")) {
+                        mutateDeleteRecurring(recurring.id);
+                      }
+                    }}
+                    className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {/* ── 카테고리 관리 카드 ── */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="flex items-center gap-2 px-6 py-5 border-b border-gray-100">
@@ -1654,6 +1802,20 @@ export default function ProfilePage() {
         accounts={accounts}
         defaultValues={editingTemplate || undefined}
         onSubmit={handleTemplateSubmit}
+      />
+
+      {/* ── 반복 거래 추가 모달 ── */}
+      <AddRecurringModal
+        open={showRecurringModal}
+        onOpenChange={(v) => {
+          if (!v) setEditingRecurring(null);
+          setShowRecurringModal(v);
+        }}
+        categories={allCategories}
+        accounts={accounts}
+        defaultValues={editingRecurring || undefined}
+        onSubmit={handleRecurringSubmit}
+        mode={editingRecurring ? "edit" : "create"}
       />
     </div>
   );
