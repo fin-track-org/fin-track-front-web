@@ -493,7 +493,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center ml-1">
                     <Label htmlFor="amount">금액</Label>
-                    {(mode === "quick" || mode === "create") && (
+                    {mode === "quick" && (
                       <button
                         type="button"
                         onClick={() => setIsQuickExpanded(!isQuickExpanded)}
