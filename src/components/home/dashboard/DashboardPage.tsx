@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import MonthSelector from "./section/MonthSelector";
+import AttendanceBanner from "./section/AttendanceBanner";
 import MonthlyCalendar from "./section/MonthlyCalendar";
 import CategoryChart from "./section/CategoryChart";
 import AccountChart from "./section/AccountChart";
@@ -206,6 +207,9 @@ export default function DashboardPage() {
   
   return (
     <div className="space-y-6">
+      {/* 0. 출석체크 배너 */}
+      <AttendanceBanner />
+
       {/* 1. 월 선택 버튼 */}
       <MonthSelector
         currentMonth={currentMonth}
