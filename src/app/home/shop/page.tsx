@@ -1,4 +1,37 @@
+"use client";
+
+import { useState } from "react";
+import { earnTestPoints, useTestPoints } from "@/src/lib/api/pointApi";
+
 export default function ShopPage() {
+  // TODO(REMOVE_LATER): 테스트용 상태 (나중에 삭제 예정)
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleEarn = async () => {
+    try {
+      setLoading(true);
+      const res = await earnTestPoints(100);
+      setTestResult(`[성공] ${res}`);
+    } catch (e: any) {
+      setTestResult(`[실패] ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUse = async () => {
+    try {
+      setLoading(true);
+      const res = await useTestPoints(50);
+      setTestResult(`[성공] ${res}`);
+    } catch (e: any) {
+      setTestResult(`[실패] ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
       <div className="flex flex-col items-center gap-6 max-w-sm">
@@ -41,6 +74,37 @@ export default function ShopPage() {
         <div className="w-12 h-px bg-neutral-200" />
 
         <p className="text-xs text-neutral-300">Coming Soon</p>
+
+        {/* TODO(REMOVE_LATER): 테스트용 UI 구역 (나중에 통째로 삭제 예정) */}
+        <div className="mt-8 p-6 bg-white border border-rose-200 rounded-xl w-full flex flex-col gap-4 shadow-sm relative">
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-0.5 rounded">
+            삭제 예정 (테스트용)
+          </div>
+          <p className="text-sm font-semibold text-gray-700">포인트 시스템 테스트</p>
+          <div className="flex gap-2 w-full">
+            <button
+              disabled={loading}
+              onClick={handleEarn}
+              className="flex-1 bg-sky-50 text-sky-600 border border-sky-200 py-2 rounded-lg text-sm font-semibold hover:bg-sky-100 transition-colors"
+            >
+              +100P 적립
+            </button>
+            <button
+              disabled={loading}
+              onClick={handleUse}
+              className="flex-1 bg-red-50 text-red-600 border border-red-200 py-2 rounded-lg text-sm font-semibold hover:bg-red-100 transition-colors"
+            >
+              -50P 차감
+            </button>
+          </div>
+          {testResult && (
+            <p className={`text-xs p-2 rounded break-all ${testResult.startsWith("[성공]") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+              {testResult}
+            </p>
+          )}
+        </div>
+        {/* 테스트용 UI 구역 끝 */}
+
       </div>
     </div>
   );
