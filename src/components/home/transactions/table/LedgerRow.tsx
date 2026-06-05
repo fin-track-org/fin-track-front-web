@@ -54,14 +54,24 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
         {transaction.description}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {transaction.account?.name ?? "-"}
+        {transaction.transferDetail ? (
+          <div className="flex items-center gap-1.5">
+            <span className="text-gray-500">{transaction.transferDetail.fromAccount.name}</span>
+            <span className="text-gray-300">→</span>
+            <span className="text-sky-700 font-medium bg-sky-50 px-1.5 py-0.5 rounded text-xs">{transaction.transferDetail.toAccount.name}</span>
+          </div>
+        ) : (
+          transaction.account?.name ?? "-"
+        )}
       </td>
       <td
         className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${
-          !isExpense ? "text-green-600" : "text-red-600"
+          transaction.transferDetail 
+            ? "text-gray-700" 
+            : (!isExpense ? "text-green-600" : "text-red-600")
         }`}
       >
-        {!isExpense ? "+" : "-"}
+        {transaction.transferDetail ? "" : (!isExpense ? "+" : "-")}
         {Math.abs(transaction.amount).toLocaleString()}원
       </td>
       <td className="px-6 py-4 text-right">

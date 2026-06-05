@@ -17,6 +17,14 @@ interface TransactionAccount {
   type: string;
 }
 
+interface TransferDetailInfo {
+  linkedTransactionId: string;
+  fromAccount: TransactionAccount;
+  toAccount: TransactionAccount;
+  fromTransactionId: string;
+  toTransactionId: string;
+}
+
 interface Transaction {
   id: string;
   date: string;
@@ -27,6 +35,7 @@ interface Transaction {
   description: string;
   sortOrder: number;
   account: TransactionAccount;
+  transferDetail?: TransferDetailInfo;
 }
 
 interface FetchTransactionsParams {

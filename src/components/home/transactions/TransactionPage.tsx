@@ -105,7 +105,12 @@ export default function TransactionPage() {
 
   // 전체 선택 시 카테고리를 수입 / 지출 섹션으로 분리해서 렌더링하기 위한 목록
   const incomeCategories = useMemo(() => {
-    return rawCategories.filter((c) => c.type === "INCOME");
+    return rawCategories.filter(
+      (c) =>
+        c.type === "INCOME" &&
+        c.code !== "TRANSFER_INCOME" &&
+        c.code !== "SAVINGS_INCOME"
+    );
   }, [rawCategories]);
 
   // 전체 선택 시 카테고리를 수입 / 지출 섹션으로 분리해서 렌더링하기 위한 목록
@@ -317,14 +322,18 @@ export default function TransactionPage() {
   const handleEdit = (t: Transaction) => {
     setEditingTransaction(t);
 
-    // jsg [2026.04.21] 결제수단 임시로 null 허용 FIXME : 추후 null 허용하지 않도록 수정 필요
+    const isTransfer = !!t.transferDetail;
+    const isSavings = t.category?.code === "SAVINGS_EXPENSE" || t.category?.code === "SAVINGS_INCOME";
+
     setModalDefaultValues({
       date: t.date,
-      type: t.type,
-      amount: t.amount,
+      type: isTransfer ? "TRANSFER" : t.type,
+      amount: Math.abs(t.amount),
       categoryId: t.category.id,
       subCategoryId: t.subcategory?.id ?? "",
-      accountId: t.account?.id ?? "",
+      accountId: isTransfer ? t.transferDetail!.fromAccount.id : (t.account?.id ?? ""),
+      toAccountId: isTransfer ? t.transferDetail!.toAccount.id : undefined,
+      isSavings: isSavings,
       description: t.description,
     });
 
