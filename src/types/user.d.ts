@@ -7,6 +7,7 @@ interface MeResponse {
   availableAvatars?: Record<string, string>;
   createdAt: string | null;
   updatedAt: string | null;
+  pointBalance: number;
 }
 
 interface UserUpdateReq {
