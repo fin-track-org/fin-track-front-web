@@ -57,19 +57,10 @@ interface DashboardExpenseAccountApiResponse {
 }
 /* ---------------------------------------- */
 /* 최근 거래 내역 api 타입 */
-interface RecentTransaction {
-  id: string;
-  date: string;
-  type: "EXPENSE" | "INCOME";
-  categoryName: string;
-  subcategoryName: string;
-  description: string;
-  amount: number;
-}
 interface RecentTransactionResponse {
   statusCode: number;
   message: string;
-  data: RecentTransaction[];
+  data: Transaction[];
 }
 /* ---------------------------------------- */
 /* 결제수단별 잔액 api 타입 */

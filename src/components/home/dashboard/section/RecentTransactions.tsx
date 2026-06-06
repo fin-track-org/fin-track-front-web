@@ -5,7 +5,7 @@ import Link from "next/link";
 export default function RecentTransactions({
   data,
 }: {
-  data: RecentTransaction[];
+  data: Transaction[];
 }) {
   const hasData = data && data.length > 0;
 
@@ -33,8 +33,14 @@ export default function RecentTransactions({
       {hasData && (
         <div className="md:hidden divide-y divide-gray-100">
           {data.map((t) => {
-            const isExpense = t.type === "EXPENSE";
+            const isTransfer = !!t.transferDetail;
+            const isSavings = isTransfer && t.category?.code === "SAVINGS_EXPENSE";
+            const isExpense = t.type === "EXPENSE" && !isTransfer;
             const absAmount = Math.abs(t.amount).toLocaleString();
+
+            const accountName = isTransfer
+              ? `${t.transferDetail!.fromAccount.name} → ${t.transferDetail!.toAccount.name}`
+              : t.account?.name;
 
             return (
               <div key={t.id} className="p-4 flex justify-between items-start">
@@ -43,18 +49,23 @@ export default function RecentTransactions({
                   <p className="font-medium truncate mt-1">{t.description}</p>
                   <div className="mt-2 flex gap-2 flex-wrap">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {t.categoryName}
+                      {t.category?.name}
                     </span>
+                    {accountName && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        {accountName}
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 <div className="text-right shrink-0">
                   <p
                     className={`font-semibold ${
-                      isExpense ? "text-red-600" : "text-green-600"
+                      isExpense ? "text-red-600" : isTransfer ? "text-gray-700" : "text-green-600"
                     }`}
                   >
-                    {isExpense ? "-" : "+"}₩{absAmount}
+                    {isTransfer ? "" : (isExpense ? "-" : "+")}{absAmount}원
                   </p>
                 </div>
               </div>
@@ -81,9 +92,9 @@ export default function RecentTransactions({
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
                   설명
                 </th>
-                {/* <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
+                <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
                   결제수단
-                </th> */}
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-semibold uppercase">
                   금액
                 </th>
@@ -92,8 +103,14 @@ export default function RecentTransactions({
 
             <tbody className="divide-y divide-gray-100">
               {data.map((t) => {
-                const isExpense = t.type === "EXPENSE";
+                const isTransfer = !!t.transferDetail;
+                const isSavings = isTransfer && t.category?.code === "SAVINGS_EXPENSE";
+                const isExpense = t.type === "EXPENSE" && !isTransfer;
                 const absAmount = Math.abs(t.amount).toLocaleString();
+
+                const accountName = isTransfer
+                  ? `${t.transferDetail!.fromAccount.name} → ${t.transferDetail!.toAccount.name}`
+                  : t.account?.name;
 
                 return (
                   <tr key={t.id} className="hover:bg-gray-50 transition-colors">
@@ -102,31 +119,35 @@ export default function RecentTransactions({
                     </td>
 
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
-                        {t.categoryName}
-                      </span>
+                      {t.category?.name && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
+                          {t.category.name}
+                        </span>
+                      )}
                     </td>
 
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
-                        {t.subcategoryName}
-                      </span>
+                      {t.subcategory?.name && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
+                          {t.subcategory.name}
+                        </span>
+                      )}
                     </td>
 
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {t.description}
                     </td>
 
-                    {/* <td className="px-6 py-4 text-sm text-gray-700">
-                      {t.accountName}
-                    </td> */}
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {accountName}
+                    </td>
 
                     <td
                       className={`px-6 py-4 text-sm font-semibold text-right ${
-                        isExpense ? "text-red-600" : "text-green-600"
+                        isExpense ? "text-red-600" : isTransfer ? "text-gray-700" : "text-green-600"
                       }`}
                     >
-                      {isExpense ? "-" : "+"}₩{absAmount}
+                      {isTransfer ? "" : (isExpense ? "-" : "+")}{absAmount}원
                     </td>
                   </tr>
                 );
