@@ -156,18 +156,11 @@ export default function TransactionPage() {
     setSelectedCategoryCodes([]);
   };
 
-  // 수입 카테고리 전체 선택
-  const handleSelectAllIncomeCategories = () => {
-    setSelectedCategoryIds(incomeCategories.map((c) => c.id));
-  };
-
-  // 지출 카테고리 전체 선택
-  const handleSelectAllExpenseCategories = () => {
-    setSelectedCategoryIds(expenseCategories.map((c) => c.id));
-  };
-
-  // 전체 버튼 활성 상태
-  const isAllCategoriesSelected = selectedCategoryIds.length === 0 && selectedCategoryCodes.length === 0;
+  const assetManagementCodes = [
+    "TRANSFER_EXPENSE", "TRANSFER_INCOME",
+    "SAVINGS_EXPENSE", "SAVINGS_INCOME",
+    "BALANCE_ADJUST_EXPENSE", "BALANCE_ADJUST_INCOME"
+  ];
 
   // 수입 전체 버튼 활성 상태
   const isAllIncomeCategoriesSelected =
@@ -178,6 +171,51 @@ export default function TransactionPage() {
   const isAllExpenseCategoriesSelected =
     expenseCategories.length > 0 &&
     expenseCategories.every((c) => selectedCategoryIds.includes(c.id));
+
+  // 자산 관리 전체 버튼 활성 상태
+  const isAllAssetManagementCategoriesSelected =
+    assetManagementCodes.every((c) => selectedCategoryCodes.includes(c));
+
+  // 수입 카테고리 전체 선택/해제
+  const handleSelectAllIncomeCategories = () => {
+    if (isAllIncomeCategoriesSelected) {
+      // 이미 모두 선택된 상태면 수입 카테고리만 제거
+      setSelectedCategoryIds((prev) => prev.filter((id) => !incomeCategories.some((c) => c.id === id)));
+    } else {
+      // 모두 선택되지 않은 상태면 수입 카테고리 모두 추가
+      setSelectedCategoryIds((prev) => {
+        const otherIds = prev.filter((id) => !incomeCategories.some((c) => c.id === id));
+        return [...otherIds, ...incomeCategories.map((c) => c.id)];
+      });
+    }
+  };
+
+  // 지출 카테고리 전체 선택/해제
+  const handleSelectAllExpenseCategories = () => {
+    if (isAllExpenseCategoriesSelected) {
+      setSelectedCategoryIds((prev) => prev.filter((id) => !expenseCategories.some((c) => c.id === id)));
+    } else {
+      setSelectedCategoryIds((prev) => {
+        const otherIds = prev.filter((id) => !expenseCategories.some((c) => c.id === id));
+        return [...otherIds, ...expenseCategories.map((c) => c.id)];
+      });
+    }
+  };
+
+  // 자산 관리 전체 선택/해제
+  const handleSelectAllAssetManagementCategories = () => {
+    if (isAllAssetManagementCategoriesSelected) {
+      setSelectedCategoryCodes((prev) => prev.filter((code) => !assetManagementCodes.includes(code)));
+    } else {
+      setSelectedCategoryCodes((prev) => {
+        const otherCodes = prev.filter((code) => !assetManagementCodes.includes(code));
+        return [...otherCodes, ...assetManagementCodes];
+      });
+    }
+  };
+
+  // 전체 버튼 활성 상태 (어느 것도 선택되지 않았을 때)
+  const isAllCategoriesSelected = selectedCategoryIds.length === 0 && selectedCategoryCodes.length === 0;
   /* ----------------------------------------------------------------------- */
 
   /* 세부 항목 (소분류) 조회 */
@@ -818,7 +856,7 @@ export default function TransactionPage() {
 
               {/* 카테고리 필터 섹션 */}
               <div className="pt-4 border-t border-gray-100">
-                {/* 전체일 때만 전체 / 수입 전체 / 지출 전체 버튼 노출 */}
+                {/* 전체일 때만 전체 / 수입 전체 / 지출 전체 / 자산 관리 전체 버튼 노출 */}
                 {selectedType === "ALL" ? (
                   <div className="mb-4 flex flex-wrap gap-2">
                     <button
@@ -851,6 +889,16 @@ export default function TransactionPage() {
                     >
                       지출 전체
                     </button>
+                    <button
+                      onClick={handleSelectAllAssetManagementCategories}
+                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
+                        isAllAssetManagementCategoriesSelected
+                          ? "bg-purple-600 text-white shadow-sm"
+                          : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+                      }`}
+                    >
+                      자산 관리 전체
+                    </button>
                   </div>
                 ) : (
                   <button
@@ -865,12 +913,12 @@ export default function TransactionPage() {
                   </button>
                 )}
 
-                {/* 거래 유형이 전체일 때는 수입 / 지출 카테고리를 섹션으로 분리해서 표시 */}
+                {/* 거래 유형이 전체일 때는 수입 / 지출 / 자산관리 카테고리를 섹션으로 분리해서 표시 */}
                 {selectedType === "ALL" ? (
                   <div className="space-y-5">
                     {/* 수입 카테고리 섹션 */}
                     <div>
-                      <p className="mb-2.5 text-xs font-semibold text-gray-400">수입 카테고리</p>
+                      <p className="mb-2.5 text-xs font-semibold text-gray-400">수입</p>
                       <div className="flex flex-wrap gap-2">
                         {incomeCategories.map((c) => {
                           const selected = selectedCategoryIds.includes(c.id);
@@ -893,7 +941,7 @@ export default function TransactionPage() {
 
                     {/* 지출 카테고리 섹션 */}
                     <div>
-                      <p className="mb-2.5 text-xs font-semibold text-gray-400">지출 카테고리</p>
+                      <p className="mb-2.5 text-xs font-semibold text-gray-400">지출</p>
                       <div className="flex flex-wrap gap-2">
                         {expenseCategories.map((c) => {
                           const selected = selectedCategoryIds.includes(c.id);
@@ -913,9 +961,9 @@ export default function TransactionPage() {
                         })}
                       </div>
                     </div>
-                    {/* 시스템 카테고리 섹션 */}
+                    {/* 자산 관리 섹션 */}
                     <div>
-                      <p className="mb-2.5 text-xs font-semibold text-gray-400">시스템 카테고리</p>
+                      <p className="mb-2.5 text-xs font-semibold text-gray-400">자산 관리</p>
                       <div className="flex flex-wrap gap-2">
                         {[
                           { label: "이체", codes: ["TRANSFER_EXPENSE", "TRANSFER_INCOME"] },
