@@ -235,6 +235,8 @@ export default function DashboardPage() {
             balance: summary.balance,
             income: summary.income,
             expense: summary.expense,
+            savingsIncome: summary.savingsIncome,
+            savingsExpense: summary.savingsExpense,
           } : undefined}
         />
 

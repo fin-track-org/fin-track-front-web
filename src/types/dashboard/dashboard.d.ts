@@ -6,6 +6,8 @@ interface DashboardSummary {
   incomeChangeRate: number;
   expense: number;
   expenseChangeRate: number;
+  savingsIncome: number;
+  savingsExpense: number;
   balance: number;
   balanceChangeRate: number;
 }
@@ -21,6 +23,8 @@ interface DashboardDaily {
   date: string;
   income: number;
   expense: number;
+  savingsIncome: number;
+  savingsExpense: number;
   balance: number;
 }
 
