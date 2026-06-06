@@ -22,6 +22,10 @@ export const fetchTransactions = async (
     params.categoryIds.forEach((id) => searchParams.append("categoryIds", id));
   }
 
+  if (params.categoryCodes?.length) {
+    params.categoryCodes.forEach((code) => searchParams.append("categoryCodes", code));
+  }
+
   if (params.accountId) {
     searchParams.set("accountId", params.accountId);
   }

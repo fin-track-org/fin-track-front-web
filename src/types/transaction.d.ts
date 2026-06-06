@@ -40,6 +40,7 @@ interface Transaction {
 
 interface FetchTransactionsParams {
   categoryIds?: string[];
+  categoryCodes?: string[];
   accountId?: string;
   keyword?: string;
   startDate?: string;

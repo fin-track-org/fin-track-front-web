@@ -48,6 +48,7 @@ export default function TransactionPage() {
     "ALL" | "EXPENSE" | "INCOME"
   >("ALL");
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedCategoryCodes, setSelectedCategoryCodes] = useState<string[]>([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -137,9 +138,22 @@ export default function TransactionPage() {
     );
   };
 
+  const toggleCategoryCode = (codes: string[]) => {
+    setSelectedCategoryCodes((prev) => {
+      const hasAll = codes.every((c) => prev.includes(c));
+      if (hasAll) {
+        return prev.filter((c) => !codes.includes(c));
+      } else {
+        const newPrev = prev.filter((c) => !codes.includes(c));
+        return [...newPrev, ...codes];
+      }
+    });
+  };
+
   // 전체 카테고리 선택 해제 = 전체 보기
   const handleSelectAllCategories = () => {
     setSelectedCategoryIds([]);
+    setSelectedCategoryCodes([]);
   };
 
   // 수입 카테고리 전체 선택
@@ -153,7 +167,7 @@ export default function TransactionPage() {
   };
 
   // 전체 버튼 활성 상태
-  const isAllCategoriesSelected = selectedCategoryIds.length === 0;
+  const isAllCategoriesSelected = selectedCategoryIds.length === 0 && selectedCategoryCodes.length === 0;
 
   // 수입 전체 버튼 활성 상태
   const isAllIncomeCategoriesSelected =
@@ -200,7 +214,7 @@ export default function TransactionPage() {
     isError: isTransactionsError,
     error: transactionsError,
   } = useInfiniteQuery({
-    queryKey: ["transactions", searchTerm, selectedCategoryIds, selectedAccountId, startDate, endDate],
+    queryKey: ["transactions", searchTerm, selectedCategoryIds, selectedCategoryCodes, selectedAccountId, startDate, endDate],
     initialPageParam: {
       cursorDate: null,
       cursorSortOrder: null,
@@ -210,6 +224,8 @@ export default function TransactionPage() {
         keyword: searchTerm.trim() || undefined,
         categoryIds:
           selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
+        categoryCodes:
+          selectedCategoryCodes.length > 0 ? selectedCategoryCodes : undefined,
         accountId: selectedAccountId || undefined,
         startDate,
         endDate,
@@ -892,6 +908,32 @@ export default function TransactionPage() {
                               }`}
                             >
                               {c.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {/* 시스템 카테고리 섹션 */}
+                    <div>
+                      <p className="mb-2.5 text-xs font-semibold text-gray-400">시스템 카테고리</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { label: "이체", codes: ["TRANSFER_EXPENSE", "TRANSFER_INCOME"] },
+                          { label: "저축/투자", codes: ["SAVINGS_EXPENSE", "SAVINGS_INCOME"] },
+                          { label: "잔액 조정", codes: ["BALANCE_ADJUST_EXPENSE", "BALANCE_ADJUST_INCOME"] },
+                        ].map((sys) => {
+                          const selected = sys.codes.every((c) => selectedCategoryCodes.includes(c));
+                          return (
+                            <button
+                              key={sys.label}
+                              onClick={() => toggleCategoryCode(sys.codes)}
+                              className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
+                                selected
+                                  ? "bg-purple-50 border-purple-500 text-purple-700"
+                                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                              }`}
+                            >
+                              {sys.label}
                             </button>
                           );
                         })}
