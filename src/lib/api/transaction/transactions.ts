@@ -181,6 +181,7 @@ export const createTransfer = async (payload: {
   date: string;
   description: string;
   isSavings: boolean;
+  sortOrder?: number;
 }): Promise<Transaction[]> => {
   const supabase = createClient();
   const {
@@ -201,6 +202,43 @@ export const createTransfer = async (payload: {
   if (!response.ok) {
     const errText = await response.text().catch(() => "");
     throw new Error(`이체/저축 등록에 실패했습니다. (${response.status}) ${errText}`);
+  }
+  
+  const result: ApiResponse<Transaction[]> = await response.json();
+  return result.data ?? [];
+};
+
+export const updateTransfer = async (
+  linkedTransactionId: string,
+  payload: {
+    fromAccountId: string;
+    toAccountId: string;
+    amount: number;
+    date: string;
+    description: string;
+    isSavings: boolean;
+    sortOrder?: number;
+  }
+): Promise<Transaction[]> => {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new AuthError();
+
+  const response = await fetch(`${SPRING_BOOT_URL}/api/v1/transactions/transfer/${linkedTransactionId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (response.status === 401) throw new AuthError();
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    throw new Error(`이체/저축 수정에 실패했습니다. (${response.status}) ${errText}`);
   }
   
   const result: ApiResponse<Transaction[]> = await response.json();

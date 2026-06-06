@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-query";
 import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
-import { fetchTransactions, getDrafts, reorderTransactions, createTransfer } from "@/src/lib/api/transaction/transactions";
+import { fetchTransactions, getDrafts, reorderTransactions, createTransfer, updateTransfer } from "@/src/lib/api/transaction/transactions";
 import { getAccounts } from "@/src/lib/api/accountApi";
 import { useToast } from "@/src/hook/useToast";
 
@@ -327,12 +327,16 @@ export default function TransactionPage() {
 
     setModalDefaultValues({
       date: t.date,
-      type: isTransfer ? "TRANSFER" : t.type,
+      type: (isTransfer && !isSavings) ? "TRANSFER" : t.type,
       amount: Math.abs(t.amount),
-      categoryId: t.category.id,
+      categoryId: t.category?.id ?? "",
       subCategoryId: t.subcategory?.id ?? "",
-      accountId: isTransfer ? t.transferDetail!.fromAccount.id : (t.account?.id ?? ""),
-      toAccountId: isTransfer ? t.transferDetail!.toAccount.id : undefined,
+      accountId: isTransfer 
+        ? (isSavings && t.type === "INCOME" ? t.transferDetail!.toAccount.id : t.transferDetail!.fromAccount.id)
+        : (t.account?.id ?? ""),
+      toAccountId: isTransfer 
+        ? (isSavings && t.type === "INCOME" ? t.transferDetail!.fromAccount.id : t.transferDetail!.toAccount.id)
+        : undefined,
       isSavings: isSavings,
       description: t.description,
     });
@@ -376,56 +380,124 @@ export default function TransactionPage() {
 
     if (!session) throw new Error("로그인이 필요합니다.");
 
-    if (payload.type === "TRANSFER" || payload.isSavings) {
-      // 수입(INCOME)이면서 저축/투자인 경우, 출발 계좌(from)가 toAccountId(저축계좌), 도착 계좌(to)가 accountId(입금계좌)가 됨.
+    const isEditing = Boolean(editingTransaction?.id);
+    const isNewTypeTransfer = payload.type === "TRANSFER" || payload.isSavings;
+    const isOldTypeTransfer = Boolean(editingTransaction?.transferDetail);
+
+    // 공통: 이체 계좌 매핑
+    const getTransferIds = () => {
       const fromId = payload.type === "INCOME" ? payload.toAccountId! : payload.accountId;
       const toId = payload.type === "INCOME" ? payload.accountId : payload.toAccountId!;
+      return { fromId, toId };
+    };
 
-      await createTransfer({
-        fromAccountId: fromId,
-        toAccountId: toId,
-        amount: payload.amount,
-        date: payload.date,
-        description: payload.description || "",
-        isSavings: payload.isSavings || false,
-      });
-    } else {
-      // 수정 모드면 PUT, 아니면 POST
-      const isEditing = Boolean(editingTransaction?.id);
-      const apiUrl = isEditing
-        ? `${SPRING_BOOT_URL}/api/v1/transactions/${editingTransaction!.id}`
-        : `${SPRING_BOOT_URL}/api/v1/transactions`;
+    // 공통: 일반 거래 바디 매핑
+    const getNormalBody = () => ({
+      date: payload.date,
+      amount: payload.amount,
+      type: payload.type,
+      categoryId: payload.categoryId,
+      subcategoryId: payload.subCategoryId ?? null,
+      description: payload.description ?? null,
+      accountId: payload.accountId ?? null,
+      ...(isDraftMode && { isDraft: false }),
+    });
 
-      const method = isEditing ? "PUT" : "POST";
+    try {
+      if (isEditing) {
+        if (isOldTypeTransfer && isNewTypeTransfer) {
+          // 2. 이체 -> 이체: updateTransfer 호출
+          const { fromId, toId } = getTransferIds();
+          await updateTransfer(editingTransaction!.transferDetail!.linkedTransactionId, {
+            fromAccountId: fromId,
+            toAccountId: toId,
+            amount: payload.amount,
+            date: payload.date,
+            description: payload.description || "",
+            isSavings: payload.isSavings || false,
+          });
+        } else if (!isOldTypeTransfer && !isNewTypeTransfer) {
+          // 1. 일반 -> 일반: 기존 PUT
+          const apiUrl = `${SPRING_BOOT_URL}/api/v1/transactions/${editingTransaction!.id}`;
+          const res = await fetch(apiUrl, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify(getNormalBody()),
+          });
+          if (!res.ok) throw new Error(await res.text());
+        } else {
+          // 3. 타입 변경 (일반<->이체): 기존 삭제 후 신규 등록 (sortOrder 유지)
+          const deleteUrl = `${SPRING_BOOT_URL}/api/v1/transactions/${editingTransaction!.id}`;
+          const deleteRes = await fetch(deleteUrl, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (!deleteRes.ok) throw new Error("기존 거래 삭제에 실패했습니다.");
 
-      const bodyForNow = {
-        date: payload.date,
-        amount: payload.amount,
-        type: payload.type,
-        categoryId: payload.categoryId,
-        subcategoryId: payload.subCategoryId ?? null,
-        description: payload.description ?? null,
-        accountId: payload.accountId ?? null,
-        ...(isDraftMode && { isDraft: false }),
-      };
-
-      const res = await fetch(apiUrl, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(bodyForNow),
-      });
-
-      if (!res.ok) {
-        let msg = "저장 실패";
-        try {
-          const errJson = await res.json();
-          msg = errJson?.message || msg;
-        } catch {}
-        throw new Error(msg);
+          if (isNewTypeTransfer) {
+            const { fromId, toId } = getTransferIds();
+            await createTransfer({
+              fromAccountId: fromId,
+              toAccountId: toId,
+              amount: payload.amount,
+              date: payload.date,
+              description: payload.description || "",
+              isSavings: payload.isSavings || false,
+              sortOrder: editingTransaction!.sortOrder,
+            });
+          } else {
+            const createUrl = `${SPRING_BOOT_URL}/api/v1/transactions`;
+            const createRes = await fetch(createUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                ...getNormalBody(),
+                sortOrder: editingTransaction!.sortOrder,
+              }),
+            });
+            if (!createRes.ok) throw new Error(await createRes.text());
+          }
+        }
+      } else {
+        // 신규 등록
+        if (isNewTypeTransfer) {
+          const { fromId, toId } = getTransferIds();
+          await createTransfer({
+            fromAccountId: fromId,
+            toAccountId: toId,
+            amount: payload.amount,
+            date: payload.date,
+            description: payload.description || "",
+            isSavings: payload.isSavings || false,
+          });
+        } else {
+          const createUrl = `${SPRING_BOOT_URL}/api/v1/transactions`;
+          const createRes = await fetch(createUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify(getNormalBody()),
+          });
+          if (!createRes.ok) throw new Error(await createRes.text());
+        }
       }
+    } catch (err: any) {
+      let msg = "저장 실패";
+      try {
+        const errJson = JSON.parse(err.message);
+        msg = errJson?.message || err.message;
+      } catch {
+        msg = err.message || msg;
+      }
+      throw new Error(msg);
     }
 
     queryClient.invalidateQueries({ queryKey: ["transactions"] });

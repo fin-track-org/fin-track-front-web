@@ -85,8 +85,12 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   );
 
   // Transfer / Savings State
-  const [toAccountId, setToAccountId] = useState<string>("");
-  const [isSavings, setIsSavings] = useState(false);
+  const [toAccountId, setToAccountId] = useState<string>(
+    defaultValues?.toAccountId ?? "",
+  );
+  const [isSavings, setIsSavings] = useState<boolean>(
+    defaultValues?.isSavings ?? false,
+  );
 
   // ----------------------------
   // SubCategory (Custom Add)
@@ -299,6 +303,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     setCategory(defaultValues?.categoryId ?? "");
     setSubCategory(defaultValues?.subCategoryId ?? "");
     setAccountId(defaultValues?.accountId ?? "");
+    setToAccountId(defaultValues?.toAccountId ?? "");
+    setIsSavings(defaultValues?.isSavings ?? false);
     setDescription(defaultValues?.description ?? "");
     setAmountText(
       defaultValues?.amount != null ? String(defaultValues.amount) : "",
