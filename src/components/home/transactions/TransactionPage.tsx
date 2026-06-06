@@ -320,6 +320,11 @@ export default function TransactionPage() {
 
   // 수정 버튼 클릭
   const handleEdit = (t: Transaction) => {
+    if (t.category?.code === "BALANCE_ADJUST_EXPENSE" || t.category?.code === "BALANCE_ADJUST_INCOME") {
+      toast.error("잔액 조정 내역은 직접 수정할 수 없습니다. 삭제 후 대시보드의 '금액 맞추기'를 다시 이용해주세요.");
+      return;
+    }
+
     setEditingTransaction(t);
 
     const isTransfer = !!t.transferDetail;
