@@ -92,6 +92,39 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     defaultValues?.isSavings ?? false,
   );
 
+  const selectedFromAccount = useMemo(() => accounts.find(a => a.id === accountId), [accounts, accountId]);
+  const selectedToAccount = useMemo(() => accounts.find(a => a.id === toAccountId), [accounts, toAccountId]);
+  
+  const isSavingsAcc = (a?: { type: string }) => a?.type === "SAVINGS_INVESTMENT";
+
+  const transferAccountType = type === "TRANSFER" 
+    ? ((selectedFromAccount ? isSavingsAcc(selectedFromAccount) : selectedToAccount ? isSavingsAcc(selectedToAccount) : null) 
+        ? "SAVINGS_INVESTMENT" 
+        : (selectedFromAccount || selectedToAccount) ? "REGULAR" : null)
+    : null;
+
+  const getFromAccountOptions = () => {
+    if (isSavings) return accounts.filter((a) => a.type !== "SAVINGS_INVESTMENT");
+    if (type === "TRANSFER") {
+      // 출발 계좌는 도착 계좌와 동일한 계좌만 제외하고 모두 보여주어 언제든 성격(일반/저축)을 바꿀 수 있게 합니다.
+      return accounts.filter(a => a.id !== toAccountId);
+    }
+    return accounts;
+  };
+
+  const getToAccountOptions = () => {
+    if (isSavings) return accounts.filter((a) => a.type === "SAVINGS_INVESTMENT");
+    if (type === "TRANSFER") {
+      if (selectedFromAccount) {
+        // 출발 계좌와 성격(저축 계좌 여부)이 같으면서 자기 자신이 아닌 계좌만 필터링
+        const isFromSavings = isSavingsAcc(selectedFromAccount);
+        return accounts.filter(a => isSavingsAcc(a) === isFromSavings && a.id !== accountId);
+      }
+      return accounts.filter(a => a.id !== accountId);
+    }
+    return accounts;
+  };
+
   // ----------------------------
   // SubCategory (Custom Add)
   // ----------------------------
@@ -425,6 +458,28 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     }
   }
 
+  const handleAccountIdChange = (val: string) => {
+    setAccountId(val);
+    if (type === "TRANSFER" && toAccountId) {
+      const selected = accounts.find((a) => a.id === val);
+      const toAcc = accounts.find((a) => a.id === toAccountId);
+      if (selected && toAcc && isSavingsAcc(selected) !== isSavingsAcc(toAcc)) {
+        setToAccountId(""); // clear mismatched destination
+      }
+    }
+  };
+
+  const handleToAccountIdChange = (val: string) => {
+    setToAccountId(val);
+    if (type === "TRANSFER" && accountId) {
+      const selected = accounts.find((a) => a.id === val);
+      const fromAcc = accounts.find((a) => a.id === accountId);
+      if (selected && fromAcc && isSavingsAcc(selected) !== isSavingsAcc(fromAcc)) {
+        setAccountId(""); // clear mismatched source
+      }
+    }
+  };
+
   // ----------------------------
   // Render
   // ----------------------------
@@ -612,6 +667,11 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                 }`}
               >
                 <div className="overflow-hidden space-y-4">
+                  {type === "TRANSFER" && transferAccountType && (
+                    <div className="text-sm font-medium text-purple-700 bg-purple-50 px-3 py-2 rounded-lg text-center mx-1 mt-1 border border-purple-100">
+                      {transferAccountType === "SAVINGS_INVESTMENT" ? "저축 계좌 간 이체" : "일반 계좌 간 이체"}
+                    </div>
+                  )}
                   <div
                     className={`grid grid-cols-1 gap-4 pt-1 ${(isAccountIdCash && type !== "TRANSFER" && !isSavings) ? "md:grid-cols-1" : "md:grid-cols-2"}`}
                   >
@@ -623,17 +683,17 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                             ? "입금 계좌" 
                             : (isSavings ? "결제수단 (출금)" : "결제수단")}
                       </Label>
-                      {accounts.length === 0 ? (
+                      {getFromAccountOptions().length === 0 ? (
                         <div className="flex items-center h-9 w-full rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
-                          {isIncomeType ? "등록된 계좌가 없습니다" : "등록된 결제수단이 없습니다"}
+                          {accounts.length === 0 ? (isIncomeType ? "등록된 계좌가 없습니다" : "등록된 결제수단이 없습니다") : "선택 가능한 계좌가 없습니다"}
                         </div>
                       ) : (
-                        <Select value={accountId} onValueChange={setAccountId}>
+                        <Select value={accountId} onValueChange={handleAccountIdChange}>
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="선택" />
                           </SelectTrigger>
                           <SelectContent>
-                            {(isSavings ? accounts.filter((a) => a.type !== "SAVINGS_INVESTMENT") : accounts).map((a) => (
+                            {getFromAccountOptions().map((a) => (
                               <SelectItem key={a.id} value={a.id}>
                                 {a.name}
                               </SelectItem>
@@ -652,17 +712,17 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                               ? "출발 계좌 (저축계좌)" 
                               : "도착 계좌 (저축계좌)"}
                         </Label>
-                        {accounts.length === 0 ? (
+                        {getToAccountOptions().length === 0 ? (
                           <div className="flex items-center h-9 w-full rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
-                            등록된 계좌가 없습니다
+                            {accounts.length === 0 ? "등록된 계좌가 없습니다" : "선택 가능한 도착 계좌가 없습니다"}
                           </div>
                         ) : (
-                          <Select value={toAccountId} onValueChange={setToAccountId}>
+                          <Select value={toAccountId} onValueChange={handleToAccountIdChange}>
                             <SelectTrigger className="w-full">
                               <SelectValue placeholder="선택" />
                             </SelectTrigger>
                             <SelectContent>
-                              {(isSavings ? accounts.filter((a) => a.type === "SAVINGS_INVESTMENT") : accounts).map((a) => (
+                              {getToAccountOptions().map((a) => (
                                 <SelectItem key={a.id} value={a.id}>
                                   {a.name}
                                 </SelectItem>
