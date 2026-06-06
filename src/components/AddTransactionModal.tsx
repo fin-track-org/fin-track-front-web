@@ -627,7 +627,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                             <SelectValue placeholder="선택" />
                           </SelectTrigger>
                           <SelectContent>
-                            {accounts.map((a) => (
+                            {(isSavings ? accounts.filter((a) => a.type !== "SAVINGS_INVESTMENT") : accounts).map((a) => (
                               <SelectItem key={a.id} value={a.id}>
                                 {a.name}
                               </SelectItem>
@@ -656,7 +656,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                               <SelectValue placeholder="선택" />
                             </SelectTrigger>
                             <SelectContent>
-                              {accounts.map((a) => (
+                              {(isSavings ? accounts.filter((a) => a.type === "SAVINGS_INVESTMENT") : accounts).map((a) => (
                                 <SelectItem key={a.id} value={a.id}>
                                   {a.name}
                                 </SelectItem>
