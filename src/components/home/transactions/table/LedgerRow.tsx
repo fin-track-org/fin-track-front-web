@@ -44,12 +44,9 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-sky-100 text-sky-600">
-          {transaction.category.name}
-        </span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-sky-100 text-sky-600">
-          {transaction.subcategory?.name}
+          {transaction.subcategory?.name 
+            ? `${transaction.category.name} > ${transaction.subcategory.name}` 
+            : transaction.category.name}
         </span>
       </td>
       <td className="px-6 py-4 text-sm text-gray-700">

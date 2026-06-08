@@ -362,9 +362,6 @@ export default function LedgerTable({
                 카테고리
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
-                세부 항목
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
                 설명
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
@@ -388,7 +385,7 @@ export default function LedgerTable({
           {!loading && error && (
             <tbody>
               <tr>
-                <td colSpan={8}>
+                <td colSpan={7}>
                   <div className="py-12 flex flex-col items-center text-center">
                     <p className="text-red-500 font-medium mb-2">
                       데이터를 불러오지 못했어요
@@ -409,7 +406,7 @@ export default function LedgerTable({
           {!loading && !error && localTransactions.length === 0 && (
             <tbody>
               <tr>
-                <td colSpan={8}>
+                <td colSpan={7}>
                   <div className="py-12 text-center text-gray-400">
                     <p className="mb-1">거래 내역이 없습니다</p>
                     <p className="text-sm">새 거래를 추가해보세요 ✨</p>
@@ -425,7 +422,7 @@ export default function LedgerTable({
                 <tbody key={date}>
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={7}
                       className="px-6 py-2 bg-gray-50 text-xs font-semibold text-gray-400 uppercase border-t border-b border-gray-100"
                     >
                       {date}

@@ -677,7 +677,7 @@ export default function TransactionPage() {
 
   return (
     <>
-      <section className="space-y-4 md:space-y-6">
+      <section className="space-y-4 md:space-y-6 max-w-6xl mx-auto">
         {/* 탭 바 */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex gap-1 rounded-xl bg-gray-100 p-1">

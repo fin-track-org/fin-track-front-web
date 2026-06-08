@@ -50,7 +50,7 @@ export default function RecentTransactions({
                   <p className="font-medium truncate mt-1">{t.description}</p>
                   <div className="mt-2 flex gap-2 flex-wrap">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {t.category?.name}
+                      {t.subcategory?.name ? `${t.category?.name} > ${t.subcategory.name}` : t.category?.name}
                     </span>
                     {accountName && (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
@@ -88,9 +88,6 @@ export default function RecentTransactions({
                   카테고리
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
-                  세부항목
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
                   설명
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
@@ -122,15 +119,7 @@ export default function RecentTransactions({
                     <td className="px-6 py-4">
                       {t.category?.name && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
-                          {t.category.name}
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="px-6 py-4">
-                      {t.subcategory?.name && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
-                          {t.subcategory.name}
+                          {t.subcategory?.name ? `${t.category.name} > ${t.subcategory.name}` : t.category.name}
                         </span>
                       )}
                     </td>
