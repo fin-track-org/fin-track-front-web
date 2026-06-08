@@ -92,19 +92,19 @@ export default function MonthlyCalendar({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-gray-500">수익/회수</span>
-            <span className="text-sm font-semibold text-teal-600">
+            <span className="text-sm font-semibold text-sky-500">
               +{summary.savingsIncome.toLocaleString()}원
             </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-gray-500">저축/투자</span>
-            <span className="text-sm font-semibold text-orange-500">
+            <span className="text-sm font-semibold text-purple-600">
               -{summary.savingsExpense.toLocaleString()}원
             </span>
           </div>
           <div className="flex items-center gap-1.5 border-l border-gray-200 pl-4">
             <span className="text-xs text-gray-500">전체</span>
-            <span className={`text-sm font-semibold ${summary.balance >= 0 ? "text-purple-600" : "text-purple-500"}`}>
+            <span className={`text-sm font-semibold ${summary.balance >= 0 ? "text-gray-900" : "text-gray-900"}`}>
               {summary.balance > 0 ? "+" : ""}{summary.balance.toLocaleString()}원
             </span>
           </div>
@@ -173,15 +173,15 @@ export default function MonthlyCalendar({
                         <div className="flex-1 flex flex-col items-center justify-center gap-1.5 mt-1">
                           {/* 일일 순수익 금액 */}
                           <span className={`text-[10px] sm:text-xs font-bold truncate w-full text-center ${
-                            dailyNetFlow > 0 ? "text-purple-600" : dailyNetFlow < 0 ? "text-red-600" : "text-gray-600"
+                            dailyNetFlow === 0 ? "text-gray-500" : "text-gray-800"
                           }`}>
                             {dailyNetFlow > 0 ? "+" : ""}{dailyNetFlow.toLocaleString()}
                           </span>
                           <div className="flex flex-wrap justify-center gap-1 px-1">
                             {item.data.income > 0 && <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>}
-                            {item.data.expense > 0 && <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>}
-                            {item.data.savingsIncome > 0 && <div className="w-1.5 h-1.5 rounded-full bg-teal-500"></div>}
-                            {item.data.savingsExpense > 0 && <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>}
+                            {item.data.expense > 0 && <div className="w-1.5 h-1.5 rounded-full bg-red-600"></div>}
+                            {item.data.savingsIncome > 0 && <div className="w-1.5 h-1.5 rounded-full bg-sky-500"></div>}
+                            {item.data.savingsExpense > 0 && <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>}
                           </div>
                         </div>
                       );
@@ -229,7 +229,7 @@ export default function MonthlyCalendar({
                           {item.data.expense > 0 && (
                             <div className="flex justify-between items-center text-xs">
                               <span className="text-gray-600 flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>지출
+                                <div className="w-1.5 h-1.5 bg-red-600 rounded-full"></div>지출
                               </span>
                               <span className="font-semibold text-red-700">-{item.data.expense.toLocaleString()}원</span>
                             </div>
@@ -237,27 +237,27 @@ export default function MonthlyCalendar({
                           {item.data.savingsIncome > 0 && (
                             <div className="flex justify-between items-center text-xs">
                               <span className="text-gray-600 flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 bg-teal-500 rounded-full"></div>수익/회수
+                                <div className="w-1.5 h-1.5 bg-sky-500 rounded-full"></div>수익/회수
                               </span>
-                              <span className="font-semibold text-teal-700">+{item.data.savingsIncome.toLocaleString()}원</span>
+                              <span className="font-semibold text-sky-600">+{item.data.savingsIncome.toLocaleString()}원</span>
                             </div>
                           )}
                           {item.data.savingsExpense > 0 && (
                             <div className="flex justify-between items-center text-xs">
                               <span className="text-gray-600 flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>저축/투자
+                                <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>저축/투자
                               </span>
-                              <span className="font-semibold text-orange-700">-{item.data.savingsExpense.toLocaleString()}원</span>
+                              <span className="font-semibold text-purple-600">-{item.data.savingsExpense.toLocaleString()}원</span>
                             </div>
                           )}
                         </div>
 
                         <div className="border-t border-gray-100 pt-2 mt-3 flex justify-between items-center">
-                          <span className="text-xs font-bold text-gray-800">일일 순수익</span>
+                          <span className="text-xs font-bold text-gray-800">하루 결산</span>
                           {(() => {
                             const dailyNetFlow = item.data.income + item.data.savingsIncome - item.data.expense - item.data.savingsExpense;
                             return (
-                              <span className={`text-sm font-bold ${dailyNetFlow > 0 ? "text-purple-600" : dailyNetFlow < 0 ? "text-red-600" : "text-gray-800"}`}>
+                              <span className={`text-sm font-bold ${dailyNetFlow === 0 ? "text-gray-500" : "text-gray-800"}`}>
                                 {dailyNetFlow > 0 ? "+" : ""}{dailyNetFlow.toLocaleString()}원
                               </span>
                             );
@@ -280,15 +280,15 @@ export default function MonthlyCalendar({
           <span className="text-gray-600">수입</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+          <div className="w-2 h-2 bg-red-600 rounded-full"></div>
           <span className="text-gray-600">지출</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
+          <div className="w-2 h-2 bg-sky-500 rounded-full"></div>
           <span className="text-gray-600">수익/회수</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
           <span className="text-gray-600">저축/투자</span>
         </div>
       </div>

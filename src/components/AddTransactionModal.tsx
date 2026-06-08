@@ -26,6 +26,7 @@ import { todayISODateSeoul, toNumberOrNaN } from "../hook/useTransaction";
 import { createSubCategory, getSubCategories } from "../lib/api/categoryApi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTransactionTemplates } from "../lib/api/transaction/templateApi";
+import { useUserSettings } from "@/src/hook/useUserSettings";
 
 /* const CARD_PROVIDERS = [
   { id: "SAMSUNG", name: "삼성" },
@@ -51,6 +52,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   } = props;
 
   const queryClient = useQueryClient();
+  const { userSetting } = useUserSettings();
+  const isSimpleMode = userSetting?.ledgerMode === "SIMPLE";
 
   // ----------------------------
   // 초기값
@@ -555,7 +558,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                     <SelectContent>
                       <SelectItem value="EXPENSE">지출</SelectItem>
                       <SelectItem value="INCOME">수입</SelectItem>
-                      <SelectItem value="TRANSFER">이체/충전</SelectItem>
+                      {!isSimpleMode && <SelectItem value="TRANSFER">이체/충전</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -734,7 +737,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                     )}
                   </div>
                   
-                  {type !== "TRANSFER" && (
+                  {type !== "TRANSFER" && !isSimpleMode && (
                     <div className="flex items-center gap-2 px-1">
                       <input
                         type="checkbox"
