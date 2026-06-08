@@ -30,6 +30,7 @@ interface Props {
   onEdit: (t: Transaction) => void;
   onDelete: (id: string) => void;
   onReorder: (transactionIds: string[]) => void;
+  currentAccountId?: string;
 }
 
 /* ────────────────────────── Sortable wrappers ────────────────────────── */
@@ -38,10 +39,12 @@ function SortableLedgerRow({
   transaction,
   onEdit,
   onDelete,
+  currentAccountId,
 }: {
   transaction: Transaction;
   onEdit: (t: Transaction) => void;
   onDelete: (id: string) => void;
+  currentAccountId?: string;
 }) {
   const {
     attributes,
@@ -68,6 +71,7 @@ function SortableLedgerRow({
       transaction={transaction}
       onEdit={onEdit}
       onDelete={onDelete}
+      currentAccountId={currentAccountId}
       dragHandleAttributes={attributes}
       dragHandleListeners={listeners}
     />
@@ -190,6 +194,7 @@ export default function LedgerTable({
   onEdit,
   onDelete,
   onReorder,
+  currentAccountId,
 }: Props) {
   const [localTransactions, setLocalTransactions] =
     useState<Transaction[]>(transactions);

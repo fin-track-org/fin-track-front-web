@@ -1,5 +1,6 @@
 import { GripVertical, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { forwardRef, useState } from "react";
+import { getTransactionColor, getTransactionSign } from "@/src/lib/transactionUtils";
 import type { DraggableAttributes } from "@dnd-kit/core";
 import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
 
@@ -10,10 +11,11 @@ interface Props {
   dragHandleAttributes?: DraggableAttributes;
   dragHandleListeners?: SyntheticListenerMap;
   style?: React.CSSProperties;
+  currentAccountId?: string;
 }
 
 const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
-  { transaction, onEdit, onDelete, dragHandleAttributes, dragHandleListeners, style },
+  { transaction, onEdit, onDelete, dragHandleAttributes, dragHandleListeners, style, currentAccountId },
   ref,
 ) {
   const isExpense = transaction.type === "EXPENSE";
@@ -65,13 +67,9 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
         )}
       </td>
       <td
-        className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${
-          transaction.transferDetail 
-            ? "text-gray-700" 
-            : (!isExpense ? "text-green-600" : "text-red-600")
-        }`}
+        className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${getTransactionColor(transaction as any, currentAccountId)}`}
       >
-        {transaction.transferDetail ? "" : (!isExpense ? "+" : "-")}
+        {getTransactionSign(transaction as any, currentAccountId)}
         {Math.abs(transaction.amount).toLocaleString()}원
       </td>
       <td className="px-6 py-4 text-right">

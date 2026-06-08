@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { getTransactionColor, getTransactionSign } from "@/src/lib/transactionUtils";
 
 export default function RecentTransactions({
   data,
@@ -143,11 +144,9 @@ export default function RecentTransactions({
                     </td>
 
                     <td
-                      className={`px-6 py-4 text-sm font-semibold text-right ${
-                        isExpense ? "text-red-600" : isTransfer ? "text-gray-700" : "text-green-600"
-                      }`}
+                      className={`px-6 py-4 text-sm font-semibold text-right ${getTransactionColor(t as any)}`}
                     >
-                      {isTransfer ? "" : (isExpense ? "-" : "+")}{absAmount}원
+                      {getTransactionSign(t as any)}{absAmount}원
                     </td>
                   </tr>
                 );

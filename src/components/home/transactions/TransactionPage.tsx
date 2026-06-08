@@ -1023,6 +1023,7 @@ export default function TransactionPage() {
           onEdit={handleEdit}
           onDelete={handleDelete}
           onReorder={handleReorder}
+          currentAccountId={selectedAccountId}
         />
 
         <div ref={loadMoreRef} className="h-4" />
