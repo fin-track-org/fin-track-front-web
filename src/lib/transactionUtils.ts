@@ -1,4 +1,3 @@
-import { Transaction } from "@/src/types/transaction";
 
 export function getTransactionColor(transaction: any, currentAccountId?: string) {
   const code = transaction.category?.code;
