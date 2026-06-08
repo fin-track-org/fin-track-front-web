@@ -71,7 +71,15 @@ export default function Sidebar() {
           )}
           <div>
             <div className="font-semibold text-gray-900">{data?.nickname || "Guest"}</div>
-            <div className="text-sm text-sky-600 font-medium">Free 플랜</div>
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+              <div className="text-[11px] text-sky-600 font-medium bg-sky-50 px-2 py-0.5 rounded-md">Free 플랜</div>
+              {data?.pointBalance !== undefined && (
+                <div className="text-[11px] text-amber-600 font-bold bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <span className="w-1 h-1 rounded-full bg-amber-400" />
+                  {data.pointBalance.toLocaleString()} P
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

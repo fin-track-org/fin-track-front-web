@@ -6,6 +6,8 @@ interface DashboardSummary {
   incomeChangeRate: number;
   expense: number;
   expenseChangeRate: number;
+  savingsIncome: number;
+  savingsExpense: number;
   balance: number;
   balanceChangeRate: number;
 }
@@ -21,6 +23,8 @@ interface DashboardDaily {
   date: string;
   income: number;
   expense: number;
+  savingsIncome: number;
+  savingsExpense: number;
   balance: number;
 }
 
@@ -57,19 +61,10 @@ interface DashboardExpenseAccountApiResponse {
 }
 /* ---------------------------------------- */
 /* 최근 거래 내역 api 타입 */
-interface RecentTransaction {
-  id: string;
-  date: string;
-  type: "EXPENSE" | "INCOME";
-  categoryName: string;
-  subcategoryName: string;
-  description: string;
-  amount: number;
-}
 interface RecentTransactionResponse {
   statusCode: number;
   message: string;
-  data: RecentTransaction[];
+  data: Transaction[];
 }
 /* ---------------------------------------- */
 /* 결제수단별 잔액 api 타입 */
@@ -81,6 +76,7 @@ interface AccountBalance {
 }
 
 interface PaymentMethodBalance {
+  accountId: string;
   paymentMethodName: string;
   balance: number;
 }

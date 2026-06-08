@@ -62,7 +62,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   // Form State
   // ----------------------------
   const [date, setDate] = useState<string>(initialDate);
-  const [type, setType] = useState<TransactionType>(initialType);
+  type FormType = TransactionType | "TRANSFER";
+  const [type, setType] = useState<FormType>(initialType as FormType);
 
   const [category, setCategory] = useState<string>(
     defaultValues?.categoryId ?? "",
@@ -82,6 +83,47 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   const [amountText, setAmountText] = useState<string>(
     defaultValues?.amount != null ? String(defaultValues.amount) : "",
   );
+
+  // Transfer / Savings State
+  const [toAccountId, setToAccountId] = useState<string>(
+    defaultValues?.toAccountId ?? "",
+  );
+  const [isSavings, setIsSavings] = useState<boolean>(
+    defaultValues?.isSavings ?? false,
+  );
+
+  const selectedFromAccount = useMemo(() => accounts.find(a => a.id === accountId), [accounts, accountId]);
+  const selectedToAccount = useMemo(() => accounts.find(a => a.id === toAccountId), [accounts, toAccountId]);
+  
+  const isSavingsAcc = (a?: { type: string }) => a?.type === "SAVINGS_INVESTMENT";
+
+  const transferAccountType = type === "TRANSFER" 
+    ? ((selectedFromAccount ? isSavingsAcc(selectedFromAccount) : selectedToAccount ? isSavingsAcc(selectedToAccount) : null) 
+        ? "SAVINGS_INVESTMENT" 
+        : (selectedFromAccount || selectedToAccount) ? "REGULAR" : null)
+    : null;
+
+  const getFromAccountOptions = () => {
+    if (isSavings) return accounts.filter((a) => a.type !== "SAVINGS_INVESTMENT");
+    if (type === "TRANSFER") {
+      // 출발 계좌는 도착 계좌와 동일한 계좌만 제외하고 모두 보여주어 언제든 성격(일반/저축)을 바꿀 수 있게 합니다.
+      return accounts.filter(a => a.id !== toAccountId);
+    }
+    return accounts;
+  };
+
+  const getToAccountOptions = () => {
+    if (isSavings) return accounts.filter((a) => a.type === "SAVINGS_INVESTMENT");
+    if (type === "TRANSFER") {
+      if (selectedFromAccount) {
+        // 출발 계좌와 성격(저축 계좌 여부)이 같으면서 자기 자신이 아닌 계좌만 필터링
+        const isFromSavings = isSavingsAcc(selectedFromAccount);
+        return accounts.filter(a => isSavingsAcc(a) === isFromSavings && a.id !== accountId);
+      }
+      return accounts.filter(a => a.id !== accountId);
+    }
+    return accounts;
+  };
 
   // ----------------------------
   // SubCategory (Custom Add)
@@ -132,6 +174,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     setCategory("");
     setSubCategory("");
     setAccountId("");
+    setToAccountId("");
+    setIsSavings(false);
     setDescription("");
     if (mode === "quick") {
       setIsQuickExpanded(false);
@@ -202,13 +246,10 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     !isSaving;
 
   // 등록(완전한 거래): 카테고리, 결제수단 필수 (세부 항목은 선택)
-  const canRegister =
-    Boolean(date) &&
-    Boolean(category) &&
-    isAmountValid &&
-    Boolean(accountId) &&
-    Boolean(description) &&
-    !isSaving;
+  // TRANSFER 이거나 isSavings 인 경우 두 계좌 모두 필요. 카테고리는 무시됨.
+  const canRegister = (type === "TRANSFER" || isSavings)
+    ? Boolean(date) && isAmountValid && Boolean(accountId) && Boolean(toAccountId) && Boolean(description) && !isSaving
+    : Boolean(date) && Boolean(category) && isAmountValid && Boolean(accountId) && Boolean(description) && !isSaving;
 
   // 기존 create/edit 모드는 등록 조건 사용
   const canSubmit = mode === "confirm-draft" ? canRegister : canRegister;
@@ -247,13 +288,15 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     if (defaultValues) return;
 
     try {
-      const initialCategory =
-        type === "INCOME"
-          ? (categories.find((c) => c.type === "INCOME")?.id ?? "")
-          : (categories.find((c) => c.type === "EXPENSE")?.id ?? "");
+      if (type !== "TRANSFER") {
+        const initialCategory =
+          type === "INCOME"
+            ? (categories.find((c) => c.type === "INCOME")?.id ?? "")
+            : (categories.find((c) => c.type === "EXPENSE")?.id ?? "");
 
-      setCategory(initialCategory);
-      setSubCategory("");
+        setCategory(initialCategory);
+        setSubCategory("");
+      }
       setDate(todayISODateSeoul());
     } catch {
       // ignore
@@ -293,6 +336,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     setCategory(defaultValues?.categoryId ?? "");
     setSubCategory(defaultValues?.subCategoryId ?? "");
     setAccountId(defaultValues?.accountId ?? "");
+    setToAccountId(defaultValues?.toAccountId ?? "");
+    setIsSavings(defaultValues?.isSavings ?? false);
     setDescription(defaultValues?.description ?? "");
     setAmountText(
       defaultValues?.amount != null ? String(defaultValues.amount) : "",
@@ -393,6 +438,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       subCategoryId: subCategory,
       description: description.trim() ? description.trim() : null,
       accountId,
+      toAccountId,
+      isSavings,
     };
 
     try {
@@ -410,6 +457,28 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       setIsSaving(false);
     }
   }
+
+  const handleAccountIdChange = (val: string) => {
+    setAccountId(val);
+    if (type === "TRANSFER" && toAccountId) {
+      const selected = accounts.find((a) => a.id === val);
+      const toAcc = accounts.find((a) => a.id === toAccountId);
+      if (selected && toAcc && isSavingsAcc(selected) !== isSavingsAcc(toAcc)) {
+        setToAccountId(""); // clear mismatched destination
+      }
+    }
+  };
+
+  const handleToAccountIdChange = (val: string) => {
+    setToAccountId(val);
+    if (type === "TRANSFER" && accountId) {
+      const selected = accounts.find((a) => a.id === val);
+      const fromAcc = accounts.find((a) => a.id === accountId);
+      if (selected && fromAcc && isSavingsAcc(selected) !== isSavingsAcc(fromAcc)) {
+        setAccountId(""); // clear mismatched source
+      }
+    }
+  };
 
   // ----------------------------
   // Render
@@ -478,7 +547,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                   <Label className="ml-1">거래유형</Label>
                   <Select
                     value={type}
-                    onValueChange={(v) => setType(v as TransactionType)}
+                    onValueChange={(v) => setType(v as FormType)}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="선택" />
@@ -486,6 +555,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                     <SelectContent>
                       <SelectItem value="EXPENSE">지출</SelectItem>
                       <SelectItem value="INCOME">수입</SelectItem>
+                      <SelectItem value="TRANSFER">이체/충전</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -521,8 +591,11 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
               {/* 2) 카테고리 + 세부항목 (애니메이션 래퍼) */}
               <div
-                className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${isQuickExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                  }`}
+                className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+                  isQuickExpanded && type !== "TRANSFER" && !isSavings
+                    ? "grid-rows-[1fr] opacity-100" 
+                    : "grid-rows-[0fr] opacity-0"
+                }`}
               >
                 <div className="overflow-hidden space-y-5">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 pt-1">
@@ -584,35 +657,97 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                       </Select>
                     </div>
                   </div>
+                </div>
+              </div>
 
-                  {/* 3) 결제수단 / 입금 계좌 */}
+              {/* 3) 결제수단 / 계좌 선택 (애니메이션 래퍼) */}
+              <div
+                className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+                  isQuickExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                }`}
+              >
+                <div className="overflow-hidden space-y-4">
+                  {type === "TRANSFER" && transferAccountType && (
+                    <div className="text-sm font-medium text-purple-700 bg-purple-50 px-3 py-2 rounded-lg text-center mx-1 mt-1 border border-purple-100">
+                      {transferAccountType === "SAVINGS_INVESTMENT" ? "저축 계좌 간 이체" : "일반 계좌 간 이체"}
+                    </div>
+                  )}
                   <div
-                    className={`grid grid-cols-1 gap-4 ${isAccountIdCash ? "md:grid-cols-1" : " md:grid-cols-2"}`}
+                    className={`grid grid-cols-1 gap-4 pt-1 ${(isAccountIdCash && type !== "TRANSFER" && !isSavings) ? "md:grid-cols-1" : "md:grid-cols-2"}`}
                   >
                     <div className="space-y-2">
                       <Label className="ml-1">
-                        {isIncomeType ? "입금 계좌" : "결제수단"}
+                        {type === "TRANSFER" 
+                          ? "출발 계좌 (출금)" 
+                          : isIncomeType 
+                            ? "입금 계좌" 
+                            : (isSavings ? "결제수단 (출금)" : "결제수단")}
                       </Label>
-                      {accounts.length === 0 ? (
+                      {getFromAccountOptions().length === 0 ? (
                         <div className="flex items-center h-9 w-full rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
-                          {isIncomeType ? "등록된 계좌가 없습니다" : "등록된 결제수단이 없습니다"}
+                          {accounts.length === 0 ? (isIncomeType ? "등록된 계좌가 없습니다" : "등록된 결제수단이 없습니다") : "선택 가능한 계좌가 없습니다"}
                         </div>
                       ) : (
-                        <Select value={accountId} onValueChange={setAccountId}>
+                        <Select value={accountId} onValueChange={handleAccountIdChange}>
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder={isIncomeType ? "입금 계좌 선택" : "결제수단 선택"} />
+                            <SelectValue placeholder="선택" />
                           </SelectTrigger>
                           <SelectContent>
-                            {accounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.name}
+                            {getFromAccountOptions().map((a) => (
+                              <SelectItem key={a.id} value={a.id}>
+                                {a.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       )}
                     </div>
+                    
+                    {(type === "TRANSFER" || isSavings) && (
+                      <div className="space-y-2">
+                        <Label className="ml-1">
+                          {type === "TRANSFER" 
+                            ? "도착 계좌 (입금)" 
+                            : type === "INCOME" 
+                              ? "출발 계좌 (저축계좌)" 
+                              : "도착 계좌 (저축계좌)"}
+                        </Label>
+                        {getToAccountOptions().length === 0 ? (
+                          <div className="flex items-center h-9 w-full rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+                            {accounts.length === 0 ? "등록된 계좌가 없습니다" : "선택 가능한 도착 계좌가 없습니다"}
+                          </div>
+                        ) : (
+                          <Select value={toAccountId} onValueChange={handleToAccountIdChange}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getToAccountOptions().map((a) => (
+                                <SelectItem key={a.id} value={a.id}>
+                                  {a.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    )}
                   </div>
+                  
+                  {type !== "TRANSFER" && (
+                    <div className="flex items-center gap-2 px-1">
+                      <input
+                        type="checkbox"
+                        id="isSavings"
+                        checked={isSavings}
+                        onChange={(e) => setIsSavings(e.target.checked)}
+                        className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary cursor-pointer"
+                      />
+                      <Label htmlFor="isSavings" className="text-sm font-medium cursor-pointer select-none text-gray-700">
+                        이 거래를 저축/투자로 기록합니다
+                      </Label>
+                    </div>
+                  )}
                 </div>
               </div>
 

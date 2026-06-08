@@ -19,7 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { GripVertical, CreditCard } from "lucide-react";
 import LedgerRow from "./LedgerRow";
 import SkeletonRow from "../SkeletonRow";
 
@@ -126,19 +126,38 @@ function SortableMobileCard({
             <span className="rounded-md px-2 py-1 bg-sky-100 text-sky-600">
               {transaction.category.name}
             </span>
-            {transaction.account?.name && (
-              <span className="rounded-md bg-gray-100 px-2 py-1 text-gray-700">
-                {transaction.account.name}
-              </span>
+            {transaction.transferDetail ? (
+              <div className="flex items-center gap-1">
+                <span className="flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-gray-600">
+                  <CreditCard className="w-3 h-3" />
+                  {transaction.transferDetail.fromAccount.name}
+                </span>
+                <span className="text-gray-400 text-[10px]">▶</span>
+                <span className="flex items-center gap-1 rounded-md bg-sky-50 px-2 py-1 text-sky-700 font-medium border border-sky-100">
+                  <CreditCard className="w-3 h-3" />
+                  {transaction.transferDetail.toAccount.name}
+                </span>
+              </div>
+            ) : (
+              transaction.account?.name && (
+                <span className="flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-gray-700 font-medium">
+                  <CreditCard className="w-3 h-3 text-gray-500" />
+                  {transaction.account.name}
+                </span>
+              )
             )}
           </div>
         </div>
 
         <div className="shrink-0 text-right">
           <p
-            className={`text-sm font-bold ${isExpense ? "text-red-600" : "text-green-600"}`}
+            className={`text-sm font-bold ${
+              transaction.transferDetail 
+                ? "text-gray-700" 
+                : (isExpense ? "text-red-600" : "text-green-600")
+            }`}
           >
-            {isExpense ? "-" : "+"}
+            {transaction.transferDetail ? "" : (isExpense ? "-" : "+")}
             {amountAbs}원
           </p>
 

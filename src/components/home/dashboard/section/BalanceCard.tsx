@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Wallet, Eye, EyeOff } from "lucide-react";
+import { ChevronDown, ChevronUp, Wallet, Eye, EyeOff, RefreshCw } from "lucide-react";
+import AdjustBalanceModal from "@/src/components/AdjustBalanceModal";
 
 interface BalanceCardProps {
   totalBalance: number;
@@ -14,9 +15,11 @@ export default function BalanceCard({
 }: BalanceCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isBalanceVisible, setIsBalanceVisible] = useState(false);
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-6">
         {/* 헤더 - 총 잔액 */}
         <div className="flex items-center justify-between">
@@ -45,13 +48,22 @@ export default function BalanceCard({
               </div>
             </div>
           </div>
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
-            aria-label={isExpanded ? "접기" : "펼치기"}
-          >
-            {isExpanded ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsAdjustModalOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors px-3 py-2 rounded-lg"
+            >
+              <RefreshCw size={14} />
+              <span>금액 맞추기</span>
+            </button>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+              aria-label={isExpanded ? "접기" : "펼치기"}
+            >
+              {isExpanded ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+            </button>
+          </div>
         </div>
 
         {/* 확장된 내용 - 결제수단별 잔액 */}
@@ -87,5 +99,16 @@ export default function BalanceCard({
         )}
       </div>
     </div>
+    
+    <AdjustBalanceModal
+      isOpen={isAdjustModalOpen}
+      onClose={() => setIsAdjustModalOpen(false)}
+      paymentMethods={paymentMethods}
+      onSuccess={() => {
+        // 새로고침 로직 필요 시 추가 (보통 부모 컴포넌트나 SWR이 처리)
+        window.location.reload(); // 임시 새로고침
+      }}
+    />
+    </>
   );
 }

@@ -61,12 +61,12 @@ const BUILT_IN_AVATARS = [
 import { useToast } from "@/src/hook/useToast";
 import { useUserSettings } from "@/src/hook/useUserSettings";
 import AddTemplateModal from "@/src/components/AddTemplateModal";
-import { 
-  createTransactionTemplate, 
-  getTransactionTemplates, 
-  updateTransactionTemplate, 
-  deleteTransactionTemplate, 
-  TransactionTemplateRes 
+import {
+  createTransactionTemplate,
+  getTransactionTemplates,
+  updateTransactionTemplate,
+  deleteTransactionTemplate,
+  TransactionTemplateRes
 } from "@/src/lib/api/transaction/templateApi";
 import {
   getRecurringTransactions,
@@ -83,6 +83,7 @@ const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   BANK: "은행 계좌",
   CREDIT_CARD: "신용카드",
   CHECK_CARD: "체크카드",
+  SAVINGS_INVESTMENT: "저축/투자",
   ETC: "기타",
 };
 
@@ -91,6 +92,7 @@ const ACCOUNT_TYPE_OPTIONS: AccountType[] = [
   "BANK",
   "CREDIT_CARD",
   "CHECK_CARD",
+  "SAVINGS_INVESTMENT",
   "ETC",
 ];
 
@@ -1458,7 +1460,7 @@ export default function ProfilePage() {
             <Plus className="w-3.5 h-3.5" />추가
           </button>
         </div>
-        
+
         {isTemplatesLoadingList ? (
           <div className="divide-y divide-gray-100">
             {[1, 2].map((i) => (
@@ -1584,7 +1586,7 @@ export default function ProfilePage() {
                   </div>
                   <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
                     <span className="font-semibold text-sky-600">
-                      {recurring.repeatType === "MONTHLY" ? `매월 ${recurring.repeatDay}일` : `매주 ${['일','월','화','수','목','금','토'][recurring.repeatDay % 7]}요일`}
+                      {recurring.repeatType === "MONTHLY" ? `매월 ${recurring.repeatDay}일` : `매주 ${['일', '월', '화', '수', '목', '금', '토'][recurring.repeatDay % 7]}요일`}
                     </span>
                     <span className="w-1 h-1 bg-gray-300 rounded-full" />
                     <span>{formatAmount(recurring.amount)}</span>

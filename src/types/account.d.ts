@@ -1,4 +1,4 @@
-type AccountType = "CASH" | "BANK" | "CREDIT_CARD" | "CHECK_CARD" | "ETC";
+type AccountType = "CASH" | "BANK" | "CREDIT_CARD" | "CHECK_CARD" | "SAVINGS_INVESTMENT" | "ETC";
 
 interface Account {
   id: string;
@@ -32,4 +32,9 @@ interface ApiResponse<T> {
   statusCode: number;
   message: string;
   data: T;
+}
+
+interface AccountAdjustReq {
+  actualBalance: number;
+  reason?: string;
 }

@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-query";
 import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
-import { fetchTransactions, getDrafts, reorderTransactions } from "@/src/lib/api/transaction/transactions";
+import { fetchTransactions, getDrafts, reorderTransactions, createTransfer, updateTransfer } from "@/src/lib/api/transaction/transactions";
 import { getAccounts } from "@/src/lib/api/accountApi";
 import { useToast } from "@/src/hook/useToast";
 
@@ -48,6 +48,7 @@ export default function TransactionPage() {
     "ALL" | "EXPENSE" | "INCOME"
   >("ALL");
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedCategoryCodes, setSelectedCategoryCodes] = useState<string[]>([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -105,7 +106,12 @@ export default function TransactionPage() {
 
   // 전체 선택 시 카테고리를 수입 / 지출 섹션으로 분리해서 렌더링하기 위한 목록
   const incomeCategories = useMemo(() => {
-    return rawCategories.filter((c) => c.type === "INCOME");
+    return rawCategories.filter(
+      (c) =>
+        c.type === "INCOME" &&
+        c.code !== "TRANSFER_INCOME" &&
+        c.code !== "SAVINGS_INCOME"
+    );
   }, [rawCategories]);
 
   // 전체 선택 시 카테고리를 수입 / 지출 섹션으로 분리해서 렌더링하기 위한 목록
@@ -132,23 +138,29 @@ export default function TransactionPage() {
     );
   };
 
+  const toggleCategoryCode = (codes: string[]) => {
+    setSelectedCategoryCodes((prev) => {
+      const hasAll = codes.every((c) => prev.includes(c));
+      if (hasAll) {
+        return prev.filter((c) => !codes.includes(c));
+      } else {
+        const newPrev = prev.filter((c) => !codes.includes(c));
+        return [...newPrev, ...codes];
+      }
+    });
+  };
+
   // 전체 카테고리 선택 해제 = 전체 보기
   const handleSelectAllCategories = () => {
     setSelectedCategoryIds([]);
+    setSelectedCategoryCodes([]);
   };
 
-  // 수입 카테고리 전체 선택
-  const handleSelectAllIncomeCategories = () => {
-    setSelectedCategoryIds(incomeCategories.map((c) => c.id));
-  };
-
-  // 지출 카테고리 전체 선택
-  const handleSelectAllExpenseCategories = () => {
-    setSelectedCategoryIds(expenseCategories.map((c) => c.id));
-  };
-
-  // 전체 버튼 활성 상태
-  const isAllCategoriesSelected = selectedCategoryIds.length === 0;
+  const assetManagementCodes = [
+    "TRANSFER_EXPENSE", "TRANSFER_INCOME",
+    "SAVINGS_EXPENSE", "SAVINGS_INCOME",
+    "BALANCE_ADJUST_EXPENSE", "BALANCE_ADJUST_INCOME"
+  ];
 
   // 수입 전체 버튼 활성 상태
   const isAllIncomeCategoriesSelected =
@@ -159,6 +171,51 @@ export default function TransactionPage() {
   const isAllExpenseCategoriesSelected =
     expenseCategories.length > 0 &&
     expenseCategories.every((c) => selectedCategoryIds.includes(c.id));
+
+  // 자산 관리 전체 버튼 활성 상태
+  const isAllAssetManagementCategoriesSelected =
+    assetManagementCodes.every((c) => selectedCategoryCodes.includes(c));
+
+  // 수입 카테고리 전체 선택/해제
+  const handleSelectAllIncomeCategories = () => {
+    if (isAllIncomeCategoriesSelected) {
+      // 이미 모두 선택된 상태면 수입 카테고리만 제거
+      setSelectedCategoryIds((prev) => prev.filter((id) => !incomeCategories.some((c) => c.id === id)));
+    } else {
+      // 모두 선택되지 않은 상태면 수입 카테고리 모두 추가
+      setSelectedCategoryIds((prev) => {
+        const otherIds = prev.filter((id) => !incomeCategories.some((c) => c.id === id));
+        return [...otherIds, ...incomeCategories.map((c) => c.id)];
+      });
+    }
+  };
+
+  // 지출 카테고리 전체 선택/해제
+  const handleSelectAllExpenseCategories = () => {
+    if (isAllExpenseCategoriesSelected) {
+      setSelectedCategoryIds((prev) => prev.filter((id) => !expenseCategories.some((c) => c.id === id)));
+    } else {
+      setSelectedCategoryIds((prev) => {
+        const otherIds = prev.filter((id) => !expenseCategories.some((c) => c.id === id));
+        return [...otherIds, ...expenseCategories.map((c) => c.id)];
+      });
+    }
+  };
+
+  // 자산 관리 전체 선택/해제
+  const handleSelectAllAssetManagementCategories = () => {
+    if (isAllAssetManagementCategoriesSelected) {
+      setSelectedCategoryCodes((prev) => prev.filter((code) => !assetManagementCodes.includes(code)));
+    } else {
+      setSelectedCategoryCodes((prev) => {
+        const otherCodes = prev.filter((code) => !assetManagementCodes.includes(code));
+        return [...otherCodes, ...assetManagementCodes];
+      });
+    }
+  };
+
+  // 전체 버튼 활성 상태 (어느 것도 선택되지 않았을 때)
+  const isAllCategoriesSelected = selectedCategoryIds.length === 0 && selectedCategoryCodes.length === 0;
   /* ----------------------------------------------------------------------- */
 
   /* 세부 항목 (소분류) 조회 */
@@ -195,7 +252,7 @@ export default function TransactionPage() {
     isError: isTransactionsError,
     error: transactionsError,
   } = useInfiniteQuery({
-    queryKey: ["transactions", searchTerm, selectedCategoryIds, selectedAccountId, startDate, endDate],
+    queryKey: ["transactions", searchTerm, selectedCategoryIds, selectedCategoryCodes, selectedAccountId, startDate, endDate],
     initialPageParam: {
       cursorDate: null,
       cursorSortOrder: null,
@@ -205,6 +262,8 @@ export default function TransactionPage() {
         keyword: searchTerm.trim() || undefined,
         categoryIds:
           selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
+        categoryCodes:
+          selectedCategoryCodes.length > 0 ? selectedCategoryCodes : undefined,
         accountId: selectedAccountId || undefined,
         startDate,
         endDate,
@@ -315,16 +374,29 @@ export default function TransactionPage() {
 
   // 수정 버튼 클릭
   const handleEdit = (t: Transaction) => {
+    if (t.category?.code === "BALANCE_ADJUST_EXPENSE" || t.category?.code === "BALANCE_ADJUST_INCOME") {
+      toast.error("잔액 조정 내역은 직접 수정할 수 없습니다. 삭제 후 대시보드의 '금액 맞추기'를 다시 이용해주세요.");
+      return;
+    }
+
     setEditingTransaction(t);
 
-    // jsg [2026.04.21] 결제수단 임시로 null 허용 FIXME : 추후 null 허용하지 않도록 수정 필요
+    const isTransfer = !!t.transferDetail;
+    const isSavings = t.category?.code === "SAVINGS_EXPENSE" || t.category?.code === "SAVINGS_INCOME";
+
     setModalDefaultValues({
       date: t.date,
-      type: t.type,
-      amount: t.amount,
-      categoryId: t.category.id,
+      type: (isTransfer && !isSavings) ? "TRANSFER" : t.type,
+      amount: Math.abs(t.amount),
+      categoryId: t.category?.id ?? "",
       subCategoryId: t.subcategory?.id ?? "",
-      accountId: t.account?.id ?? "",
+      accountId: isTransfer 
+        ? (isSavings && t.type === "INCOME" ? t.transferDetail!.toAccount.id : t.transferDetail!.fromAccount.id)
+        : (t.account?.id ?? ""),
+      toAccountId: isTransfer 
+        ? (isSavings && t.type === "INCOME" ? t.transferDetail!.fromAccount.id : t.transferDetail!.toAccount.id)
+        : undefined,
+      isSavings: isSavings,
       description: t.description,
     });
 
@@ -367,17 +439,19 @@ export default function TransactionPage() {
 
     if (!session) throw new Error("로그인이 필요합니다.");
 
-    // 수정 모드면 PUT, 아니면 POST
     const isEditing = Boolean(editingTransaction?.id);
-    const apiUrl = isEditing
-      ? `${SPRING_BOOT_URL}/api/v1/transactions/${editingTransaction!.id}`
-      : `${SPRING_BOOT_URL}/api/v1/transactions`;
+    const isNewTypeTransfer = payload.type === "TRANSFER" || payload.isSavings;
+    const isOldTypeTransfer = Boolean(editingTransaction?.transferDetail);
 
-    const method = isEditing ? "PUT" : "POST";
+    // 공통: 이체 계좌 매핑
+    const getTransferIds = () => {
+      const fromId = payload.type === "INCOME" ? payload.toAccountId! : payload.accountId;
+      const toId = payload.type === "INCOME" ? payload.accountId : payload.toAccountId!;
+      return { fromId, toId };
+    };
 
-    // 나머지 필드는 API 확장 후 함께 보낼 예정
-    // jsg [2026.04.21] 서브카테고리 등 추가된 필드도 함께 보내도록 수정
-    const bodyForNow = {
+    // 공통: 일반 거래 바디 매핑
+    const getNormalBody = () => ({
       date: payload.date,
       amount: payload.amount,
       type: payload.type,
@@ -386,23 +460,102 @@ export default function TransactionPage() {
       description: payload.description ?? null,
       accountId: payload.accountId ?? null,
       ...(isDraftMode && { isDraft: false }),
-    };
-
-    const res = await fetch(apiUrl, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(bodyForNow),
     });
 
-    if (!res.ok) {
+    try {
+      if (isEditing) {
+        if (isOldTypeTransfer && isNewTypeTransfer) {
+          // 2. 이체 -> 이체: updateTransfer 호출
+          const { fromId, toId } = getTransferIds();
+          await updateTransfer(editingTransaction!.transferDetail!.linkedTransactionId, {
+            fromAccountId: fromId,
+            toAccountId: toId,
+            amount: payload.amount,
+            date: payload.date,
+            description: payload.description || "",
+            isSavings: payload.isSavings || false,
+          });
+        } else if (!isOldTypeTransfer && !isNewTypeTransfer) {
+          // 1. 일반 -> 일반: 기존 PUT
+          const apiUrl = `${SPRING_BOOT_URL}/api/v1/transactions/${editingTransaction!.id}`;
+          const res = await fetch(apiUrl, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify(getNormalBody()),
+          });
+          if (!res.ok) throw new Error(await res.text());
+        } else {
+          // 3. 타입 변경 (일반<->이체): 기존 삭제 후 신규 등록 (sortOrder 유지)
+          const deleteUrl = `${SPRING_BOOT_URL}/api/v1/transactions/${editingTransaction!.id}`;
+          const deleteRes = await fetch(deleteUrl, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (!deleteRes.ok) throw new Error("기존 거래 삭제에 실패했습니다.");
+
+          if (isNewTypeTransfer) {
+            const { fromId, toId } = getTransferIds();
+            await createTransfer({
+              fromAccountId: fromId,
+              toAccountId: toId,
+              amount: payload.amount,
+              date: payload.date,
+              description: payload.description || "",
+              isSavings: payload.isSavings || false,
+              sortOrder: editingTransaction!.sortOrder,
+            });
+          } else {
+            const createUrl = `${SPRING_BOOT_URL}/api/v1/transactions`;
+            const createRes = await fetch(createUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                ...getNormalBody(),
+                sortOrder: editingTransaction!.sortOrder,
+              }),
+            });
+            if (!createRes.ok) throw new Error(await createRes.text());
+          }
+        }
+      } else {
+        // 신규 등록
+        if (isNewTypeTransfer) {
+          const { fromId, toId } = getTransferIds();
+          await createTransfer({
+            fromAccountId: fromId,
+            toAccountId: toId,
+            amount: payload.amount,
+            date: payload.date,
+            description: payload.description || "",
+            isSavings: payload.isSavings || false,
+          });
+        } else {
+          const createUrl = `${SPRING_BOOT_URL}/api/v1/transactions`;
+          const createRes = await fetch(createUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify(getNormalBody()),
+          });
+          if (!createRes.ok) throw new Error(await createRes.text());
+        }
+      }
+    } catch (err: any) {
       let msg = "저장 실패";
       try {
-        const errJson = await res.json();
-        msg = errJson?.message || msg;
-      } catch {}
+        const errJson = JSON.parse(err.message);
+        msg = errJson?.message || err.message;
+      } catch {
+        msg = err.message || msg;
+      }
       throw new Error(msg);
     }
 
@@ -703,7 +856,7 @@ export default function TransactionPage() {
 
               {/* 카테고리 필터 섹션 */}
               <div className="pt-4 border-t border-gray-100">
-                {/* 전체일 때만 전체 / 수입 전체 / 지출 전체 버튼 노출 */}
+                {/* 전체일 때만 전체 / 수입 전체 / 지출 전체 / 자산 관리 전체 버튼 노출 */}
                 {selectedType === "ALL" ? (
                   <div className="mb-4 flex flex-wrap gap-2">
                     <button
@@ -736,6 +889,16 @@ export default function TransactionPage() {
                     >
                       지출 전체
                     </button>
+                    <button
+                      onClick={handleSelectAllAssetManagementCategories}
+                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
+                        isAllAssetManagementCategoriesSelected
+                          ? "bg-purple-600 text-white shadow-sm"
+                          : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+                      }`}
+                    >
+                      자산 관리 전체
+                    </button>
                   </div>
                 ) : (
                   <button
@@ -750,12 +913,12 @@ export default function TransactionPage() {
                   </button>
                 )}
 
-                {/* 거래 유형이 전체일 때는 수입 / 지출 카테고리를 섹션으로 분리해서 표시 */}
+                {/* 거래 유형이 전체일 때는 수입 / 지출 / 자산관리 카테고리를 섹션으로 분리해서 표시 */}
                 {selectedType === "ALL" ? (
                   <div className="space-y-5">
                     {/* 수입 카테고리 섹션 */}
                     <div>
-                      <p className="mb-2.5 text-xs font-semibold text-gray-400">수입 카테고리</p>
+                      <p className="mb-2.5 text-xs font-semibold text-gray-400">수입</p>
                       <div className="flex flex-wrap gap-2">
                         {incomeCategories.map((c) => {
                           const selected = selectedCategoryIds.includes(c.id);
@@ -778,7 +941,7 @@ export default function TransactionPage() {
 
                     {/* 지출 카테고리 섹션 */}
                     <div>
-                      <p className="mb-2.5 text-xs font-semibold text-gray-400">지출 카테고리</p>
+                      <p className="mb-2.5 text-xs font-semibold text-gray-400">지출</p>
                       <div className="flex flex-wrap gap-2">
                         {expenseCategories.map((c) => {
                           const selected = selectedCategoryIds.includes(c.id);
@@ -793,6 +956,32 @@ export default function TransactionPage() {
                               }`}
                             >
                               {c.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {/* 자산 관리 섹션 */}
+                    <div>
+                      <p className="mb-2.5 text-xs font-semibold text-gray-400">자산 관리</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { label: "이체", codes: ["TRANSFER_EXPENSE", "TRANSFER_INCOME"] },
+                          { label: "저축/투자", codes: ["SAVINGS_EXPENSE", "SAVINGS_INCOME"] },
+                          { label: "잔액 조정", codes: ["BALANCE_ADJUST_EXPENSE", "BALANCE_ADJUST_INCOME"] },
+                        ].map((sys) => {
+                          const selected = sys.codes.every((c) => selectedCategoryCodes.includes(c));
+                          return (
+                            <button
+                              key={sys.label}
+                              onClick={() => toggleCategoryCode(sys.codes)}
+                              className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
+                                selected
+                                  ? "bg-purple-50 border-purple-500 text-purple-700"
+                                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                              }`}
+                            >
+                              {sys.label}
                             </button>
                           );
                         })}

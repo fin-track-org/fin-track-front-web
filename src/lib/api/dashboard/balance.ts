@@ -40,6 +40,7 @@ export const getDashboardBalances = async (): Promise<{
   // accounts를 paymentMethods 형태로 변환
   const paymentMethods: PaymentMethodBalance[] = result.data.accounts.map(
     (account) => ({
+      accountId: account.accountId,
       paymentMethodName: account.accountName,
       balance: account.balance,
     })
