@@ -27,11 +27,11 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
       className="group hover:bg-gray-50 transition-colors"
     >
       {/* 드래그 핸들 */}
-      <td className="pl-3 pr-0 py-4 w-8">
+      <td className="border border-gray-300 px-2 py-1.5 w-8 text-center">
         <button
           {...dragHandleAttributes}
           {...dragHandleListeners}
-          className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none p-1 rounded transition-colors"
+          className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none p-1 rounded transition-colors inline-block"
           title="드래그하여 순서 변경"
           aria-label="순서 변경"
         >
@@ -39,39 +39,37 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
         </button>
       </td>
 
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+      <td className="border border-gray-300 px-4 py-1.5 whitespace-nowrap text-sm text-gray-700 text-center">
         {transaction.date}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-sky-100 text-sky-600">
+      <td className="border border-gray-300 px-4 py-1.5 whitespace-nowrap text-center">
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
           {transaction.subcategory?.name 
             ? `${transaction.category.name} > ${transaction.subcategory.name}` 
             : transaction.category.name}
         </span>
       </td>
-      <td className="px-6 py-4 text-sm text-gray-700">
+      <td className="border border-gray-300 px-4 py-1.5 text-sm text-gray-700">
         {transaction.description}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="border border-gray-300 px-4 py-1.5 whitespace-nowrap text-sm text-gray-600 text-center">
         {transaction.transferDetail ? (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-center gap-1.5">
             <span className="text-gray-500">{transaction.transferDetail.fromAccount.name}</span>
             <span className="text-gray-300">→</span>
-            <span className="text-sky-700 font-medium bg-sky-50 px-1.5 py-0.5 rounded text-xs">{transaction.transferDetail.toAccount.name}</span>
+            <span className="text-gray-700 font-medium bg-gray-100 px-1.5 py-0.5 rounded text-xs">{transaction.transferDetail.toAccount.name}</span>
           </div>
         ) : (
-          transaction.account?.name ?? "-"
+          transaction.account?.name
         )}
       </td>
-      <td
-        className={`px-6 py-4 whitespace-nowrap text-sm font-semibold text-right ${getTransactionColor(transaction as any, currentAccountId)}`}
-      >
+      <td className={`border border-gray-300 px-4 py-1.5 whitespace-nowrap text-right text-sm font-semibold ${getTransactionColor(transaction as any, currentAccountId)}`}>
         {getTransactionSign(transaction as any, currentAccountId)}
         {Math.abs(transaction.amount).toLocaleString()}원
       </td>
-      <td className="px-6 py-4 text-right">
+      <td className="border border-gray-300 px-2 py-1.5 whitespace-nowrap text-center">
         {/* ================= Desktop (md 이상) ================= */}
-        <div className="hidden md:flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="hidden md:flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => onEdit(transaction)}
             className="p-2 rounded-md hover:bg-yellow-50 text-yellow-600"
