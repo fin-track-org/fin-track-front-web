@@ -5,7 +5,7 @@ const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
 export const getRecentTransactions = async (
   limit: number = 10,
-): Promise<RecentTransaction[]> => {
+): Promise<Transaction[]> => {
   const supabase = createClient();
 
   const {
