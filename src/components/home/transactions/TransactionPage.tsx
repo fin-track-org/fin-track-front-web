@@ -21,6 +21,7 @@ import { fetchTransactions, getDrafts, reorderTransactions, createTransfer, upda
 import { getAccounts } from "@/src/lib/api/accountApi";
 import { getOpeningBalance, getClosingBalance } from "@/src/lib/api/balanceApi";
 import { useToast } from "@/src/hook/useToast";
+import { useUserSettings } from "@/src/hook/useUserSettings";
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
@@ -67,6 +68,9 @@ export default function TransactionPage() {
   const [customEnd, setCustomEnd] = useState("");
   const [tempStart, setTempStart] = useState("");
   const [tempEnd, setTempEnd] = useState("");
+
+  const { userSetting } = useUserSettings();
+  const isExcelView = userSetting?.ledgerTheme === "EXCEL";
 
   // 새 거래용 defaultValues
   const [modalDefaultValues, setModalDefaultValues] = useState<
@@ -820,6 +824,7 @@ return (
                 currentAccountId={selectedAccountId}
                 openingBalance={openingBalance}
                 closingBalance={closingBalance}
+                isExcelView={isExcelView}
               />
 
         <div ref={loadMoreRef} className="h-4" />

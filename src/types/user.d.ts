@@ -24,11 +24,17 @@ interface ApiResponse<T> {
 }
 
 type LedgerMode = "SIMPLE" | "ASSET_MANAGEMENT";
+type LedgerTheme = "DEFAULT" | "EXCEL";
 
 interface UserSettingRes {
   ledgerMode: LedgerMode;
+  ledgerTheme: LedgerTheme;
 }
 
 interface UserSettingModeUpdateReq {
   ledgerMode: LedgerMode;
+}
+
+interface UserSettingThemeUpdateReq {
+  ledgerTheme: LedgerTheme;
 }

@@ -543,6 +543,8 @@ export default function ProfilePage() {
     isLoading: isSettingLoading,
     changeLedgerMode,
     isUpdating: isSettingUpdating,
+    changeLedgerTheme,
+    isThemeUpdating,
   } = useUserSettings();
 
   // 💡 [추가할 부분] URL Hash에 담긴 Supabase 에러를 잡아서 Toast 띄우고 청소하기!
@@ -1139,6 +1141,33 @@ export default function ProfilePage() {
                   onChange={(e) => {
                     const newMode = e.target.checked ? "ASSET_MANAGEMENT" : "SIMPLE";
                     changeLedgerMode(newMode);
+                  }}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600 disabled:opacity-50"></div>
+              </label>
+            </div>
+          </div>
+
+          {/* 장부 테마 설정 */}
+          <div className="flex items-center justify-between px-6 py-5">
+            <div>
+              <dt className="flex items-center gap-1.5 text-xs font-medium text-gray-400 mb-1">
+                <Settings className="w-3.5 h-3.5" />장부 테마 설정
+              </dt>
+              <dd className="text-sm font-medium text-gray-800">
+                {userSetting?.ledgerTheme === "EXCEL" ? "엑셀 UI" : "기본 UI"}
+              </dd>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={userSetting?.ledgerTheme === "EXCEL"}
+                  disabled={isThemeUpdating}
+                  onChange={(e) => {
+                    const newTheme = e.target.checked ? "EXCEL" : "DEFAULT";
+                    changeLedgerTheme(newTheme);
                   }}
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600 disabled:opacity-50"></div>

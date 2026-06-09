@@ -12,10 +12,11 @@ interface Props {
   dragHandleListeners?: SyntheticListenerMap;
   style?: React.CSSProperties;
   currentAccountId?: string;
+  isExcelView?: boolean;
 }
 
 const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
-  { transaction, onEdit, onDelete, dragHandleAttributes, dragHandleListeners, style, currentAccountId },
+  { transaction, onEdit, onDelete, dragHandleAttributes, dragHandleListeners, style, currentAccountId, isExcelView = true },
   ref,
 ) {
   const isExpense = transaction.type === "EXPENSE";
@@ -27,11 +28,11 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
       className="group hover:bg-gray-50 transition-colors"
     >
       {/* 드래그 핸들 */}
-      <td className="border border-gray-300 px-2 py-1.5 w-8 text-center">
+      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1 md:py-1.5 w-6 md:w-8 text-center hidden md:table-cell" : "pl-3 pr-0 py-4 w-8"}`}>
         <button
           {...dragHandleAttributes}
           {...dragHandleListeners}
-          className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none p-1 rounded transition-colors inline-block"
+          className={`cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none p-1 rounded transition-colors ${isExcelView ? "inline-block" : ""}`}
           title="드래그하여 순서 변경"
           aria-label="순서 변경"
         >
@@ -39,62 +40,53 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
         </button>
       </td>
 
-      <td className="border border-gray-300 px-4 py-1.5 whitespace-nowrap text-sm text-gray-700 text-center">
+      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5 text-center text-gray-700" : "px-6 py-4 text-gray-700"} whitespace-nowrap text-[10px] md:text-sm hidden md:table-cell`}>
         {transaction.date}
       </td>
-      <td className="border border-gray-300 px-4 py-1.5 whitespace-nowrap text-center">
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5 text-center" : "px-6 py-4"} whitespace-nowrap max-w-[80px] md:max-w-none overflow-hidden text-ellipsis`}>
+        <span className={`inline-flex items-center font-medium bg-sky-100 text-sky-600 ${isExcelView ? "px-1 md:px-2 py-0.5 rounded text-[9px] md:text-xs truncate max-w-full" : "px-2.5 py-0.5 rounded-full text-sm"}`}>
           {transaction.subcategory?.name 
             ? `${transaction.category.name} > ${transaction.subcategory.name}` 
             : transaction.category.name}
         </span>
       </td>
-      <td className="border border-gray-300 px-4 py-1.5 text-sm text-gray-700">
+      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4 hidden sm:table-cell"} text-[10px] md:text-sm text-gray-700 max-w-[80px] md:max-w-[200px] truncate`}>
         {transaction.description}
       </td>
-      <td className="border border-gray-300 px-4 py-1.5 whitespace-nowrap text-sm text-gray-600 text-center">
+      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5 text-center" : "px-6 py-4"} whitespace-nowrap text-[10px] md:text-sm text-gray-600 overflow-hidden text-ellipsis`}>
         {transaction.transferDetail ? (
-          <div className="flex items-center justify-center gap-1.5">
-            <span className="text-gray-500">{transaction.transferDetail.fromAccount.name}</span>
+          <div className={`flex items-center gap-0.5 md:gap-1.5 ${isExcelView ? "justify-center" : ""}`}>
+            <span className="text-gray-500 truncate max-w-[50px] md:max-w-[80px]">{transaction.transferDetail.fromAccount.name}</span>
             <span className="text-gray-300">→</span>
-            <span className="text-gray-700 font-medium bg-gray-100 px-1.5 py-0.5 rounded text-xs">{transaction.transferDetail.toAccount.name}</span>
+            <span className={`font-medium px-1 md:px-1.5 py-0.5 rounded text-[9px] md:text-xs truncate max-w-[50px] md:max-w-[80px] ${isExcelView ? "text-gray-700 bg-gray-100" : "text-sky-700 bg-sky-50"}`}>{transaction.transferDetail.toAccount.name}</span>
           </div>
         ) : (
           transaction.account?.name
         )}
       </td>
-      <td className={`border border-gray-300 px-4 py-1.5 whitespace-nowrap text-right text-sm font-semibold ${getTransactionColor(transaction as any, currentAccountId)}`}>
+      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4"} whitespace-nowrap text-right text-[10px] md:text-sm font-semibold ${getTransactionColor(transaction as any, currentAccountId)}`}>
         {getTransactionSign(transaction as any, currentAccountId)}
         {Math.abs(transaction.amount).toLocaleString()}원
       </td>
-      <td className="border border-gray-300 px-2 py-1.5 whitespace-nowrap text-center">
-        {/* ================= Desktop (md 이상) ================= */}
-        <div className="hidden md:flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1 md:py-1.5 text-center" : "px-6 py-4 text-right"} whitespace-nowrap`}>
+        <div className={`flex items-center gap-0.5 md:gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ${isExcelView ? "justify-center" : "justify-end"}`}>
           <button
             onClick={() => onEdit(transaction)}
-            className="p-2 rounded-md hover:bg-yellow-50 text-yellow-600"
+            className="p-1 md:p-2 rounded-md hover:bg-yellow-50 text-yellow-600"
             title="수정"
             aria-label="수정"
           >
-            <Pencil className="w-4 h-4" />
+            <Pencil className="w-3 h-3 md:w-4 md:h-4" />
           </button>
 
           <button
             onClick={() => onDelete(transaction.id)}
-            className="p-2 rounded-md hover:bg-red-50 text-red-600"
+            className="p-1 md:p-2 rounded-md hover:bg-red-50 text-red-600"
             title="삭제"
             aria-label="삭제"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
           </button>
-        </div>
-
-        {/* ================= Mobile (md 미만) ================= */}
-        <div className="relative md:hidden flex justify-end">
-          <MobileActionMenu
-            onEdit={() => onEdit(transaction)}
-            onDelete={() => onDelete(transaction.id)}
-          />
         </div>
       </td>
     </tr>
