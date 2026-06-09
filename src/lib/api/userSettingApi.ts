@@ -76,3 +76,42 @@ export const updateLedgerMode = async (
 
   return result.data;
 };
+
+export const updateLedgerTheme = async (
+  body: UserSettingThemeUpdateReq
+): Promise<UserSettingRes> => {
+  const supabase = createClient();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    throw new AuthError();
+  }
+
+  const response = await fetch(`${SPRING_BOOT_URL}/api/v1/users/me/settings/theme/ledger`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (response.status === 401) {
+    throw new AuthError();
+  }
+
+  if (!response.ok) {
+    throw new Error("가계부 테마 변경에 실패했습니다.");
+  }
+
+  const result: ApiResponse<UserSettingRes> = await response.json();
+
+  if (!result.data) {
+    throw new Error("가계부 테마 변경 응답이 올바르지 않습니다.");
+  }
+
+  return result.data;
+};

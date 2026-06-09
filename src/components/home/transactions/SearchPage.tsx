@@ -7,7 +7,7 @@ import { createClient } from "@/src/lib/supabase/client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import LedgerTable from "./table/LedgerTable";
 import MonthSelector from "../dashboard/section/MonthSelector";
-import { CalendarDays, ChevronDown, X } from "lucide-react";
+import { CalendarDays, ChevronDown, Search, X } from "lucide-react";
 import Link from "next/link";
 import {
   useInfiniteQuery,
@@ -19,14 +19,12 @@ import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
 import { fetchTransactions, getDrafts, reorderTransactions, createTransfer, updateTransfer } from "@/src/lib/api/transaction/transactions";
 import { getAccounts } from "@/src/lib/api/accountApi";
-import { getOpeningBalance, getClosingBalance } from "@/src/lib/api/balanceApi";
 import { useToast } from "@/src/hook/useToast";
-import { useUserSettings } from "@/src/hook/useUserSettings";
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
-export default function TransactionPage() {
+export default function SearchPage() {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -68,9 +66,6 @@ export default function TransactionPage() {
   const [customEnd, setCustomEnd] = useState("");
   const [tempStart, setTempStart] = useState("");
   const [tempEnd, setTempEnd] = useState("");
-
-  const { userSetting } = useUserSettings();
-  const isExcelView = userSetting?.ledgerTheme === "EXCEL";
 
   // 새 거래용 defaultValues
   const [modalDefaultValues, setModalDefaultValues] = useState<
@@ -242,17 +237,6 @@ export default function TransactionPage() {
   } = useQuery({
     queryKey: ["accounts"],
     queryFn: getAccounts,
-  });
-
-  /* 잔액 조회 (장부 뷰) */
-  const { data: openingBalance } = useQuery({
-    queryKey: ["openingBalance", startDate, selectedAccountId],
-    queryFn: () => getOpeningBalance(startDate, selectedAccountId),
-  });
-
-  const { data: closingBalance } = useQuery({
-    queryKey: ["closingBalance", endDate, selectedAccountId],
-    queryFn: () => getClosingBalance(endDate, selectedAccountId),
   });
 
   type TransactionCursor = {
@@ -691,19 +675,18 @@ export default function TransactionPage() {
   if (isInitialLoading) {
     return <TransactionPageSkeleton />;
   }
-return (
+
+  return (
     <>
     <div className="w-full flex justify-center pb-20 lg:pb-0 bg-gray-50 min-h-screen">
       <div className="w-full max-w-6xl mx-auto flex flex-col gap-6 lg:p-6 p-4">
         {/* 상단 탭 (장부 뷰 / 검색 뷰) */}
         <div className="flex bg-white px-6 pt-4 rounded-xl border border-gray-200 shadow-sm gap-6 mb-2">
-          <Link href="/home/transactions" className="pb-3 border-b-2 border-black font-bold text-gray-900">장부 뷰 (엑셀)</Link>
-          <Link href="/home/transactions/search" className="pb-3 text-gray-500 hover:text-gray-900 font-medium transition-colors">검색 뷰 (목록)</Link>
+          <Link href="/home/transactions" className="pb-3 text-gray-500 hover:text-gray-900 font-medium transition-colors">장부 뷰 (엑셀)</Link>
+          <Link href="/home/transactions/search" className="pb-3 border-b-2 border-black font-bold text-gray-900">검색 뷰 (목록)</Link>
         </div>
 
-        {/* --- 뷰 컨트롤 --- */}
-        <section className="space-y-4 md:space-y-6">
-        {/* 탭 바 */}
+        {/* --- 필터 및 검색바 --- */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
             <button
@@ -760,18 +743,31 @@ return (
                   onPrev={handlePreviousMonth}
                   onNext={handleNextMonth}
                 />
-                <select
-                  value={selectedAccountId}
-                  onChange={(e) => setSelectedAccountId(e.target.value)}
-                  className="w-full sm:w-[150px] border-none bg-gray-50 text-gray-700 text-sm font-semibold rounded-lg px-3 py-2.5 outline-none ring-1 ring-gray-200 focus:ring-2 focus:ring-sky-500/50 cursor-pointer appearance-none"
+                <button
+                  onClick={handleOpenDatePicker}
+                  className={`whitespace-nowrap shrink-0 flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+                    dateRangeMode === "custom"
+                      ? "bg-sky-50 text-sky-700 border-sky-300"
+                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  }`}
                 >
-                  <option value="">전체 결제수단</option>
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name}
-                    </option>
-                  ))}
-                </select>
+                  <CalendarDays size={16} />
+                  <span>
+                    {dateRangeMode === "custom"
+                      ? `${customStart} ~ ${customEnd}`
+                      : "기간 지정"}
+                  </span>
+                  {dateRangeMode === "custom" && (
+                    <X
+                      size={14}
+                      className="ml-1 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearCustomRange();
+                      }}
+                    />
+                  )}
+                </button>
               </div>
 
               {showDatePicker && (
@@ -814,18 +810,229 @@ return (
               )}
             </div>
 
-              <LedgerTable
-                transactions={transactions}
-                loading={isTransactionsLoading && !isFetchingNextPage}
-                error={pageError?.message || null}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onReorder={handleReorder}
-                currentAccountId={selectedAccountId}
-                openingBalance={openingBalance}
-                closingBalance={closingBalance}
-                isExcelView={isExcelView}
+        {/* 검색/필터 */}
+        <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 mb-6 mt-4">
+          {/* 모바일에서만 검색/필터 접기/펼치기 헤더 표시 */}
+          <div className="flex items-center justify-between md:hidden cursor-pointer" onClick={() => setIsMobileFilterOpen((prev) => !prev)}>
+            <p className="text-sm font-semibold text-gray-900">검색 및 필터</p>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 p-1"
+            >
+              <ChevronDown
+                size={22}
+                className={`transition-transform duration-300 ease-in-out ${
+                  isMobileFilterOpen ? "rotate-180" : "rotate-0"
+                }`}
               />
+            </button>
+          </div>
+
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-in-out md:overflow-visible ${
+              isMobileFilterOpen
+                ? "max-h-[1500px] opacity-100 mt-4"
+                : "max-h-0 opacity-0"
+            } md:max-h-none md:opacity-100 md:mt-0`}
+          >
+            <div className="flex flex-col gap-5">
+              {/* 검색 + 결제수단 필터 */}
+              <div className="flex flex-col gap-3 md:flex-row">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="거래 내역 검색..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:bg-white transition-colors"
+                  />
+                </div>
+                <select
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                  className="py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:bg-white transition-colors md:w-56"
+                >
+                  <option value="">결제수단 전체</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 카테고리 필터 섹션 */}
+              <div className="pt-4 border-t border-gray-100">
+                {/* 전체일 때만 전체 / 수입 전체 / 지출 전체 / 자산 관리 전체 버튼 노출 */}
+                {selectedType === "ALL" ? (
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    <button
+                      onClick={handleSelectAllCategories}
+                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
+                        isAllCategoriesSelected
+                          ? "bg-gray-800 text-white shadow-sm"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      전체
+                    </button>
+                    <button
+                      onClick={handleSelectAllIncomeCategories}
+                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
+                        isAllIncomeCategoriesSelected
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      }`}
+                    >
+                      수입 전체
+                    </button>
+                    <button
+                      onClick={handleSelectAllExpenseCategories}
+                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
+                        isAllExpenseCategoriesSelected
+                          ? "bg-sky-600 text-white shadow-sm"
+                          : "bg-sky-50 text-sky-700 hover:bg-sky-100"
+                      }`}
+                    >
+                      지출 전체
+                    </button>
+                    <button
+                      onClick={handleSelectAllAssetManagementCategories}
+                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
+                        isAllAssetManagementCategoriesSelected
+                          ? "bg-purple-600 text-white shadow-sm"
+                          : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+                      }`}
+                    >
+                      자산 관리 전체
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleSelectAllCategories}
+                    className={`mb-4 px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
+                      isAllCategoriesSelected
+                        ? "bg-gray-800 text-white shadow-sm"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    전체
+                  </button>
+                )}
+
+                {/* 거래 유형이 전체일 때는 수입 / 지출 / 자산관리 카테고리를 섹션으로 분리해서 표시 */}
+                {selectedType === "ALL" ? (
+                  <div className="space-y-5">
+                    {/* 수입 카테고리 섹션 */}
+                    <div>
+                      <p className="mb-2.5 text-xs font-semibold text-gray-400">수입</p>
+                      <div className="flex flex-wrap gap-2">
+                        {incomeCategories.map((c) => {
+                          const selected = selectedCategoryIds.includes(c.id);
+                          return (
+                            <button
+                              key={c.id}
+                              onClick={() => toggleCategory(c.id)}
+                              className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
+                                selected
+                                  ? "bg-emerald-50 border-emerald-500 text-emerald-700"
+                                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                              }`}
+                            >
+                              {c.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 지출 카테고리 섹션 */}
+                    <div>
+                      <p className="mb-2.5 text-xs font-semibold text-gray-400">지출</p>
+                      <div className="flex flex-wrap gap-2">
+                        {expenseCategories.map((c) => {
+                          const selected = selectedCategoryIds.includes(c.id);
+                          return (
+                            <button
+                              key={c.id}
+                              onClick={() => toggleCategory(c.id)}
+                              className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
+                                selected
+                                  ? "bg-sky-50 border-sky-500 text-sky-700"
+                                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                              }`}
+                            >
+                              {c.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {/* 자산 관리 섹션 */}
+                    <div>
+                      <p className="mb-2.5 text-xs font-semibold text-gray-400">자산 관리</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { label: "이체", codes: ["TRANSFER_EXPENSE", "TRANSFER_INCOME"] },
+                          { label: "저축/투자", codes: ["SAVINGS_EXPENSE", "SAVINGS_INCOME"] },
+                          { label: "잔액 조정", codes: ["BALANCE_ADJUST_EXPENSE", "BALANCE_ADJUST_INCOME"] },
+                        ].map((sys) => {
+                          const selected = sys.codes.every((c) => selectedCategoryCodes.includes(c));
+                          return (
+                            <button
+                              key={sys.label}
+                              onClick={() => toggleCategoryCode(sys.codes)}
+                              className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
+                                selected
+                                  ? "bg-purple-50 border-purple-500 text-purple-700"
+                                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                              }`}
+                            >
+                              {sys.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // 거래 유형이 지출/수입으로 선택된 경우에는 기존처럼 한 그룹으로 표시
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {filteredCategories.map((c) => {
+                      const selected = selectedCategoryIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          onClick={() => toggleCategory(c.id)}
+                          className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
+                             selected
+                               ? selectedType === "INCOME"
+                                 ? "bg-emerald-50 border-emerald-500 text-emerald-700"
+                                 : "bg-sky-50 border-sky-500 text-sky-700"
+                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                          }`}
+                        >
+                          {c.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <LedgerTable
+          transactions={transactions}
+          loading={isPageLoading}
+          error={pageError?.message ?? null}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onReorder={handleReorder}
+          currentAccountId={selectedAccountId}
+        />
 
         <div ref={loadMoreRef} className="h-4" />
 
@@ -883,7 +1090,6 @@ return (
             )}
           </div>
         )}
-      </section>
       </div>
     </div>
 

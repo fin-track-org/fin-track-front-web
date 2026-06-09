@@ -31,6 +31,9 @@ interface Props {
   onDelete: (id: string) => void;
   onReorder: (transactionIds: string[]) => void;
   currentAccountId?: string;
+  openingBalance?: number;
+  closingBalance?: number;
+  isExcelView?: boolean;
 }
 
 /* ────────────────────────── Sortable wrappers ────────────────────────── */
@@ -40,11 +43,13 @@ function SortableLedgerRow({
   onEdit,
   onDelete,
   currentAccountId,
+  isExcelView,
 }: {
   transaction: Transaction;
   onEdit: (t: Transaction) => void;
   onDelete: (id: string) => void;
   currentAccountId?: string;
+  isExcelView?: boolean;
 }) {
   const {
     attributes,
@@ -74,6 +79,7 @@ function SortableLedgerRow({
       currentAccountId={currentAccountId}
       dragHandleAttributes={attributes}
       dragHandleListeners={listeners}
+      isExcelView={isExcelView}
     />
   );
 }
@@ -82,10 +88,12 @@ function SortableMobileCard({
   transaction,
   onEdit,
   onDelete,
+  isExcelView,
 }: {
   transaction: Transaction;
   onEdit: (t: Transaction) => void;
   onDelete: (id: string) => void;
+  isExcelView?: boolean;
 }) {
   const {
     attributes,
@@ -195,6 +203,9 @@ export default function LedgerTable({
   onDelete,
   onReorder,
   currentAccountId,
+  openingBalance,
+  closingBalance,
+  isExcelView = true,
 }: Props) {
   const [localTransactions, setLocalTransactions] =
     useState<Transaction[]>(transactions);
@@ -278,8 +289,8 @@ export default function LedgerTable({
 
   return (
     <>
-      {/* ✅ 모바일: 카드 */}
-      <div className="md:hidden space-y-4">
+      {/* ✅ 모바일: 카드 (엑셀 뷰가 아닐 때만 노출) */}
+      <div className={`${isExcelView ? "hidden" : "md:hidden"} space-y-4`}>
         {loading &&
           Array.from({ length: 6 }).map((_, i) => (
             <div
@@ -343,34 +354,24 @@ export default function LedgerTable({
           ))}
       </div>
 
-      {/* ✅ 데스크탑: 테이블 */}
+      {/* ✅ 데스크탑/공통: 테이블 (엑셀 뷰일 땐 모바일에서도 노출) */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
         modifiers={[restrictToVerticalAxis, restrictToParentElement]}
       >
-        <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-          <table className="w-full min-w-[900px]">
-          <thead className="bg-gray-50 text-gray-500 text-sm">
+        <div className={`${isExcelView ? "block" : "hidden md:block"} bg-white overflow-x-auto ${!isExcelView ? "rounded-xl shadow-sm border border-gray-100" : ""}`}>
+          <table className={`w-full ${isExcelView ? "md:min-w-[900px] border-collapse border border-gray-300 text-xs md:text-sm" : "min-w-[900px]"}`}>
+          <thead className={isExcelView ? "bg-[#f3f4f6] text-gray-700" : "bg-gray-50 text-gray-500 text-sm"}>
             <tr>
-              <th className="px-3 py-3 w-8" />
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
-                날짜
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
-                카테고리
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
-                설명
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase">
-                결제수단
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-semibold uppercase">
-                금액
-              </th>
-              <th className="px-6 py-3" />
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2 w-6 md:w-8 text-center" : "px-3 py-3 w-8"} text-[10px] md:text-xs font-semibold uppercase hidden md:table-cell`}>#</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase hidden md:table-cell`}>날짜</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[60px] md:w-auto" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase`}>카테고리</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase`}>설명</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-full md:w-auto" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase`}>결제수단</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[60px] md:w-auto" : "px-6 py-3 text-right"} text-[10px] md:text-xs font-semibold uppercase`}>금액</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2 text-center w-[40px] md:w-auto" : "px-6 py-3"} text-[10px] md:text-xs font-semibold uppercase`}>관리</th>
             </tr>
           </thead>
 
@@ -416,14 +417,25 @@ export default function LedgerTable({
             </tbody>
           )}
 
-          {!loading &&
-            !error &&
-            groupedByDate.map(([date, items]) => (
+          {!loading && !error && (
+            <>
+              {openingBalance !== undefined && (
+                <tbody>
+                  <tr className={isExcelView ? "bg-[#f8f9fa]" : "bg-sky-50/50 border-b border-sky-100/50"}>
+                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2 text-center text-gray-400 font-bold hidden md:table-cell" : "px-3 py-3"}`}>{isExcelView ? "O" : ""}</td>
+                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 font-bold text-sky-700 text-center text-[11px] md:text-sm" : "px-6 py-3 text-sm font-semibold text-sky-700"}`}>기초 잔액</td>
+                    <td colSpan={2} className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-gray-500 text-[11px] md:text-sm" : "px-6 py-3 text-sm text-gray-500"}`}>이월된 기초 금액</td>
+                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-right font-bold text-sky-700 text-[11px] md:text-sm" : "px-6 py-3 text-right font-bold text-sky-700"}`}>{openingBalance.toLocaleString()} 원</td>
+                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2" : "px-6 py-3"}`} />
+                  </tr>
+                </tbody>
+              )}
+              {groupedByDate.map(([date, items]) => (
                 <tbody key={date}>
                   <tr>
                     <td
                       colSpan={7}
-                      className="px-6 py-2 bg-gray-50 text-xs font-semibold text-gray-400 uppercase border-t border-b border-gray-100"
+                      className={`${isExcelView ? "border border-gray-300 px-4 py-1.5 bg-[#f3f4f6] text-xs font-bold text-gray-500 text-center uppercase" : "px-6 py-2 bg-gray-50 text-xs font-semibold text-gray-400 uppercase border-t border-b border-gray-100"}`}
                     >
                       {date}
                     </td>
@@ -438,11 +450,25 @@ export default function LedgerTable({
                         transaction={t}
                         onEdit={onEdit}
                         onDelete={onDelete}
+                        isExcelView={isExcelView}
                       />
                     ))}
                   </SortableContext>
                 </tbody>
-            ))}
+              ))}
+              {closingBalance !== undefined && (
+                <tbody>
+                  <tr className={isExcelView ? "bg-[#f8f9fa]" : "bg-gray-50 border-t-2 border-gray-100"}>
+                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2 text-center text-gray-400 font-bold hidden md:table-cell" : "px-3 py-3"}`}>{isExcelView ? "C" : ""}</td>
+                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 font-bold text-gray-800 text-center text-[11px] md:text-sm" : "px-6 py-3 text-sm font-semibold text-gray-800"}`}>기말 잔액</td>
+                    <td colSpan={2} className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-gray-500 text-[11px] md:text-sm" : "px-6 py-3 text-sm text-gray-500"}`}>최종 계산된 금액</td>
+                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-right font-bold text-gray-800 text-[11px] md:text-sm" : "px-6 py-3 text-right font-bold text-gray-800"}`}>{closingBalance.toLocaleString()} 원</td>
+                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2" : "px-6 py-3"}`} />
+                  </tr>
+                </tbody>
+              )}
+            </>
+          )}
         </table>
       </div>
       </DndContext>
