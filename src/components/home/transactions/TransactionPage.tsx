@@ -22,6 +22,9 @@ import { getAccounts } from "@/src/lib/api/accountApi";
 import { getOpeningBalance, getClosingBalance } from "@/src/lib/api/balanceApi";
 import { useToast } from "@/src/hook/useToast";
 import { useUserSettings } from "@/src/hook/useUserSettings";
+import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
+import LedgerTopBanner from "./LedgerTopBanner";
+import LedgerBottomBanner from "./LedgerBottomBanner";
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
@@ -253,6 +256,16 @@ export default function TransactionPage() {
   const { data: closingBalance } = useQuery({
     queryKey: ["closingBalance", endDate, selectedAccountId],
     queryFn: () => getClosingBalance(endDate, selectedAccountId),
+  });
+
+  /* 결제수단별 잔액 조회 */
+  const {
+    data: balanceData,
+    isLoading: isBalanceLoading,
+  } = useQuery({
+    queryKey: ["dashboardBalances"],
+    queryFn: () => getDashboardBalances(),
+    retry: false,
   });
 
   type TransactionCursor = {
@@ -814,6 +827,8 @@ return (
               )}
             </div>
 
+              <LedgerTopBanner balanceData={balanceData} isLoading={isBalanceLoading} />
+
               <LedgerTable
                 transactions={transactions}
                 loading={isTransactionsLoading && !isFetchingNextPage}
@@ -826,6 +841,8 @@ return (
                 closingBalance={closingBalance}
                 isExcelView={isExcelView}
               />
+
+              <LedgerBottomBanner transactions={transactions} accounts={accounts} />
 
         <div ref={loadMoreRef} className="h-4" />
 
