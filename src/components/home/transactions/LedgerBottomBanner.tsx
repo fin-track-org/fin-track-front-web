@@ -1,5 +1,4 @@
 import React, { useMemo } from "react";
-import { Transaction } from "@/src/types/transaction"; // Assuming this exists or I'll just use any for now, let's redefine locally if needed.
 
 // Redefine locally since we only need basic props
 interface LedgerBottomBannerProps {
