@@ -398,18 +398,18 @@ export default function LedgerTable({
         modifiers={[restrictToVerticalAxis, restrictToParentElement]}
       >
         <div className={`${isExcelView ? "block" : "hidden md:block"} bg-white overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-none md:overflow-y-visible md:overflow-x-visible border-x border-b border-gray-200`}>
-          <table className={`w-full ${isExcelView ? "md:min-w-full min-w-[800px] border-collapse border border-gray-300 text-xs md:text-sm" : "min-w-full"}`}>
+          <table className={`w-full ${isExcelView ? "md:min-w-full min-w-max border-collapse border border-gray-300 text-xs md:text-sm" : "min-w-full"}`}>
           <thead className={`sticky top-0 md:top-[78px] z-30 ${isExcelView ? "bg-[#f3f4f6] text-gray-700 shadow-sm" : "bg-gray-50 text-gray-500 text-sm shadow-sm"}`}>
             <tr>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2 w-6 md:w-8 text-center" : "px-3 py-3 w-8"} text-[10px] md:text-xs font-semibold uppercase hidden md:table-cell`}>#</th>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase hidden md:table-cell`}>날짜</th>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[60px] md:w-auto" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase`}>카테고리</th>
-              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase`}>설명</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[80px] md:w-[150px]" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase`}>설명</th>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[60px] md:w-auto" : "px-6 py-3 text-right"} text-[10px] md:text-xs font-semibold uppercase text-blue-600`}>수입</th>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[60px] md:w-auto" : "px-6 py-3 text-right"} text-[10px] md:text-xs font-semibold uppercase text-red-600`}>지출</th>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[80px] md:w-auto" : "px-6 py-3 text-right"} text-[10px] md:text-xs font-semibold uppercase text-gray-700`}>거래 후 잔액</th>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[80px] md:w-auto" : "px-6 py-3 text-right"} text-[10px] md:text-xs font-semibold uppercase text-sky-700`}>계좌 잔액</th>
-              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase`}>결제수단</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[80px] md:w-auto" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase`}>결제수단</th>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2 text-center w-[40px] md:w-auto" : "px-6 py-3"} text-[10px] md:text-xs font-semibold uppercase`}>관리</th>
             </tr>
           </thead>
@@ -488,7 +488,9 @@ export default function LedgerTable({
 
               <tfoot>
                 <tr>
-                  <td colSpan={4} className={`${isExcelView ? "border border-gray-300 px-4 py-2" : "px-6 py-4"} text-center font-bold text-gray-700 bg-gray-100`}>
+                  <td className={`${isExcelView ? "border border-gray-300" : ""} bg-gray-100 hidden md:table-cell`}></td>
+                  <td className={`${isExcelView ? "border border-gray-300" : ""} bg-gray-100 hidden md:table-cell`}></td>
+                  <td colSpan={2} className={`${isExcelView ? "border border-gray-300 px-4 py-2" : "px-6 py-4"} text-center font-bold text-gray-700 bg-gray-100`}>
                     현재 기간 합계
                   </td>
                   <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-4"} text-right font-bold text-blue-600 bg-blue-50/50`}>

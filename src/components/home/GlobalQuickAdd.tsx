@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Zap, FileText } from "lucide-react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { quickAddTransaction } from "@/src/lib/api/transaction/transactions";
@@ -18,6 +18,12 @@ export default function GlobalQuickAdd() {
   const queryClient = useQueryClient();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpen = () => setIsMenuOpen(prev => !prev);
+    window.addEventListener("open-quick-add", handleOpen);
+    return () => window.removeEventListener("open-quick-add", handleOpen);
+  }, []);
 
   // ----------------------------
   // 통합 모달 상태
@@ -123,20 +129,20 @@ export default function GlobalQuickAdd() {
       {/* 백드롭 (메뉴 열렸을 때 화면 어둡게 하고 바깥 클릭 시 닫기 용도) */}
       {isMenuOpen && (
         <div 
-          className="fixed inset-0 z-30 bg-black/10 backdrop-blur-[1px] transition-opacity"
+          className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[1px] transition-opacity"
           onClick={() => setIsMenuOpen(false)}
         />
       )}
 
       {/* FAB 및 스피드 다이얼 메뉴 */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+      <div className={`fixed z-50 flex flex-col items-center lg:items-end gap-3 transition-all duration-300 ${isMenuOpen ? 'bottom-[110px] left-1/2 -translate-x-1/2 lg:left-auto lg:-translate-x-0 lg:bottom-24 lg:right-6' : 'bottom-0 left-1/2 -translate-x-1/2 lg:left-auto lg:-translate-x-0 lg:bottom-6 lg:right-6 pointer-events-none lg:pointer-events-auto'}`}>
         {/* 일반 등록 버튼 */}
         <div
-          className={`flex items-center gap-3 transition-all duration-300 origin-bottom ${
+          className={`relative flex items-center justify-center transition-all duration-300 origin-bottom ${
             isMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-12 opacity-0 scale-50 pointer-events-none"
           }`}
         >
-          <span className="bg-white text-gray-700 px-3 py-1.5 rounded-lg shadow-md text-sm font-bold border border-gray-100">
+          <span className="absolute right-full mr-4 w-max bg-white text-gray-700 px-3 py-1.5 rounded-lg shadow-md text-sm font-bold border border-gray-100">
             상세 등록
           </span>
           <button
@@ -153,11 +159,11 @@ export default function GlobalQuickAdd() {
 
         {/* 빠른 등록 버튼 */}
         <div
-          className={`flex items-center gap-3 transition-all duration-200 origin-bottom ${
+          className={`relative flex items-center justify-center transition-all duration-200 origin-bottom ${
             isMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-6 opacity-0 scale-50 pointer-events-none"
           }`}
         >
-          <span className="bg-white text-gray-700 px-3 py-1.5 rounded-lg shadow-md text-sm font-bold border border-gray-100">
+          <span className="absolute right-full mr-4 w-max bg-white text-gray-700 px-3 py-1.5 rounded-lg shadow-md text-sm font-bold border border-gray-100">
             빠른 등록 (임시 보관)
           </span>
           <button
@@ -172,11 +178,11 @@ export default function GlobalQuickAdd() {
           </button>
         </div>
 
-        {/* 메인 토글 버튼 */}
+        {/* 메인 토글 버튼 (데스크탑에서만 표시, 모바일은 하단 탭 바에서 이벤트 발생) */}
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
           aria-label="메뉴 열기"
-          className="flex items-center justify-center w-14 h-14 rounded-full bg-sky-600 text-white shadow-xl hover:bg-sky-700 active:scale-95 transition-all z-10 relative"
+          className="hidden lg:flex items-center justify-center w-14 h-14 rounded-full bg-sky-600 text-white shadow-xl hover:bg-sky-700 active:scale-95 transition-all z-10 relative"
         >
           <Plus size={28} strokeWidth={2.5} className={`transition-transform duration-300 ${isMenuOpen ? "rotate-[135deg]" : "rotate-0"}`} />
         </button>
