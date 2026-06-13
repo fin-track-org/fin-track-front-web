@@ -1,53 +1,58 @@
-import React, { useMemo } from "react";
+import React from "react";
+import { BalanceRes } from "@/src/lib/api/balanceApi";
+import { getAccountIcon } from "@/src/lib/transactionUtils";
 
-// Redefine locally since we only need basic props
 interface LedgerBottomBannerProps {
-  transactions: any[];
+  balanceData?: BalanceRes;
+  isLoading: boolean;
   accounts: any[];
 }
 
-export default function LedgerBottomBanner({ transactions, accounts }: LedgerBottomBannerProps) {
-  const accountCalculations = useMemo(() => {
-    const sums: Record<string, number> = {};
-    let total = 0;
-    
-    // Initialize with 0 for all accounts
-    accounts.forEach(acc => {
-      sums[acc.id] = 0;
-    });
+export default function LedgerBottomBanner({ balanceData, isLoading, accounts }: LedgerBottomBannerProps) {
+  if (isLoading) {
+    return (
+      <div className="w-full bg-[#1e3a8a] text-white px-4 py-2 md:p-4 rounded-b-xl flex items-center justify-center min-h-[60px] md:min-h-[70px]">
+        <span className="text-xs md:text-sm opacity-70">계좌 정보를 불러오는 중...</span>
+      </div>
+    );
+  }
 
-    transactions.forEach((t) => {
-      const accId = t.account?.id;
-      if (accId) {
-        const amount = Math.abs(t.amount);
-        const signedAmount = t.type === "EXPENSE" ? -amount : amount;
-        sums[accId] = (sums[accId] || 0) + signedAmount;
-        total += signedAmount;
-      }
-    });
+  if (!balanceData) return null;
 
-    return { sums, total };
-  }, [transactions, accounts]);
+  const inactiveBalance = balanceData.accounts
+    .filter(acc => !accounts.some(a => a.id === acc.accountId))
+    .reduce((sum, acc) => sum + acc.amount, 0);
 
   return (
-    <div className="w-full bg-[#1e3a8a] text-white rounded-b-xl mt-4 overflow-x-auto no-scrollbar shadow-md">
+    <div className="w-full bg-[#1e3a8a] text-white rounded-b-xl overflow-x-auto no-scrollbar">
       <div className="flex flex-nowrap min-w-max">
+        {accounts.length > 0 && (
+          <div className="px-4 py-2 md:py-3 flex flex-col justify-center min-w-[120px] md:min-w-[140px] bg-sky-900/40 border-r border-white/20">
+            <span className="text-[10px] md:text-xs text-sky-200 font-semibold mb-0.5 md:mb-1 uppercase tracking-wider">CLOSING TOTAL</span>
+            <span className="text-sm md:text-base font-bold text-sky-300">
+              {balanceData.totalAmount >= 0 ? '' : '-'}&#8361;{Math.abs(balanceData.totalAmount).toLocaleString()}
+            </span>
+          </div>
+        )}
         {accounts.map((acc, idx) => {
-          const sum = accountCalculations.sums[acc.id] || 0;
+          const matched = balanceData.accounts.find(a => a.accountId === acc.id);
+          const amount = matched ? matched.amount : 0;
+          const icon = getAccountIcon(acc.type);
+
           return (
-            <div key={acc.id} className={`px-6 py-4 flex flex-col justify-center min-w-[160px] ${idx !== accounts.length - 1 ? 'border-r border-white/10' : ''}`}>
-              <span className="text-xs text-sky-200 font-semibold mb-1 uppercase tracking-wider">{acc.name}</span>
-              <span className="text-lg font-bold">
-                {sum > 0 ? '+' : ''}{sum < 0 ? '-' : ''}&#8361;{Math.abs(sum).toLocaleString()}
+            <div key={acc.id} className={`px-4 py-2 md:py-3 flex flex-col justify-center min-w-[120px] md:min-w-[140px] ${idx !== accounts.length - 1 || inactiveBalance !== 0 ? 'border-r border-white/10' : ''}`}>
+              <span className="text-[10px] md:text-xs text-sky-200 font-semibold mb-0.5 md:mb-1 uppercase tracking-wider">{icon} {acc.name}</span>
+              <span className="text-sm md:text-base font-bold">
+                {amount >= 0 ? '' : '-'}&#8361;{Math.abs(amount).toLocaleString()}
               </span>
             </div>
           );
         })}
-        {accounts.length > 0 && (
-          <div className="px-6 py-4 flex flex-col justify-center min-w-[160px] bg-sky-900/40 border-l border-white/20">
-            <span className="text-xs text-sky-200 font-semibold mb-1 uppercase tracking-wider">NET POS</span>
-            <span className="text-lg font-bold text-sky-300">
-              {accountCalculations.total > 0 ? '+' : ''}{accountCalculations.total < 0 ? '-' : ''}&#8361;{Math.abs(accountCalculations.total).toLocaleString()}
+        {inactiveBalance !== 0 && (
+          <div className="px-4 py-2 md:py-3 flex flex-col justify-center min-w-[120px] md:min-w-[140px]">
+            <span className="text-[10px] md:text-xs text-sky-400 font-semibold mb-0.5 md:mb-1 uppercase tracking-wider">비활성 계좌</span>
+            <span className="text-sm md:text-base font-bold text-gray-300">
+              {inactiveBalance >= 0 ? '' : '-'}&#8361;{Math.abs(inactiveBalance).toLocaleString()}
             </span>
           </div>
         )}

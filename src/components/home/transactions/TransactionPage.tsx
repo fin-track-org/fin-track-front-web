@@ -6,7 +6,7 @@ import AddTransactionModal from "@/src/components/AddTransactionModal";
 import { createClient } from "@/src/lib/supabase/client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import LedgerTable from "./table/LedgerTable";
-import MonthSelector from "../dashboard/section/MonthSelector";
+import TransactionDateSelector from "./TransactionDateSelector";
 import { CalendarDays, ChevronDown, X } from "lucide-react";
 import Link from "next/link";
 import {
@@ -37,8 +37,9 @@ export default function TransactionPage() {
   // 무한 스크롤 로더
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  // 날짜
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  // 날짜 및 뷰 모드
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<"daily" | "weekly" | "monthly" | "custom">("weekly");
 
   // 검색
   const [searchTerm, setSearchTerm] = useState("");
@@ -66,7 +67,6 @@ export default function TransactionPage() {
 
   // 날짜 범위 필터
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [dateRangeMode, setDateRangeMode] = useState<"month" | "custom">("month");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [tempStart, setTempStart] = useState("");
@@ -85,16 +85,82 @@ export default function TransactionPage() {
     useState<Transaction | null>(null);
 
   const { startDate, endDate } = useMemo(() => {
-    if (dateRangeMode === "custom" && customStart && customEnd) {
+    if (viewMode === "custom" && customStart && customEnd) {
       return { startDate: customStart, endDate: customEnd };
     }
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
+    
+    const d = new Date(currentDate);
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const date = d.getDate();
+    const day = d.getDay(); // 0 (Sun) to 6 (Sat)
+    
+    if (viewMode === "daily") {
+      const yyyyMmDd = `${year}-${String(month + 1).padStart(2, "0")}-${String(date).padStart(2, "0")}`;
+      return { startDate: yyyyMmDd, endDate: yyyyMmDd };
+    }
+    
+    if (viewMode === "weekly") {
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      const startOfWeek = new Date(d);
+      startOfWeek.setDate(date + diffToMonday);
+      
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      
+      const sYear = startOfWeek.getFullYear();
+      const sMonth = startOfWeek.getMonth();
+      const sDate = startOfWeek.getDate();
+      const start = `${sYear}-${String(sMonth + 1).padStart(2, "0")}-${String(sDate).padStart(2, "0")}`;
+      
+      const eYear = endOfWeek.getFullYear();
+      const eMonth = endOfWeek.getMonth();
+      const eDate = endOfWeek.getDate();
+      const end = `${eYear}-${String(eMonth + 1).padStart(2, "0")}-${String(eDate).padStart(2, "0")}`;
+      
+      return { startDate: start, endDate: end };
+    }
+    
+    // "monthly"
     const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
     const lastDay = new Date(year, month + 1, 0).getDate();
     const end = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
     return { startDate: start, endDate: end };
-  }, [dateRangeMode, customStart, customEnd, currentMonth]);
+  }, [viewMode, customStart, customEnd, currentDate]);
+
+  const dateDisplayString = useMemo(() => {
+    if (viewMode === "custom") return `${startDate} ~ ${endDate}`;
+    
+    const d = new Date(currentDate);
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const date = d.getDate();
+    
+    if (viewMode === "daily") {
+      return `${year}년 ${month}월 ${date}일`;
+    }
+    if (viewMode === "weekly") {
+      const [, sm, sd] = startDate.split("-");
+      const [, em, ed] = endDate.split("-");
+      
+      // Calculate week of month based on Thursday
+      const thursday = new Date(startDate);
+      thursday.setDate(thursday.getDate() + 3);
+      
+      const targetMonth = thursday.getMonth() + 1;
+      const targetDate = thursday.getDate();
+      
+      const firstDayOfMonth = new Date(thursday.getFullYear(), thursday.getMonth(), 1);
+      const firstDayOffset = firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1; // 0(Mon) to 6(Sun)
+      
+      const weekNumber = Math.ceil((targetDate + firstDayOffset) / 7);
+      
+      // Always use m/d ~ m/d format for consistency
+      return `${targetMonth}월 ${weekNumber}주차 (${parseInt(sm)}/${parseInt(sd)} ~ ${parseInt(em)}/${parseInt(ed)})`;
+    }
+    // monthly
+    return `${year}년 ${month}월`;
+  }, [viewMode, currentDate, startDate, endDate]);
 
   /* ----------------------------------------------------------------------- */
   /* 카테고리 조회 api */
@@ -246,18 +312,16 @@ export default function TransactionPage() {
     queryKey: ["accounts"],
     queryFn: getAccounts,
   });
-
   /* 잔액 조회 (장부 뷰) */
-  const { data: openingBalance } = useQuery({
+  const { data: openingBalance, isLoading: isOpeningLoading } = useQuery({
     queryKey: ["openingBalance", startDate, selectedAccountId],
     queryFn: () => getOpeningBalance(startDate, selectedAccountId),
   });
 
-  const { data: closingBalance } = useQuery({
+  const { data: closingBalance, isLoading: isClosingLoading } = useQuery({
     queryKey: ["closingBalance", endDate, selectedAccountId],
     queryFn: () => getClosingBalance(endDate, selectedAccountId),
   });
-
   /* 결제수단별 잔액 조회 */
   const {
     data: balanceData,
@@ -298,6 +362,7 @@ export default function TransactionPage() {
         startDate,
         endDate,
         size: 20,
+        sortDirection: "ASC",
         cursorDate: pageParam.cursorDate ?? undefined,
         cursorSortOrder: pageParam.cursorSortOrder ?? undefined,
       }),
@@ -312,7 +377,63 @@ export default function TransactionPage() {
   });
 
   // LedgerTable에 넘길 실제 거래 배열 추출
-  const transactions = data?.pages.flatMap((page) => page.content) ?? [];
+  const rawTransactions = data?.pages.flatMap((page) => page.content) ?? [];
+
+  // 잔액 누적 계산 로직 (수입/지출/잔액/계좌잔액)
+  const transactions = useMemo(() => {
+    if (!openingBalance || rawTransactions.length === 0) return rawTransactions;
+
+    let currentTotal = openingBalance.totalAmount;
+    const accMap = new Map<string, number>();
+    openingBalance.accounts.forEach((a) => accMap.set(a.accountId, a.amount));
+
+    return rawTransactions.map((t) => {
+      const isTransfer = !!t.transferDetail || t.type === "TRANSFER";
+      const signedAmount = t.type === "EXPENSE" ? -t.amount : t.amount;
+      let runningAccountBalance = 0;
+      let runningLinkedAccountBalance: number | undefined = undefined;
+
+      if (isTransfer) {
+        if (selectedAccountId) {
+          // 특정 계좌 조회 중이면 해당 계좌의 잔액만 업데이트
+          const newAccBal = (accMap.get(t.account.id) || 0) + signedAmount;
+          accMap.set(t.account.id, newAccBal);
+          runningAccountBalance = newAccBal;
+        } else {
+          // 전체 계좌 조회 중이면 출금/입금 양쪽 모두 업데이트 시도
+          const newAccBal = (accMap.get(t.account.id) || 0) + signedAmount;
+          accMap.set(t.account.id, newAccBal);
+          runningAccountBalance = newAccBal;
+
+          if (t.transferDetail && t.type === "EXPENSE") {
+            const linkedId = t.transferDetail.toAccount.id;
+            const linkedBal = (accMap.get(linkedId) || 0) + t.amount;
+            accMap.set(linkedId, linkedBal);
+            runningLinkedAccountBalance = linkedBal;
+          }
+        }
+      } else {
+        // 일반 거래
+        const newAccBal = (accMap.get(t.account.id) || 0) + signedAmount;
+        accMap.set(t.account.id, newAccBal);
+        runningAccountBalance = newAccBal;
+      }
+
+      // 총 잔액 업데이트 (전체 계좌 보기 시 이체 내역은 총 잔액 변동 없음)
+      if (isTransfer && !selectedAccountId) {
+        // 총 잔액 유지
+      } else {
+        currentTotal += signedAmount;
+      }
+
+      return {
+        ...t,
+        runningTotalBalance: currentTotal,
+        runningAccountBalance: runningAccountBalance,
+        runningLinkedAccountBalance: runningLinkedAccountBalance,
+      };
+    });
+  }, [rawTransactions, openingBalance, selectedAccountId]);
 
   /* 임시 보관함 조회 */
   const {
@@ -663,30 +784,44 @@ export default function TransactionPage() {
     if (!tempStart || !tempEnd || tempStart > tempEnd) return;
     setCustomStart(tempStart);
     setCustomEnd(tempEnd);
-    setDateRangeMode("custom");
+    setViewMode("custom");
     setShowDatePicker(false);
   };
 
   const clearCustomRange = () => {
     setCustomStart("");
     setCustomEnd("");
-    setDateRangeMode("month");
+    setViewMode("weekly");
     setShowDatePicker(false);
   };
 
   /* 이전/다음 달 */
-  const handlePreviousMonth = () => {
-    setDateRangeMode("month");
-    setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1),
-    );
+  const handlePrevious = () => {
+    const d = new Date(currentDate);
+    if (viewMode === "daily") {
+      d.setDate(d.getDate() - 1);
+    } else if (viewMode === "weekly") {
+      d.setDate(d.getDate() - 7);
+    } else if (viewMode === "monthly") {
+      d.setMonth(d.getMonth() - 1);
+    }
+    setCurrentDate(d);
   };
 
-  const handleNextMonth = () => {
-    setDateRangeMode("month");
-    setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1),
-    );
+  const handleNext = () => {
+    const d = new Date(currentDate);
+    if (viewMode === "daily") {
+      d.setDate(d.getDate() + 1);
+    } else if (viewMode === "weekly") {
+      d.setDate(d.getDate() + 7);
+    } else if (viewMode === "monthly") {
+      d.setMonth(d.getMonth() + 1);
+    }
+    setCurrentDate(d);
+  };
+
+  const handleToday = () => {
+    setCurrentDate(new Date());
   };
 
   const isPageLoading = isTransactionsLoading || isCategoriesLoading;
@@ -707,85 +842,89 @@ export default function TransactionPage() {
 return (
     <>
     <div className="w-full flex justify-center pb-20 lg:pb-0 bg-gray-50 min-h-screen">
-      <div className="w-full max-w-6xl mx-auto flex flex-col gap-6 lg:p-6 p-4">
-        {/* 상단 탭 (장부 뷰 / 검색 뷰) */}
-        <div className="flex bg-white px-6 pt-4 rounded-xl border border-gray-200 shadow-sm gap-6 mb-2">
-          <Link href="/home/transactions" className="pb-3 border-b-2 border-black font-bold text-gray-900">장부 뷰 (엑셀)</Link>
-          <Link href="/home/transactions/search" className="pb-3 text-gray-500 hover:text-gray-900 font-medium transition-colors">검색 뷰 (목록)</Link>
-        </div>
+      <div className="w-full max-w-[1920px] mx-auto flex flex-col gap-3 sm:gap-4 lg:p-6 px-1 py-4 sm:p-4">
+        {/* --- 뷰 컨트롤 툴바 --- */}
+        <section className="flex flex-col xl:flex-row gap-4 xl:items-center xl:justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+          {activeTab === "transactions" ? (
+            <>
+              {/* 좌측: 날짜 선택 */}
+              <div className="flex flex-wrap items-center gap-4">
+                <TransactionDateSelector
+                  viewMode={viewMode}
+                  onChangeViewMode={(mode) => {
+                    setViewMode(mode);
+                    if (mode === "custom") setShowDatePicker(true);
+                    else setShowDatePicker(false);
+                  }}
+                  dateDisplayString={dateDisplayString}
+                  onPrev={handlePrevious}
+                  onNext={handleNext}
+                  onToday={handleToday}
+                />
+              </div>
 
-        {/* --- 뷰 컨트롤 --- */}
-        <section className="space-y-4 md:space-y-6">
-        {/* 탭 바 */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
-            <button
-              onClick={() => setActiveTab("transactions")}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                activeTab === "transactions"
-                  ? "bg-sky-600 text-white shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              거래 내역
-            </button>
-            <button
-              onClick={() => setActiveTab("drafts")}
-              className={`relative flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                activeTab === "drafts"
-                  ? "bg-amber-500 text-white shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              임시 보관함
-              {drafts.length > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[11px] font-bold">
-                  {drafts.length}
-                </span>
-              )}
-            </button>
-          </div>
+              {/* 우측: 검색뷰 전환, 임시보관함 전환, 새 거래 추가 */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Link 
+                  href="/home/transactions/search" 
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  <span className="text-base">🔍</span> 검색 뷰
+                </Link>
 
-          <button
-            onClick={() => {
-              setEditingTransaction(null);
-              setIsDraftMode(false);
-              setModalDefaultValues({
-                date: new Date().toISOString().split("T")[0],
-                type: "EXPENSE",
-                categoryId: rawCategories.find((c) => c.type === "EXPENSE")?.id,
-                accountId: accounts[0]?.id,
-              });
-              setIsModalOpen(true);
-            }}
-            className="bg-sky-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-700 transition-colors text-sm shadow-sm"
-          >
-            + 새 거래 추가
-          </button>
-        </div>
+                {drafts.length > 0 && (
+                  <button
+                    onClick={() => setActiveTab("drafts")}
+                    className="relative flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-white border border-amber-200 text-amber-600 hover:bg-amber-50"
+                  >
+                    📬 임시 보관함
+                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[11px] font-bold">
+                      {drafts.length}
+                    </span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    setEditingTransaction(null);
+                    setIsDraftMode(false);
+                    setModalDefaultValues({
+                      date: new Date().toISOString().split("T")[0],
+                      type: "EXPENSE",
+                      categoryId: rawCategories.find((c) => c.type === "EXPENSE")?.id,
+                      accountId: accounts[0]?.id,
+                    });
+                    setIsModalOpen(true);
+                  }}
+                  className="bg-sky-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-700 transition-colors text-sm shadow-sm"
+                >
+                  + 새 거래 추가
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* 임시 보관함 모드 툴바 */}
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">📬</span>
+                <h1 className="text-xl font-bold text-gray-900">임시 보관함</h1>
+                <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-bold">{drafts.length}건</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setActiveTab("transactions")}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  ← 장부 뷰로 돌아가기
+                </button>
+              </div>
+            </>
+          )}
+        </section>
 
         {activeTab === "transactions" && (
           <>
             <div className="flex flex-col gap-3">
-              <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100">
-                <MonthSelector
-                  currentMonth={currentMonth}
-                  onPrev={handlePreviousMonth}
-                  onNext={handleNextMonth}
-                />
-                <select
-                  value={selectedAccountId}
-                  onChange={(e) => setSelectedAccountId(e.target.value)}
-                  className="w-full sm:w-[150px] border-none bg-gray-50 text-gray-700 text-sm font-semibold rounded-lg px-3 py-2.5 outline-none ring-1 ring-gray-200 focus:ring-2 focus:ring-sky-500/50 cursor-pointer appearance-none"
-                >
-                  <option value="">전체 결제수단</option>
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
 
               {showDatePicker && (
                 <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-end gap-4">
@@ -827,7 +966,16 @@ return (
               )}
             </div>
 
-              <LedgerTopBanner balanceData={balanceData} isLoading={isBalanceLoading} />
+            <div className="flex flex-col shadow-md rounded-xl bg-white border border-gray-100">
+              <div className="sticky top-[10px] z-40">
+                <LedgerTopBanner 
+                  balanceData={openingBalance} 
+                  isLoading={isOpeningLoading} 
+                  accounts={accounts} 
+                  selectedAccountId={selectedAccountId}
+                  onSelectAccount={setSelectedAccountId}
+                />
+              </div>
 
               <LedgerTable
                 transactions={transactions}
@@ -837,12 +985,13 @@ return (
                 onDelete={handleDelete}
                 onReorder={handleReorder}
                 currentAccountId={selectedAccountId}
-                openingBalance={openingBalance}
-                closingBalance={closingBalance}
                 isExcelView={isExcelView}
               />
 
-              <LedgerBottomBanner transactions={transactions} accounts={accounts} />
+              <div className="sticky bottom-0 z-40">
+                <LedgerBottomBanner balanceData={closingBalance} isLoading={isClosingLoading} accounts={accounts} />
+              </div>
+            </div>
 
         <div ref={loadMoreRef} className="h-4" />
 
@@ -900,7 +1049,6 @@ return (
             )}
           </div>
         )}
-      </section>
       </div>
     </div>
 

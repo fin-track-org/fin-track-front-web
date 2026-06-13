@@ -50,6 +50,10 @@ export const fetchTransactions = async (
     searchParams.set("cursorSortOrder", String(params.cursorSortOrder));
   }
 
+  if (params.sortDirection) {
+    searchParams.set("sortDirection", params.sortDirection);
+  }
+
   searchParams.set("size", String(params.size ?? 20));
 
   const url = `${SPRING_BOOT_URL}/api/v1/transactions${
