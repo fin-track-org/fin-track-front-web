@@ -10,7 +10,11 @@ const DUMMY_NOTIFICATIONS = [
   { id: 3, title: "[이벤트] 가계부 작성하고 100P 받으세요", date: "2026-06-01", isNew: false },
 ];
 
-export default function NotificationBell() {
+interface NotificationBellProps {
+  variant?: "icon" | "sidebar";
+}
+
+export default function NotificationBell({ variant = "icon" }: NotificationBellProps = {}) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -34,21 +38,42 @@ export default function NotificationBell() {
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Bell Button */}
-      <button
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-        aria-label="공지사항 및 알림"
-      >
-        <Bell className="w-5 h-5" />
-        {/* Red Dot for new notifications */}
-        {hasNew && (
-          <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
-        )}
-      </button>
+      {variant === "icon" ? (
+        <button
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+          aria-label="공지사항 및 알림"
+        >
+          <Bell className="w-5 h-5" />
+          {/* Red Dot for new notifications */}
+          {hasNew && (
+            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
+          )}
+        </button>
+      ) : (
+        <button
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-gray-700 hover:bg-gray-50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Bell className="w-5 h-5" />
+              {hasNew && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
+              )}
+            </div>
+            <span className="font-medium">공지사항</span>
+          </div>
+        </button>
+      )}
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 shadow-lg rounded-xl z-50 overflow-hidden flex flex-col">
+        <div className={`absolute z-50 w-80 bg-white border border-gray-200 shadow-lg rounded-xl overflow-hidden flex flex-col ${
+          variant === "sidebar" 
+            ? "bottom-full mb-2 left-0 lg:left-full lg:ml-2 lg:bottom-auto lg:top-0" 
+            : "right-0 mt-2 lg:right-auto lg:left-0"
+        }`}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
             <h3 className="font-bold text-gray-800 text-sm">공지사항 및 업데이트</h3>

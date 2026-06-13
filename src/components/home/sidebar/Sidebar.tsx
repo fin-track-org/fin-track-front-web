@@ -20,6 +20,7 @@ import {
 import { createClient } from "@/src/lib/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMe } from "@/src/lib/api/userApi";
+import NotificationBell from "@/src/components/home/NotificationBell";
 
 export default function Sidebar() {
   const router = useRouter();
@@ -60,7 +61,7 @@ export default function Sidebar() {
       </div>
 
       {/* Profile */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {data?.avatarUrl ? (
             <img src={data.avatarUrl} alt="profile" className="w-12 h-12 rounded-full object-cover shadow-sm ring-2 ring-gray-100" />
@@ -109,8 +110,9 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {/* Logout */}
-      <div className="p-4 border-t border-gray-200">
+      {/* Logout / Notification */}
+      <div className="p-4 border-t border-gray-200 flex flex-col gap-2">
+        <NotificationBell variant="sidebar" />
         <button
           onClick={handleLogout}
           className=" w-full flex items-center justify-center gap-2 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -129,9 +131,12 @@ export default function Sidebar() {
         <div className="flex items-center">
           <Image src={logoImg} alt="게으른 가계부 로고" className="rounded-lg w-28 h-auto" />
         </div>
-        <button onClick={() => setIsOpen(true)}>
-          <Menu className="text-gray-700 w-6 h-6" />
-        </button>
+        <div className="flex items-center gap-4">
+          <NotificationBell />
+          <button onClick={() => setIsOpen(true)}>
+            <Menu className="text-gray-700 w-6 h-6" />
+          </button>
+        </div>
       </header>
 
       {/* ===== 데스크톱 사이드바 ===== */}

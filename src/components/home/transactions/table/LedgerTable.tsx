@@ -22,6 +22,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, CreditCard } from "lucide-react";
 import LedgerRow from "./LedgerRow";
 import SkeletonRow from "../SkeletonRow";
+import { getTransactionColor, getTransactionSign, getAccountIcon } from "@/src/lib/transactionUtils";
 
 interface Props {
   transactions: Transaction[];
@@ -31,8 +32,6 @@ interface Props {
   onDelete: (id: string) => void;
   onReorder: (transactionIds: string[]) => void;
   currentAccountId?: string;
-  openingBalance?: number;
-  closingBalance?: number;
   isExcelView?: boolean;
 }
 
@@ -89,11 +88,13 @@ function SortableMobileCard({
   onEdit,
   onDelete,
   isExcelView,
+  currentAccountId,
 }: {
   transaction: Transaction;
   onEdit: (t: Transaction) => void;
   onDelete: (id: string) => void;
   isExcelView?: boolean;
+  currentAccountId?: string;
 }) {
   const {
     attributes,
@@ -104,7 +105,6 @@ function SortableMobileCard({
     isDragging,
   } = useSortable({ id: transaction.id });
 
-  const isExpense = transaction.type === "EXPENSE";
   const amountAbs = Math.abs(transaction.amount).toLocaleString();
 
   const style: React.CSSProperties = {
@@ -117,7 +117,7 @@ function SortableMobileCard({
     <div
       ref={setNodeRef}
       style={style}
-      className="rounded-xl border bg-white p-4 shadow-sm flex gap-3"
+      className="rounded-xl border bg-white p-3 sm:p-4 shadow-sm flex gap-2 sm:gap-3"
     >
       {/* 드래그 핸들 */}
       <button
@@ -139,21 +139,21 @@ function SortableMobileCard({
               {transaction.category.name}
             </span>
             {transaction.transferDetail ? (
-              <div className="flex items-center gap-1">
-                <span className="flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-gray-600">
-                  <CreditCard className="w-3 h-3" />
+              <div className="flex items-center gap-1.5 mt-1 text-[11px]">
+                <span className="flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-gray-600 font-medium border border-gray-200">
+                  <span>{getAccountIcon(transaction.transferDetail.fromAccount.type)}</span>
                   {transaction.transferDetail.fromAccount.name}
                 </span>
                 <span className="text-gray-400 text-[10px]">▶</span>
                 <span className="flex items-center gap-1 rounded-md bg-sky-50 px-2 py-1 text-sky-700 font-medium border border-sky-100">
-                  <CreditCard className="w-3 h-3" />
+                  <span>{getAccountIcon(transaction.transferDetail.toAccount.type)}</span>
                   {transaction.transferDetail.toAccount.name}
                 </span>
               </div>
             ) : (
               transaction.account?.name && (
                 <span className="flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-gray-700 font-medium">
-                  <CreditCard className="w-3 h-3 text-gray-500" />
+                  <span>{getAccountIcon(transaction.account.type)}</span>
                   {transaction.account.name}
                 </span>
               )
@@ -162,16 +162,19 @@ function SortableMobileCard({
         </div>
 
         <div className="shrink-0 text-right">
-          <p
-            className={`text-sm font-bold ${
-              transaction.transferDetail 
-                ? "text-gray-700" 
-                : (isExpense ? "text-red-600" : "text-green-600")
-            }`}
-          >
-            {transaction.transferDetail ? "" : (isExpense ? "-" : "+")}
-            {amountAbs}원
-          </p>
+          {(() => {
+            const sign = getTransactionSign(transaction as any, currentAccountId);
+            const colorClass = getTransactionColor(transaction as any, currentAccountId);
+            return (
+              <p className={`text-sm font-bold ${colorClass}`}>
+                {sign}{amountAbs}원
+              </p>
+            );
+          })()}
+          <div className="flex flex-col items-end mt-1 text-[10px] text-gray-500 font-medium">
+            <span>총 {transaction.runningTotalBalance?.toLocaleString() ?? "-"}원</span>
+            <span className="text-sky-600">계좌 {transaction.runningAccountBalance?.toLocaleString() ?? "-"}원</span>
+          </div>
 
           <div className="mt-2 flex justify-end gap-2">
             <button
@@ -203,8 +206,6 @@ export default function LedgerTable({
   onDelete,
   onReorder,
   currentAccountId,
-  openingBalance,
-  closingBalance,
   isExcelView = true,
 }: Props) {
   const [localTransactions, setLocalTransactions] =
@@ -227,15 +228,29 @@ export default function LedgerTable({
     setLocalTransactions(transactions);
   }, [transactions]);
 
-  // Group by date, preserving descending order
+  // Group by date, preserving ascending order
   const groupedByDate = useMemo(() => {
     const map = new Map<string, Transaction[]>();
     for (const t of localTransactions) {
       if (!map.has(t.date)) map.set(t.date, []);
       map.get(t.date)!.push(t);
     }
-    return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a));
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [localTransactions]);
+
+  // Calculate statistics for the visible period
+  const stats = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    for (const t of localTransactions) {
+      const sign = getTransactionSign(t as any, currentAccountId);
+      if (sign === "+") income += Math.abs(t.amount);
+      else if (sign === "-") expense += Math.abs(t.amount);
+    }
+    // Final balance is the balance of the most recent transaction (which is at the end of the array since it's sorted ASC)
+    const finalBalance = localTransactions.length > 0 ? localTransactions[localTransactions.length - 1].runningTotalBalance : undefined;
+    return { income, expense, finalBalance };
+  }, [localTransactions, currentAccountId]);
 
   const handleDragEnd = (event: DragEndEvent, date?: string) => {
     const { active, over } = event;
@@ -345,6 +360,7 @@ export default function LedgerTable({
                         transaction={t}
                         onEdit={onEdit}
                         onDelete={onDelete}
+                        currentAccountId={currentAccountId}
                       />
                     ))}
                   </div>
@@ -352,6 +368,26 @@ export default function LedgerTable({
               </DndContext>
             </div>
           ))}
+
+        {/* 모바일 뷰 통계 요약 카드 */}
+        {!loading && !error && localTransactions.length > 0 && (
+          <div className="mt-4 p-4 rounded-xl border border-gray-200 bg-gray-50 flex flex-col gap-2 shadow-sm">
+            <h3 className="text-xs font-bold text-gray-500 uppercase mb-1">현재 기간 합계</h3>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-600">총 수입</span>
+              <span className="font-bold text-blue-600">+{stats.income.toLocaleString()}원</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-600">총 지출</span>
+              <span className="font-bold text-red-600">-{stats.expense.toLocaleString()}원</span>
+            </div>
+            <div className="h-px bg-gray-200 my-1" />
+            <div className="flex justify-between items-center">
+              <span className="text-gray-700 font-semibold">최종 잔액</span>
+              <span className="font-bold text-gray-900 text-base">{stats.finalBalance !== undefined ? `${stats.finalBalance.toLocaleString()}원` : "-"}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ✅ 데스크탑/공통: 테이블 (엑셀 뷰일 땐 모바일에서도 노출) */}
@@ -361,16 +397,19 @@ export default function LedgerTable({
         onDragEnd={handleDragEnd}
         modifiers={[restrictToVerticalAxis, restrictToParentElement]}
       >
-        <div className={`${isExcelView ? "block" : "hidden md:block"} bg-white overflow-x-auto ${!isExcelView ? "rounded-xl shadow-sm border border-gray-100" : ""}`}>
-          <table className={`w-full ${isExcelView ? "md:min-w-[900px] border-collapse border border-gray-300 text-xs md:text-sm" : "min-w-[900px]"}`}>
-          <thead className={isExcelView ? "bg-[#f3f4f6] text-gray-700" : "bg-gray-50 text-gray-500 text-sm"}>
+        <div className={`${isExcelView ? "block" : "hidden md:block"} bg-white overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-none md:overflow-y-visible md:overflow-x-visible border-x border-b border-gray-200`}>
+          <table className={`w-full ${isExcelView ? "md:min-w-full min-w-[800px] border-collapse border border-gray-300 text-xs md:text-sm" : "min-w-full"}`}>
+          <thead className={`sticky top-0 md:top-[78px] z-30 ${isExcelView ? "bg-[#f3f4f6] text-gray-700 shadow-sm" : "bg-gray-50 text-gray-500 text-sm shadow-sm"}`}>
             <tr>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2 w-6 md:w-8 text-center" : "px-3 py-3 w-8"} text-[10px] md:text-xs font-semibold uppercase hidden md:table-cell`}>#</th>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase hidden md:table-cell`}>날짜</th>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[60px] md:w-auto" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase`}>카테고리</th>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase`}>설명</th>
-              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-full md:w-auto" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase`}>결제수단</th>
-              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[60px] md:w-auto" : "px-6 py-3 text-right"} text-[10px] md:text-xs font-semibold uppercase`}>금액</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[60px] md:w-auto" : "px-6 py-3 text-right"} text-[10px] md:text-xs font-semibold uppercase text-blue-600`}>수입</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[60px] md:w-auto" : "px-6 py-3 text-right"} text-[10px] md:text-xs font-semibold uppercase text-red-600`}>지출</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[80px] md:w-auto" : "px-6 py-3 text-right"} text-[10px] md:text-xs font-semibold uppercase text-gray-700`}>거래 후 잔액</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center w-[80px] md:w-auto" : "px-6 py-3 text-right"} text-[10px] md:text-xs font-semibold uppercase text-sky-700`}>계좌 잔액</th>
+              <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase`}>결제수단</th>
               <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2 text-center w-[40px] md:w-auto" : "px-6 py-3"} text-[10px] md:text-xs font-semibold uppercase`}>관리</th>
             </tr>
           </thead>
@@ -386,7 +425,7 @@ export default function LedgerTable({
           {!loading && error && (
             <tbody>
               <tr>
-                <td colSpan={7}>
+                <td colSpan={10}>
                   <div className="py-12 flex flex-col items-center text-center">
                     <p className="text-red-500 font-medium mb-2">
                       데이터를 불러오지 못했어요
@@ -407,7 +446,7 @@ export default function LedgerTable({
           {!loading && !error && localTransactions.length === 0 && (
             <tbody>
               <tr>
-                <td colSpan={7}>
+                <td colSpan={10}>
                   <div className="py-12 text-center text-gray-400">
                     <p className="mb-1">거래 내역이 없습니다</p>
                     <p className="text-sm">새 거래를 추가해보세요 ✨</p>
@@ -419,22 +458,12 @@ export default function LedgerTable({
 
           {!loading && !error && (
             <>
-              {openingBalance !== undefined && (
-                <tbody>
-                  <tr className={isExcelView ? "bg-[#f8f9fa]" : "bg-sky-50/50 border-b border-sky-100/50"}>
-                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2 text-center text-gray-400 font-bold hidden md:table-cell" : "px-3 py-3"}`}>{isExcelView ? "O" : ""}</td>
-                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 font-bold text-sky-700 text-center text-[11px] md:text-sm" : "px-6 py-3 text-sm font-semibold text-sky-700"}`}>기초 잔액</td>
-                    <td colSpan={2} className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-gray-500 text-[11px] md:text-sm" : "px-6 py-3 text-sm text-gray-500"}`}>이월된 기초 금액</td>
-                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-right font-bold text-sky-700 text-[11px] md:text-sm" : "px-6 py-3 text-right font-bold text-sky-700"}`}>{openingBalance.toLocaleString()} 원</td>
-                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2" : "px-6 py-3"}`} />
-                  </tr>
-                </tbody>
-              )}
+
               {groupedByDate.map(([date, items]) => (
                 <tbody key={date}>
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={10}
                       className={`${isExcelView ? "border border-gray-300 px-4 py-1.5 bg-[#f3f4f6] text-xs font-bold text-gray-500 text-center uppercase" : "px-6 py-2 bg-gray-50 text-xs font-semibold text-gray-400 uppercase border-t border-b border-gray-100"}`}
                     >
                       {date}
@@ -456,17 +485,24 @@ export default function LedgerTable({
                   </SortableContext>
                 </tbody>
               ))}
-              {closingBalance !== undefined && (
-                <tbody>
-                  <tr className={isExcelView ? "bg-[#f8f9fa]" : "bg-gray-50 border-t-2 border-gray-100"}>
-                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2 text-center text-gray-400 font-bold hidden md:table-cell" : "px-3 py-3"}`}>{isExcelView ? "C" : ""}</td>
-                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 font-bold text-gray-800 text-center text-[11px] md:text-sm" : "px-6 py-3 text-sm font-semibold text-gray-800"}`}>기말 잔액</td>
-                    <td colSpan={2} className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-gray-500 text-[11px] md:text-sm" : "px-6 py-3 text-sm text-gray-500"}`}>최종 계산된 금액</td>
-                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-right font-bold text-gray-800 text-[11px] md:text-sm" : "px-6 py-3 text-right font-bold text-gray-800"}`}>{closingBalance.toLocaleString()} 원</td>
-                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2" : "px-6 py-3"}`} />
-                  </tr>
-                </tbody>
-              )}
+
+              <tfoot>
+                <tr>
+                  <td colSpan={4} className={`${isExcelView ? "border border-gray-300 px-4 py-2" : "px-6 py-4"} text-center font-bold text-gray-700 bg-gray-100`}>
+                    현재 기간 합계
+                  </td>
+                  <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-4"} text-right font-bold text-blue-600 bg-blue-50/50`}>
+                    +{stats.income.toLocaleString()}원
+                  </td>
+                  <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-4"} text-right font-bold text-red-600 bg-red-50/50`}>
+                    -{stats.expense.toLocaleString()}원
+                  </td>
+                  <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-4"} text-right font-bold text-gray-800 bg-gray-100`}>
+                    {stats.finalBalance !== undefined ? `${stats.finalBalance.toLocaleString()}원` : "-"}
+                  </td>
+                  <td colSpan={3} className={`${isExcelView ? "border border-gray-300 px-4 py-2" : "px-6 py-4"} bg-gray-100`}></td>
+                </tr>
+              </tfoot>
             </>
           )}
         </table>
