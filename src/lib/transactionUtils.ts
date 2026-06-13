@@ -56,3 +56,11 @@ export function getTransactionSign(transaction: any, currentAccountId?: string) 
   // 3. 일반적인 수입/지출 및 잔액 조정
   return transaction.type === "EXPENSE" ? "-" : "+";
 }
+
+export function getAccountIcon(type: string) {
+  if (type === "SAVINGS_INVESTMENT") return "🐷";
+  if (type === "CASH") return "💵";
+  if (type === "BANK") return "🏦";
+  if (type === "CREDIT_CARD" || type === "CHECK_CARD") return "💳";
+  return "🏷️";
+}

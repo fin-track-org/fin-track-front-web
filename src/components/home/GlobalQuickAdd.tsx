@@ -17,11 +17,6 @@ export default function GlobalQuickAdd() {
   const pathname = usePathname();
   const queryClient = useQueryClient();
 
-  // 특정 페이지에서 버튼 숨기기 (예: 마이페이지)
-  if (pathname.includes("/home/profile")) {
-    return null;
-  }
-
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // ----------------------------
@@ -117,6 +112,11 @@ export default function GlobalQuickAdd() {
     queryClient.invalidateQueries({ queryKey: ["dashboardDaily"] });
     queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
   };
+
+  // 특정 페이지에서 버튼 숨기기 (예: 마이페이지)
+  if (pathname.includes("/home/profile")) {
+    return null;
+  }
 
   return (
     <>

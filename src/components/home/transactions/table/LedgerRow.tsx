@@ -1,6 +1,6 @@
 import { GripVertical, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { forwardRef, useState } from "react";
-import { getTransactionColor, getTransactionSign } from "@/src/lib/transactionUtils";
+import { getTransactionColor, getTransactionSign, getAccountIcon } from "@/src/lib/transactionUtils";
 import type { DraggableAttributes } from "@dnd-kit/core";
 import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
 
@@ -53,20 +53,69 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
       <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4 hidden sm:table-cell"} text-[10px] md:text-sm text-gray-700 max-w-[80px] md:max-w-[200px] truncate`}>
         {transaction.description}
       </td>
-      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5 text-center" : "px-6 py-4"} whitespace-nowrap text-[10px] md:text-sm text-gray-600 overflow-hidden text-ellipsis`}>
-        {transaction.transferDetail ? (
-          <div className={`flex items-center gap-0.5 md:gap-1.5 ${isExcelView ? "justify-center" : ""}`}>
-            <span className="text-gray-500 truncate max-w-[50px] md:max-w-[80px]">{transaction.transferDetail.fromAccount.name}</span>
-            <span className="text-gray-300">→</span>
-            <span className={`font-medium px-1 md:px-1.5 py-0.5 rounded text-[9px] md:text-xs truncate max-w-[50px] md:max-w-[80px] ${isExcelView ? "text-gray-700 bg-gray-100" : "text-sky-700 bg-sky-50"}`}>{transaction.transferDetail.toAccount.name}</span>
+
+      {(() => {
+        const sign = getTransactionSign(transaction as any, currentAccountId);
+        const colorClass = getTransactionColor(transaction as any, currentAccountId);
+        const amountStr = Math.abs(transaction.amount).toLocaleString() + "원";
+
+        if (sign === "+") {
+          return (
+            <>
+              <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4"} whitespace-nowrap text-right text-[10px] md:text-sm font-semibold ${colorClass}`}>
+                +{amountStr}
+              </td>
+              <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4"} whitespace-nowrap text-right text-[10px] md:text-sm font-semibold text-gray-300`}>
+              </td>
+            </>
+          );
+        } else if (sign === "-") {
+          return (
+            <>
+              <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4"} whitespace-nowrap text-right text-[10px] md:text-sm font-semibold text-gray-300`}>
+              </td>
+              <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4"} whitespace-nowrap text-right text-[10px] md:text-sm font-semibold ${colorClass}`}>
+                -{amountStr}
+              </td>
+            </>
+          );
+        } else {
+          // Transfer without global balance change
+          return (
+            <td colSpan={2} className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4"} whitespace-nowrap text-center text-[10px] md:text-sm font-medium ${colorClass}`}>
+              {amountStr}
+            </td>
+          );
+        }
+      })()}
+      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4"} whitespace-nowrap text-right text-[10px] md:text-sm font-bold text-gray-700`}>
+        {transaction.runningTotalBalance !== undefined ? `${transaction.runningTotalBalance.toLocaleString()}원` : "-"}
+      </td>
+      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4"} whitespace-nowrap text-right text-[10px] md:text-sm font-bold text-sky-700 bg-sky-50/30`}>
+        {transaction.runningLinkedAccountBalance !== undefined ? (
+          <div className="flex flex-col gap-1 items-end">
+            <span className="text-gray-500">{transaction.runningAccountBalance !== undefined ? `${transaction.runningAccountBalance.toLocaleString()}원` : "-"}</span>
+            <span>{`${transaction.runningLinkedAccountBalance.toLocaleString()}원`}</span>
           </div>
         ) : (
-          transaction.account?.name
+          transaction.runningAccountBalance !== undefined ? `${transaction.runningAccountBalance.toLocaleString()}원` : "-"
         )}
       </td>
-      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4"} whitespace-nowrap text-right text-[10px] md:text-sm font-semibold ${getTransactionColor(transaction as any, currentAccountId)}`}>
-        {getTransactionSign(transaction as any, currentAccountId)}
-        {Math.abs(transaction.amount).toLocaleString()}원
+      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5 text-center" : "px-6 py-4"} whitespace-nowrap text-[10px] md:text-sm text-gray-600 overflow-hidden text-ellipsis`}>
+        {transaction.transferDetail && transaction.runningLinkedAccountBalance !== undefined ? (
+          <div className={`flex flex-col gap-1 ${isExcelView ? "items-center" : "items-start"}`}>
+            <span className="text-gray-500 truncate max-w-[100px]">{getAccountIcon(transaction.transferDetail.fromAccount.type)} {transaction.transferDetail.fromAccount.name} (출금)</span>
+            <span className="font-medium text-sky-700 truncate max-w-[100px]">{getAccountIcon(transaction.transferDetail.toAccount.type)} {transaction.transferDetail.toAccount.name} (입금)</span>
+          </div>
+        ) : transaction.transferDetail ? (
+          <div className={`flex items-center gap-0.5 md:gap-1.5 ${isExcelView ? "justify-center" : ""}`}>
+            <span className="text-gray-500 truncate max-w-[50px] md:max-w-[80px]">{getAccountIcon(transaction.transferDetail.fromAccount.type)} {transaction.transferDetail.fromAccount.name}</span>
+            <span className="text-gray-300">→</span>
+            <span className={`font-medium px-1 md:px-1.5 py-0.5 rounded text-[9px] md:text-xs truncate max-w-[50px] md:max-w-[80px] ${isExcelView ? "text-gray-700 bg-gray-100" : "text-sky-700 bg-sky-50"}`}>{getAccountIcon(transaction.transferDetail.toAccount.type)} {transaction.transferDetail.toAccount.name}</span>
+          </div>
+        ) : (
+          <span>{getAccountIcon(transaction.account?.type || "")} {transaction.account?.name}</span>
+        )}
       </td>
       <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1 md:py-1.5 text-center" : "px-6 py-4 text-right"} whitespace-nowrap`}>
         <div className={`flex items-center gap-0.5 md:gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity ${isExcelView ? "justify-center" : "justify-end"}`}>

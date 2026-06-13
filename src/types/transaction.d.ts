@@ -36,6 +36,9 @@ interface Transaction {
   sortOrder: number;
   account: TransactionAccount;
   transferDetail?: TransferDetailInfo;
+  runningTotalBalance?: number;
+  runningAccountBalance?: number;
+  runningLinkedAccountBalance?: number;
 }
 
 interface FetchTransactionsParams {
@@ -47,6 +50,7 @@ interface FetchTransactionsParams {
   endDate?: string;
   cursorDate?: string;
   cursorSortOrder?: number;
+  sortDirection?: "ASC" | "DESC";
   size?: number;
 }
 

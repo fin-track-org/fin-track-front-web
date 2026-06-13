@@ -2,8 +2,14 @@ import { createClient } from "@/src/lib/supabase/client";
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL;
 
-export interface BalanceRes {
+export interface AccountBalanceDto {
+  accountId: string;
   amount: number;
+}
+
+export interface BalanceRes {
+  totalAmount: number;
+  accounts: AccountBalanceDto[];
 }
 
 /**
@@ -11,7 +17,7 @@ export interface BalanceRes {
  * @param date YYYY-MM-DD
  * @param accountId (선택) 계좌 ID
  */
-export async function getOpeningBalance(date: string, accountId?: string): Promise<number> {
+export async function getOpeningBalance(date: string, accountId?: string): Promise<BalanceRes> {
   const supabase = createClient();
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token;
@@ -40,7 +46,7 @@ export async function getOpeningBalance(date: string, accountId?: string): Promi
   }
 
   const json = await response.json();
-  return json.data.amount;
+  return json.data;
 }
 
 /**
@@ -48,7 +54,7 @@ export async function getOpeningBalance(date: string, accountId?: string): Promi
  * @param date YYYY-MM-DD
  * @param accountId (선택) 계좌 ID
  */
-export async function getClosingBalance(date: string, accountId?: string): Promise<number> {
+export async function getClosingBalance(date: string, accountId?: string): Promise<BalanceRes> {
   const supabase = createClient();
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token;
@@ -77,5 +83,5 @@ export async function getClosingBalance(date: string, accountId?: string): Promi
   }
 
   const json = await response.json();
-  return json.data.amount;
+  return json.data;
 }
