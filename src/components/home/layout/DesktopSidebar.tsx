@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import logoImg from "@/public/images/logo.jpg";
@@ -13,20 +12,16 @@ import {
   User,
   CreditCard,
   LogOut,
-  DollarSign,
-  Menu,
-  X,
 } from "lucide-react";
 import { createClient } from "@/src/lib/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMe } from "@/src/lib/api/userApi";
 import NotificationBell from "@/src/components/home/NotificationBell";
 
-export default function Sidebar() {
+export default function DesktopSidebar() {
   const router = useRouter();
   const supabase = createClient();
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
 
   const menuItems = [
     { icon: Home, label: "대시보드 홈", path: "/home" },
@@ -53,8 +48,8 @@ export default function Sidebar() {
     return pathname === path || pathname.startsWith(path + "/");
   };
 
-  const SidebarContent = (
-    <aside className="w-64 flex-1 bg-white flex flex-col">
+  return (
+    <aside className="w-64 h-full bg-white flex flex-col border-r border-gray-200">
       {/* Logo */}
       <div className="p-6 border-b border-gray-200 flex justify-center lg:justify-start">
         <Image src={logoImg} alt="게으른 가계부 로고" className="rounded-lg w-40 h-auto" />
@@ -96,7 +91,6 @@ export default function Sidebar() {
               <Link
                 key={item.path}
                 href={item.path}
-                onClick={() => setIsOpen(false)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${active
                   ? "bg-sky-50 text-sky-600 font-bold"
                   : "text-gray-700 hover:bg-gray-50"
@@ -122,48 +116,5 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
-  );
-
-  return (
-    <>
-      {/* ===== 모바일 헤더 ===== */}
-      <header className="lg:hidden h-15 flex items-center justify-between gap-2 p-4 border-b border-gray-200 bg-white">
-        <div className="flex items-center">
-          <Image src={logoImg} alt="게으른 가계부 로고" className="rounded-lg w-28 h-auto" />
-        </div>
-        <div className="flex items-center gap-4">
-          <NotificationBell />
-          <button onClick={() => setIsOpen(true)}>
-            <Menu className="text-gray-700 w-6 h-6" />
-          </button>
-        </div>
-      </header>
-
-      {/* ===== 데스크톱 사이드바 ===== */}
-      <div className="hidden lg:flex w-64 h-screen border-r border-gray-200 bg-white">
-        {SidebarContent}
-      </div>
-
-      {/* ===== 모바일 오버레이 ===== */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 z-40 lg:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-
-      {/* ===== 모바일 슬라이드 사이드바 ===== */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col w-64 transform bg-white transition-transform duration-300 lg:hidden ${isOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-      >
-        <div className="h-15 flex justify-end p-4 border-b border-gray-200">
-          <button onClick={() => setIsOpen(false)}>
-            <X className="text-gray-600" />
-          </button>
-        </div>
-        {SidebarContent}
-      </div>
-    </>
   );
 }

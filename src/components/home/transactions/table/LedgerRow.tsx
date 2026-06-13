@@ -114,7 +114,9 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
             <span className={`font-medium px-1 md:px-1.5 py-0.5 rounded text-[9px] md:text-xs truncate max-w-[50px] md:max-w-[80px] ${isExcelView ? "text-gray-700 bg-gray-100" : "text-sky-700 bg-sky-50"}`}>{getAccountIcon(transaction.transferDetail.toAccount.type)} {transaction.transferDetail.toAccount.name}</span>
           </div>
         ) : (
-          <span>{getAccountIcon(transaction.account?.type || "")} {transaction.account?.name}</span>
+          <div className={`flex items-center ${isExcelView ? "justify-center" : ""}`}>
+            <span className="truncate max-w-[70px] md:max-w-[120px]">{getAccountIcon(transaction.account?.type || "")} {transaction.account?.name}</span>
+          </div>
         )}
       </td>
       <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1 md:py-1.5 text-center" : "px-6 py-4 text-right"} whitespace-nowrap`}>
