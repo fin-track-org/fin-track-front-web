@@ -206,8 +206,6 @@ export default function LedgerTable({
   onDelete,
   onReorder,
   currentAccountId,
-  openingBalance,
-  closingBalance,
   isExcelView = true,
 }: Props) {
   const [localTransactions, setLocalTransactions] =

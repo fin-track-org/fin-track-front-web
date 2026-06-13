@@ -388,7 +388,7 @@ export default function TransactionPage() {
     openingBalance.accounts.forEach((a) => accMap.set(a.accountId, a.amount));
 
     return rawTransactions.map((t) => {
-      const isTransfer = !!t.transferDetail || t.type === "TRANSFER";
+      const isTransfer = !!t.transferDetail || (t.type as string) === "TRANSFER";
       const signedAmount = t.type === "EXPENSE" ? -t.amount : t.amount;
       let runningAccountBalance = 0;
       let runningLinkedAccountBalance: number | undefined = undefined;
