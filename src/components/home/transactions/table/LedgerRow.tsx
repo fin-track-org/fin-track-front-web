@@ -43,15 +43,17 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
       <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5 text-center text-gray-700" : "px-6 py-4 text-gray-700"} whitespace-nowrap text-[10px] md:text-sm hidden md:table-cell`}>
         {transaction.date}
       </td>
-      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5 text-center" : "px-6 py-4"} whitespace-nowrap max-w-[80px] md:max-w-none overflow-hidden text-ellipsis`}>
+      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5 text-center whitespace-nowrap" : "px-6 py-4"} max-w-[80px] md:max-w-none overflow-hidden text-ellipsis`}>
         <span className={`inline-flex items-center font-medium bg-sky-100 text-sky-600 ${isExcelView ? "px-1 md:px-2 py-0.5 rounded text-[9px] md:text-xs truncate max-w-full" : "px-2.5 py-0.5 rounded-full text-sm"}`}>
           {transaction.subcategory?.name 
             ? `${transaction.category.name} > ${transaction.subcategory.name}` 
             : transaction.category.name}
         </span>
       </td>
-      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4 hidden sm:table-cell"} text-[10px] md:text-sm text-gray-700 max-w-[80px] md:max-w-[200px] truncate`}>
-        {transaction.description}
+      <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4 hidden sm:table-cell"} text-[10px] md:text-sm text-gray-700 w-auto md:w-[150px]`}>
+        <div className="max-w-[80px] md:max-w-full truncate whitespace-nowrap">
+          {transaction.description}
+        </div>
       </td>
 
       {(() => {

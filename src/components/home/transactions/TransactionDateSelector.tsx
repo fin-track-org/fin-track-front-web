@@ -46,7 +46,7 @@ export default function TransactionDateSelector({
   const currentLabel = viewModes.find(v => v.mode === viewMode)?.label || "선택";
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+    <div className="flex flex-row items-center gap-2 sm:gap-3 w-full justify-between sm:justify-start">
       {/* 보기 모드 (세그먼트 탭 대체용 드롭다운 또는 버튼) */}
       <div className="relative" ref={dropdownRef}>
         <button

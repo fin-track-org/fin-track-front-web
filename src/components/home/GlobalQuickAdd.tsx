@@ -126,16 +126,16 @@ export default function GlobalQuickAdd() {
 
   return (
     <>
-      {/* 백드롭 (메뉴 열렸을 때 화면 어둡게 하고 바깥 클릭 시 닫기 용도) */}
+      {/* 딤 배경 */}
       {isMenuOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[1px] transition-opacity"
+        <div
+          className="fixed inset-0 bg-black/20 backdrop-blur-[1px] z-[90]"
           onClick={() => setIsMenuOpen(false)}
         />
       )}
 
       {/* FAB 및 스피드 다이얼 메뉴 */}
-      <div className={`fixed z-50 flex flex-col items-center lg:items-end gap-3 transition-all duration-300 ${isMenuOpen ? 'bottom-[110px] left-1/2 -translate-x-1/2 lg:left-auto lg:-translate-x-0 lg:bottom-24 lg:right-6' : 'bottom-0 left-1/2 -translate-x-1/2 lg:left-auto lg:-translate-x-0 lg:bottom-6 lg:right-6 pointer-events-none lg:pointer-events-auto'}`}>
+      <div className={`fixed z-[100] flex flex-col items-center lg:items-end gap-3 transition-all duration-300 ${isMenuOpen ? 'bottom-[110px] left-1/2 -translate-x-1/2 lg:left-auto lg:-translate-x-0 lg:bottom-24 lg:right-6' : 'bottom-0 left-1/2 -translate-x-1/2 lg:left-auto lg:-translate-x-0 lg:bottom-6 lg:right-6 pointer-events-none lg:pointer-events-auto'}`}>
         {/* 일반 등록 버튼 */}
         <div
           className={`relative flex items-center justify-center transition-all duration-300 origin-bottom ${

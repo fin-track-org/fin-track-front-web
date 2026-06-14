@@ -34,7 +34,7 @@ export default function LedgerTopBanner({ balanceData, isLoading, accounts, sele
             onClick={() => onSelectAccount("")}
             className={`px-4 py-2 md:py-3 flex flex-col justify-center min-w-[120px] md:min-w-[140px] border-r border-white/20 transition-all hover:bg-sky-800/60 ${selectedAccountId === "" ? 'bg-sky-800/80 shadow-inner' : 'bg-sky-900/40 opacity-70 hover:opacity-100'}`}
           >
-            <span className="text-[10px] md:text-xs text-sky-200 font-semibold mb-0.5 md:mb-1 uppercase tracking-wider">OPENING TOTAL (전체)</span>
+            <span className="text-[10px] md:text-xs text-sky-200 font-semibold mb-0.5 md:mb-1 uppercase tracking-wider">시작 잔액 (전체)</span>
             <span className="text-sm md:text-base font-bold text-sky-300">
               {balanceData.totalAmount >= 0 ? '' : '-'}&#8361;{Math.abs(balanceData.totalAmount).toLocaleString()}
             </span>
