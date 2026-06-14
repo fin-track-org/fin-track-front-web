@@ -177,12 +177,16 @@ export default function PaymentMethodTab() {
                             <Star className="w-4 h-4" />
                           </button>
                         )}
-                        <button onClick={() => setEditingAccount((prev) => ({ ...prev, [account.id]: { name: account.name, type: account.type } }))} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => { if (confirm(`결제수단 "${account.name}"을(를) 삭제하시겠습니까?`)) { mutateDeleteAccount(account.id); } }} className="p-2 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {account.name !== "현금" && (
+                          <>
+                            <button onClick={() => setEditingAccount((prev) => ({ ...prev, [account.id]: { name: account.name, type: account.type } }))} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => { if (confirm(`결제수단 "${account.name}"을(를) 삭제하시겠습니까?`)) { mutateDeleteAccount(account.id); } }} className="p-2 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
