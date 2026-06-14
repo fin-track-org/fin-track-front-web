@@ -88,39 +88,39 @@ export default function TransactionPage() {
     if (viewMode === "custom" && customStart && customEnd) {
       return { startDate: customStart, endDate: customEnd };
     }
-    
+
     const d = new Date(currentDate);
     const year = d.getFullYear();
     const month = d.getMonth();
     const date = d.getDate();
     const day = d.getDay(); // 0 (Sun) to 6 (Sat)
-    
+
     if (viewMode === "daily") {
       const yyyyMmDd = `${year}-${String(month + 1).padStart(2, "0")}-${String(date).padStart(2, "0")}`;
       return { startDate: yyyyMmDd, endDate: yyyyMmDd };
     }
-    
+
     if (viewMode === "weekly") {
       const diffToMonday = day === 0 ? -6 : 1 - day;
       const startOfWeek = new Date(d);
       startOfWeek.setDate(date + diffToMonday);
-      
+
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 6);
-      
+
       const sYear = startOfWeek.getFullYear();
       const sMonth = startOfWeek.getMonth();
       const sDate = startOfWeek.getDate();
       const start = `${sYear}-${String(sMonth + 1).padStart(2, "0")}-${String(sDate).padStart(2, "0")}`;
-      
+
       const eYear = endOfWeek.getFullYear();
       const eMonth = endOfWeek.getMonth();
       const eDate = endOfWeek.getDate();
       const end = `${eYear}-${String(eMonth + 1).padStart(2, "0")}-${String(eDate).padStart(2, "0")}`;
-      
+
       return { startDate: start, endDate: end };
     }
-    
+
     // "monthly"
     const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
     const lastDay = new Date(year, month + 1, 0).getDate();
@@ -130,31 +130,31 @@ export default function TransactionPage() {
 
   const dateDisplayString = useMemo(() => {
     if (viewMode === "custom") return `${startDate} ~ ${endDate}`;
-    
+
     const d = new Date(currentDate);
     const year = d.getFullYear();
     const month = d.getMonth() + 1;
     const date = d.getDate();
-    
+
     if (viewMode === "daily") {
       return `${year}년 ${month}월 ${date}일`;
     }
     if (viewMode === "weekly") {
       const [, sm, sd] = startDate.split("-");
       const [, em, ed] = endDate.split("-");
-      
+
       // Calculate week of month based on Thursday
       const thursday = new Date(startDate);
       thursday.setDate(thursday.getDate() + 3);
-      
+
       const targetMonth = thursday.getMonth() + 1;
       const targetDate = thursday.getDate();
-      
+
       const firstDayOfMonth = new Date(thursday.getFullYear(), thursday.getMonth(), 1);
       const firstDayOffset = firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1; // 0(Mon) to 6(Sun)
-      
+
       const weekNumber = Math.ceil((targetDate + firstDayOffset) / 7);
-      
+
       // Always use m/d ~ m/d format for consistency
       return `${targetMonth}월 ${weekNumber}주차 (${parseInt(sm)}/${parseInt(sd)} ~ ${parseInt(em)}/${parseInt(ed)})`;
     }
@@ -541,10 +541,10 @@ export default function TransactionPage() {
       amount: Math.abs(t.amount),
       categoryId: t.category?.id ?? "",
       subCategoryId: t.subcategory?.id ?? "",
-      accountId: isTransfer 
+      accountId: isTransfer
         ? (isSavings && t.type === "INCOME" ? t.transferDetail!.toAccount.id : t.transferDetail!.fromAccount.id)
         : (t.account?.id ?? ""),
-      toAccountId: isTransfer 
+      toAccountId: isTransfer
         ? (isSavings && t.type === "INCOME" ? t.transferDetail!.fromAccount.id : t.transferDetail!.toAccount.id)
         : undefined,
       isSavings: isSavings,
@@ -760,7 +760,7 @@ export default function TransactionPage() {
       try {
         const errJson = await res.json();
         msg = errJson?.message || msg;
-      } catch {}
+      } catch { }
       throw new Error(msg);
     }
 
@@ -839,218 +839,217 @@ export default function TransactionPage() {
   if (isInitialLoading) {
     return <TransactionPageSkeleton />;
   }
-return (
+  return (
     <>
-    <div className="w-full flex justify-center pb-20 lg:pb-0 bg-gray-50 min-h-screen">
-      <div className="w-full max-w-[1920px] mx-auto flex flex-col gap-3 sm:gap-4 lg:p-6 px-1 py-4 sm:p-4">
-        {/* --- 뷰 컨트롤 툴바 --- */}
-        <section className="flex flex-col xl:flex-row gap-4 xl:items-center xl:justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-          {activeTab === "transactions" ? (
-            <>
-              {/* 좌측: 날짜 선택 */}
-              <div className="flex flex-wrap items-center gap-4">
-                <TransactionDateSelector
-                  viewMode={viewMode}
-                  onChangeViewMode={(mode) => {
-                    setViewMode(mode);
-                    if (mode === "custom") setShowDatePicker(true);
-                    else setShowDatePicker(false);
-                  }}
-                  dateDisplayString={dateDisplayString}
-                  onPrev={handlePrevious}
-                  onNext={handleNext}
-                  onToday={handleToday}
-                />
-              </div>
+      <div className="w-full flex justify-center pb-4 lg:pb-0 bg-gray-50 min-h-screen">
+        <div className="w-full max-w-[1920px] mx-auto flex flex-col gap-3 sm:gap-4 lg:p-6 px-1 py-4 sm:p-4">
+          {/* --- 뷰 컨트롤 툴바 --- */}
+          <section className="flex flex-col xl:flex-row gap-2 xl:items-center xl:justify-between bg-white p-2 md:p-4 rounded-xl border border-gray-200 shadow-sm">
+            {activeTab === "transactions" ? (
+              <>
+                {/* 좌측: 날짜 선택 */}
+                <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full xl:w-auto justify-between">
+                  <TransactionDateSelector
+                    viewMode={viewMode}
+                    onChangeViewMode={(mode) => {
+                      setViewMode(mode);
+                      if (mode === "custom") setShowDatePicker(true);
+                      else setShowDatePicker(false);
+                    }}
+                    dateDisplayString={dateDisplayString}
+                    onPrev={handlePrevious}
+                    onNext={handleNext}
+                    onToday={handleToday}
+                  />
+                </div>
 
-              {/* 우측: 검색뷰 전환, 임시보관함 전환, 새 거래 추가 */}
-              <div className="flex flex-wrap items-center gap-2">
-                <Link 
-                  href="/home/transactions/search" 
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                >
-                  <span className="text-base">🔍</span> 검색 뷰
-                </Link>
-
-                {drafts.length > 0 && (
-                  <button
-                    onClick={() => setActiveTab("drafts")}
-                    className="relative flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-white border border-amber-200 text-amber-600 hover:bg-amber-50"
+                {/* 우측: 검색뷰 전환, 임시보관함 전환, 새 거래 추가 */}
+                <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto justify-end">
+                  <Link
+                    href="/home/transactions/search"
+                    className="flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                   >
-                    📬 임시 보관함
-                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[11px] font-bold">
-                      {drafts.length}
-                    </span>
+                    <span className="text-sm md:text-base">🔍</span> 검색 뷰
+                  </Link>
+
+                  {drafts.length > 0 && (
+                    <button
+                      onClick={() => setActiveTab("drafts")}
+                      className="relative flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-semibold transition-colors bg-white border border-amber-200 text-amber-600 hover:bg-amber-50"
+                    >
+                      📬 임시 보관함
+                      <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] md:min-w-[18px] md:h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] md:text-[11px] font-bold">
+                        {drafts.length}
+                      </span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setEditingTransaction(null);
+                      setIsDraftMode(false);
+                      setModalDefaultValues({
+                        date: new Date().toISOString().split("T")[0],
+                        type: "EXPENSE",
+                        categoryId: rawCategories.find((c) => c.type === "EXPENSE")?.id,
+                        accountId: accounts[0]?.id,
+                      });
+                      setIsModalOpen(true);
+                    }}
+                    className="hidden md:inline-flex bg-sky-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-700 transition-colors text-sm shadow-sm"
+                  >
+                    + 새 거래 추가
                   </button>
-                )}
+                </div>
+              </>
+            ) : (
+              <>
+                {/* 임시 보관함 모드 툴바 */}
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">📬</span>
+                  <h1 className="text-xl font-bold text-gray-900">임시 보관함</h1>
+                  <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-bold">{drafts.length}건</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setActiveTab("transactions")}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                  >
+                    ← 장부 뷰로 돌아가기
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
 
-                <button
-                  onClick={() => {
-                    setEditingTransaction(null);
-                    setIsDraftMode(false);
-                    setModalDefaultValues({
-                      date: new Date().toISOString().split("T")[0],
-                      type: "EXPENSE",
-                      categoryId: rawCategories.find((c) => c.type === "EXPENSE")?.id,
-                      accountId: accounts[0]?.id,
-                    });
-                    setIsModalOpen(true);
-                  }}
-                  className="bg-sky-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-700 transition-colors text-sm shadow-sm"
-                >
-                  + 새 거래 추가
-                </button>
-              </div>
-            </>
-          ) : (
+          {activeTab === "transactions" && (
             <>
-              {/* 임시 보관함 모드 툴바 */}
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">📬</span>
-                <h1 className="text-xl font-bold text-gray-900">임시 보관함</h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-bold">{drafts.length}건</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setActiveTab("transactions")}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                >
-                  ← 장부 뷰로 돌아가기
-                </button>
-              </div>
-            </>
-          )}
-        </section>
+              <div className="flex flex-col gap-3">
 
-        {activeTab === "transactions" && (
-          <>
-            <div className="flex flex-col gap-3">
+                {showDatePicker && (
+                  <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-end gap-4">
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-[120px]">
+                      <label className="text-xs font-semibold text-gray-500">시작일</label>
+                      <input
+                        type="date"
+                        value={tempStart}
+                        onChange={(e) => setTempStart(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                      />
+                    </div>
+                    <span className="mb-3 text-gray-400 font-medium">~</span>
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-[120px]">
+                      <label className="text-xs font-semibold text-gray-500">종료일</label>
+                      <input
+                        type="date"
+                        value={tempEnd}
+                        onChange={(e) => setTempEnd(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                      />
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                      <button
+                        onClick={applyDateRange}
+                        disabled={!tempStart || !tempEnd || tempStart > tempEnd}
+                        className="flex-1 sm:flex-none px-4 py-2 bg-sky-600 text-white text-sm rounded-lg font-medium hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        적용
+                      </button>
+                      <button
+                        onClick={() => setShowDatePicker(false)}
+                        className="flex-1 sm:flex-none px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                      >
+                        닫기
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
-              {showDatePicker && (
-                <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-end gap-4">
-                  <div className="flex flex-col gap-1.5 flex-1 min-w-[120px]">
-                    <label className="text-xs font-semibold text-gray-500">시작일</label>
-                    <input
-                      type="date"
-                      value={tempStart}
-                      onChange={(e) => setTempStart(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-                    />
-                  </div>
-                  <span className="mb-3 text-gray-400 font-medium">~</span>
-                  <div className="flex flex-col gap-1.5 flex-1 min-w-[120px]">
-                    <label className="text-xs font-semibold text-gray-500">종료일</label>
-                    <input
-                      type="date"
-                      value={tempEnd}
-                      onChange={(e) => setTempEnd(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-                    />
-                  </div>
-                  <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                    <button
-                      onClick={applyDateRange}
-                      disabled={!tempStart || !tempEnd || tempStart > tempEnd}
-                      className="flex-1 sm:flex-none px-4 py-2 bg-sky-600 text-white text-sm rounded-lg font-medium hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      적용
-                    </button>
-                    <button
-                      onClick={() => setShowDatePicker(false)}
-                      className="flex-1 sm:flex-none px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                    >
-                      닫기
-                    </button>
-                  </div>
+              <div className={`flex flex-col shadow-md bg-white border border-gray-100 ${isExcelView ? "-mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-x-0 lg:border-x" : "rounded-xl"}`}>
+                <div className="sticky top-0 z-40 bg-white">
+                  <LedgerTopBanner
+                    balanceData={openingBalance}
+                    isLoading={isOpeningLoading}
+                    accounts={accounts}
+                    selectedAccountId={selectedAccountId}
+                    onSelectAccount={setSelectedAccountId}
+                  />
+                </div>
+
+                <LedgerTable
+                  transactions={transactions}
+                  loading={isTransactionsLoading && !isFetchingNextPage}
+                  error={pageError?.message || null}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onReorder={handleReorder}
+                  currentAccountId={selectedAccountId}
+                  isExcelView={isExcelView}
+                />
+
+                <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                  <LedgerBottomBanner balanceData={closingBalance} isLoading={isClosingLoading} accounts={accounts} />
+                </div>
+              </div>
+
+              <div ref={loadMoreRef} className="h-4" />
+
+              {isFetchingNextPage && (
+                <div className="pb-6 text-center text-sm text-gray-500">
+                  거래 내역 불러오는 중...
                 </div>
               )}
+
+              {!hasNextPage && transactions.length > 0 && (
+                <div className="pb-6 text-center text-sm text-gray-400">
+                  모든 거래 내역을 불러왔습니다.
+                </div>
+              )}
+            </>
+          )}
+
+          {activeTab === "drafts" && (
+            <div className="space-y-3">
+              {isDraftsLoading ? (
+                <div className="py-12 text-center text-sm text-gray-500">임시 보관함 불러오는 중...</div>
+              ) : drafts.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-gray-400 text-sm">임시 보관함이 비어 있습니다.</p>
+                  <p className="text-gray-300 text-xs mt-1">빠른 추가로 등록한 내역이 여기에 쌓입니다.</p>
+                </div>
+              ) : (
+                drafts.map((draft) => (
+                  <button
+                    key={draft.id}
+                    onClick={() => handleOpenDraftModal(draft)}
+                    className="w-full flex items-center justify-between px-5 py-4 bg-white border border-amber-100 rounded-xl shadow-sm hover:bg-amber-50 hover:border-amber-300 transition-colors text-left group"
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm font-medium text-gray-800">
+                        {draft.description || "(설명 없음)"}
+                      </span>
+                      <span className="text-xs text-gray-400">{draft.date}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`text-sm font-semibold ${draft.amount < 0 ? "text-red-500" : "text-blue-500"
+                          }`}
+                      >
+                        {draft.amount < 0 ? "-" : "+"}
+                        {Math.abs(draft.amount).toLocaleString()}원
+                      </span>
+                      <span className="text-xs text-amber-400 group-hover:text-amber-600 transition-colors whitespace-nowrap">
+                        탭하여 분류하기 →
+                      </span>
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
-
-            <div className="flex flex-col shadow-md rounded-xl bg-white border border-gray-100">
-              <div className="sticky top-[10px] z-40">
-                <LedgerTopBanner 
-                  balanceData={openingBalance} 
-                  isLoading={isOpeningLoading} 
-                  accounts={accounts} 
-                  selectedAccountId={selectedAccountId}
-                  onSelectAccount={setSelectedAccountId}
-                />
-              </div>
-
-              <LedgerTable
-                transactions={transactions}
-                loading={isTransactionsLoading && !isFetchingNextPage}
-                error={pageError?.message || null}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onReorder={handleReorder}
-                currentAccountId={selectedAccountId}
-                isExcelView={isExcelView}
-              />
-
-              <div className="sticky bottom-0 z-40">
-                <LedgerBottomBanner balanceData={closingBalance} isLoading={isClosingLoading} accounts={accounts} />
-              </div>
-            </div>
-
-        <div ref={loadMoreRef} className="h-4" />
-
-        {isFetchingNextPage && (
-          <div className="pb-6 text-center text-sm text-gray-500">
-            거래 내역 불러오는 중...
-          </div>
-        )}
-
-        {!hasNextPage && transactions.length > 0 && (
-          <div className="pb-6 text-center text-sm text-gray-400">
-            모든 거래 내역을 불러왔습니다.
-          </div>
-        )}
-        </>
-        )}
-
-        {activeTab === "drafts" && (
-          <div className="space-y-3">
-            {isDraftsLoading ? (
-              <div className="py-12 text-center text-sm text-gray-500">임시 보관함 불러오는 중...</div>
-            ) : drafts.length === 0 ? (
-              <div className="py-12 text-center">
-                <p className="text-gray-400 text-sm">임시 보관함이 비어 있습니다.</p>
-                <p className="text-gray-300 text-xs mt-1">빠른 추가로 등록한 내역이 여기에 쌓입니다.</p>
-              </div>
-            ) : (
-              drafts.map((draft) => (
-                <button
-                  key={draft.id}
-                  onClick={() => handleOpenDraftModal(draft)}
-                  className="w-full flex items-center justify-between px-5 py-4 bg-white border border-amber-100 rounded-xl shadow-sm hover:bg-amber-50 hover:border-amber-300 transition-colors text-left group"
-                >
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-sm font-medium text-gray-800">
-                      {draft.description || "(설명 없음)"}
-                    </span>
-                    <span className="text-xs text-gray-400">{draft.date}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`text-sm font-semibold ${
-                        draft.amount < 0 ? "text-red-500" : "text-blue-500"
-                      }`}
-                    >
-                      {draft.amount < 0 ? "-" : "+"}
-                      {Math.abs(draft.amount).toLocaleString()}원
-                    </span>
-                    <span className="text-xs text-amber-400 group-hover:text-amber-600 transition-colors whitespace-nowrap">
-                      탭하여 분류하기 →
-                    </span>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
 
       {(isModalOpen || editingTransaction) && (
         <>

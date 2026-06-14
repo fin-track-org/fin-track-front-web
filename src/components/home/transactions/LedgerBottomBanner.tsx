@@ -11,7 +11,7 @@ interface LedgerBottomBannerProps {
 export default function LedgerBottomBanner({ balanceData, isLoading, accounts }: LedgerBottomBannerProps) {
   if (isLoading) {
     return (
-      <div className="w-full bg-[#1e3a8a] text-white px-4 py-2 md:p-4 rounded-b-xl flex items-center justify-center min-h-[60px] md:min-h-[70px]">
+      <div className="w-full bg-[#1e3a8a] text-white px-4 py-2 md:p-4 flex items-center justify-center min-h-[60px] md:min-h-[70px]">
         <span className="text-xs md:text-sm opacity-70">계좌 정보를 불러오는 중...</span>
       </div>
     );
@@ -24,11 +24,11 @@ export default function LedgerBottomBanner({ balanceData, isLoading, accounts }:
     .reduce((sum, acc) => sum + acc.amount, 0);
 
   return (
-    <div className="w-full bg-[#1e3a8a] text-white rounded-b-xl overflow-x-auto no-scrollbar">
+    <div className="w-full bg-[#1e3a8a] text-white overflow-x-auto no-scrollbar">
       <div className="flex flex-nowrap min-w-max">
         {accounts.length > 0 && (
           <div className="px-4 py-2 md:py-3 flex flex-col justify-center min-w-[120px] md:min-w-[140px] bg-sky-900/40 border-r border-white/20">
-            <span className="text-[10px] md:text-xs text-sky-200 font-semibold mb-0.5 md:mb-1 uppercase tracking-wider">CLOSING TOTAL</span>
+            <span className="text-[10px] md:text-xs text-sky-200 font-semibold mb-0.5 md:mb-1 uppercase tracking-wider">최종 잔액 (전체)</span>
             <span className="text-sm md:text-base font-bold text-sky-300">
               {balanceData.totalAmount >= 0 ? '' : '-'}&#8361;{Math.abs(balanceData.totalAmount).toLocaleString()}
             </span>

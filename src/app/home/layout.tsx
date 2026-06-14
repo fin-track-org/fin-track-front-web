@@ -20,7 +20,7 @@ export default function DashboardLayout({
       </div>
 
       {/* 메인 콘텐츠 영역 */}
-      <main className="flex-1 overflow-y-auto flex flex-col relative pb-16 lg:pb-0">
+      <main className="flex-1 overflow-y-auto flex flex-col relative pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
         <div className="flex-1 p-4 lg:p-8">
           {children}
         </div>
@@ -31,7 +31,7 @@ export default function DashboardLayout({
 
       {/* 모바일 하단 탭 바 */}
       <MobileBottomNav />
-      
+
       {/* 글로벌 빠른 추가 모달 (FAB) */}
       <GlobalQuickAdd />
     </div>
