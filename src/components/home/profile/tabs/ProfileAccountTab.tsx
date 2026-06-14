@@ -101,6 +101,13 @@ export default function ProfileAccountTab() {
     });
   };
 
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    queryClient.clear();
+    router.replace("/login");
+  };
+
   if (isLoading || !data) {
     return <div className="animate-pulse bg-gray-100 h-[400px] rounded-2xl" />;
   }
@@ -211,7 +218,14 @@ export default function ProfileAccountTab() {
         </div>
       </div>
 
-      <div className="flex justify-end pt-2">
+      <div className="flex items-center justify-between pt-2">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors px-2 py-1"
+        >
+          로그아웃
+        </button>
         <button
           type="button"
           onClick={() => setShowWithdrawModal(true)}

@@ -4,7 +4,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import logoImg from "@/public/images/logo.jpg";
-import { useState } from "react"; // (2) 리액트 "상태" 관리
+import { useState, useEffect } from "react"; // (2) 리액트 "상태" 관리
 // (3) Supabase 접속기 (경로 수정: '@/' 별칭 대신 상대 경로 사용)
 import { useRouter } from "next/navigation"; // (4) 페이지 이동 기능
 import { createClient } from "@/src/lib/supabase/client";
@@ -21,6 +21,17 @@ export default function LoginPage() {
 
   const router = useRouter(); // (6) 페이지 이동 기능 준비
   const supabase = createClient(); // (7) Supabase 접속기 실행
+
+  // 뒤로가기 등으로 캐시된 로그인 페이지에 접근했을 때, 이미 로그인되어 있다면 홈으로 돌려보냅니다.
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        router.replace("/home");
+      }
+    };
+    checkUser();
+  }, [router, supabase]);
 
   // (8) "로그인" 버튼을 눌렀을 때 실행될 함수
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -41,7 +52,7 @@ export default function LoginPage() {
       }
 
       // (14) [2단계] 모든 것이 성공! 대시보드로 이동
-      router.push("/home");
+      router.replace("/home");
     } catch (err: any) {
       // (15) 12~14단계 중 에러 발생 시, 여기로 잡혀옴
       console.error(err);

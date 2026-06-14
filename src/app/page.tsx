@@ -8,10 +8,23 @@ import Image from 'next/image';
 import logoImg from "@/public/images/logo.jpg";
 import Footer from '@/src/components/Footer';
 
+import { useRouter } from 'next/navigation';
+import { createClient } from "@/src/lib/supabase/client";
+
 export default function LandingPage() {
   const [showBanner, setShowBanner] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
 
   useEffect(() => {
+    // 뒤로가기 등으로 캐시된 랜딩 페이지에 접근했을 때, 이미 로그인되어 있다면 홈으로 돌려보냅니다.
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        router.replace("/home");
+      }
+    };
+    checkUser();
     // 브라우저 렌더링 시 로컬 스토리지 확인하여 배너 표시 여부 결정
     const isBannerHidden = localStorage.getItem('hide_announcement_banner');
     if (!isBannerHidden) {
