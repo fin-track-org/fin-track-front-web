@@ -1,10 +1,9 @@
 import React from "react";
 
-import { BalanceRes } from "@/src/lib/api/balanceApi";
 import { getAccountIcon } from "@/src/lib/transactionUtils";
 
 interface LedgerTopBannerProps {
-  balanceData?: BalanceRes;
+  balanceData?: { totalBalance: number; paymentMethods: any[] };
   isLoading: boolean;
   accounts: any[];
   selectedAccountId: string;
@@ -22,9 +21,9 @@ export default function LedgerTopBanner({ balanceData, isLoading, accounts, sele
 
   if (!balanceData) return null;
 
-  const inactiveBalance = balanceData.accounts
+  const inactiveBalance = balanceData.paymentMethods
     .filter(acc => !accounts.some(a => a.id === acc.accountId))
-    .reduce((sum, acc) => sum + acc.amount, 0);
+    .reduce((sum, acc) => sum + acc.balance, 0);
 
   return (
     <div className="w-full bg-[#1e3a8a] text-white rounded-t-xl overflow-x-auto no-scrollbar">
@@ -36,13 +35,13 @@ export default function LedgerTopBanner({ balanceData, isLoading, accounts, sele
           >
             <span className="text-[10px] md:text-xs text-sky-200 font-semibold mb-0.5 md:mb-1 uppercase tracking-wider">시작 잔액 (전체)</span>
             <span className="text-sm md:text-base font-bold text-sky-300">
-              {balanceData.totalAmount >= 0 ? '' : '-'}&#8361;{Math.abs(balanceData.totalAmount).toLocaleString()}
+              {balanceData.totalBalance >= 0 ? '' : '-'}&#8361;{Math.abs(balanceData.totalBalance).toLocaleString()}
             </span>
           </button>
         )}
         {accounts.map((acc, idx) => {
-          const matched = balanceData.accounts.find(a => a.accountId === acc.id);
-          const amount = matched ? matched.amount : 0;
+          const matched = balanceData.paymentMethods.find(a => a.accountId === acc.id);
+          const amount = matched ? matched.balance : 0;
           const isSelected = selectedAccountId === acc.id;
           const icon = getAccountIcon(acc.type);
 

@@ -969,8 +969,8 @@ export default function TransactionPage() {
               <div className={`flex flex-col shadow-md bg-white border border-gray-100 ${isExcelView ? "-mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-x-0 lg:border-x" : "rounded-xl"}`}>
                 <div className="sticky top-0 z-40 bg-white">
                   <LedgerTopBanner
-                    balanceData={openingBalance}
-                    isLoading={isOpeningLoading}
+                    balanceData={balanceData}
+                    isLoading={isBalanceLoading}
                     accounts={accounts}
                     selectedAccountId={selectedAccountId}
                     onSelectAccount={setSelectedAccountId}
@@ -989,7 +989,7 @@ export default function TransactionPage() {
                 />
 
                 <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                  <LedgerBottomBanner balanceData={closingBalance} isLoading={isClosingLoading} accounts={accounts} />
+                  <LedgerBottomBanner balanceData={balanceData} isLoading={isBalanceLoading} accounts={accounts} />
                 </div>
               </div>
 

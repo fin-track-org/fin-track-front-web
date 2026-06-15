@@ -1,9 +1,9 @@
 import React from "react";
-import { BalanceRes } from "@/src/lib/api/balanceApi";
+// Removed incorrect BalanceRes import
 import { getAccountIcon } from "@/src/lib/transactionUtils";
 
 interface LedgerBottomBannerProps {
-  balanceData?: BalanceRes;
+  balanceData?: { totalBalance: number; paymentMethods: any[] };
   isLoading: boolean;
   accounts: any[];
 }
@@ -19,9 +19,9 @@ export default function LedgerBottomBanner({ balanceData, isLoading, accounts }:
 
   if (!balanceData) return null;
 
-  const inactiveBalance = balanceData.accounts
+  const inactiveBalance = balanceData.paymentMethods
     .filter(acc => !accounts.some(a => a.id === acc.accountId))
-    .reduce((sum, acc) => sum + acc.amount, 0);
+    .reduce((sum, acc) => sum + acc.balance, 0);
 
   return (
     <div className="w-full bg-[#1e3a8a] text-white overflow-x-auto no-scrollbar">
@@ -30,13 +30,13 @@ export default function LedgerBottomBanner({ balanceData, isLoading, accounts }:
           <div className="px-4 py-2 md:py-3 flex flex-col justify-center min-w-[120px] md:min-w-[140px] bg-sky-900/40 border-r border-white/20">
             <span className="text-[10px] md:text-xs text-sky-200 font-semibold mb-0.5 md:mb-1 uppercase tracking-wider">최종 잔액 (전체)</span>
             <span className="text-sm md:text-base font-bold text-sky-300">
-              {balanceData.totalAmount >= 0 ? '' : '-'}&#8361;{Math.abs(balanceData.totalAmount).toLocaleString()}
+              {balanceData.totalBalance >= 0 ? '' : '-'}&#8361;{Math.abs(balanceData.totalBalance).toLocaleString()}
             </span>
           </div>
         )}
         {accounts.map((acc, idx) => {
-          const matched = balanceData.accounts.find(a => a.accountId === acc.id);
-          const amount = matched ? matched.amount : 0;
+          const matched = balanceData.paymentMethods.find(a => a.accountId === acc.id);
+          const amount = matched ? matched.balance : 0;
           const icon = getAccountIcon(acc.type);
 
           return (
