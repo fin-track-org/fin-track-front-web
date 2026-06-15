@@ -495,7 +495,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
           {/* backdrop */}
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
-          <div className="relative w-full sm:max-w-xl mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 space-y-5 animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:fade-in-0 duration-200 max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full sm:max-w-xl mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 pb-12 sm:pb-6 space-y-5 animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:fade-in-0 duration-200 max-h-[90dvh] sm:max-h-[90vh] overflow-y-auto">
             {/* 헤더 */}
             <div className="flex items-center justify-between pb-1">
               <h2 className="text-xl font-bold text-gray-800">
