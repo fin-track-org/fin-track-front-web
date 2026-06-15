@@ -7,8 +7,9 @@ import { createClient } from "@/src/lib/supabase/client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import LedgerTable from "./table/LedgerTable";
 import TransactionDateSelector from "./TransactionDateSelector";
-import { CalendarDays, ChevronDown, X } from "lucide-react";
+import { CalendarDays, ChevronDown, X, Trash2 } from "lucide-react";
 import Link from "next/link";
+import DraftInbox from "./DraftInbox";
 import {
   useInfiniteQuery,
   useMutation,
@@ -519,6 +520,7 @@ export default function TransactionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["drafts"] });
     },
   });
 
@@ -743,7 +745,7 @@ export default function TransactionPage() {
     const bodyForDraft = {
       date: payload.date,
       amount: payload.amount,
-      type: payload.type,
+      type: payload.type === "INCOME" ? "INCOME" : "EXPENSE",
       categoryId: payload.categoryId ?? null,
       subcategoryId: payload.subCategoryId ?? null,
       accountId: payload.accountId ?? null,
@@ -1019,43 +1021,12 @@ export default function TransactionPage() {
           )}
 
           {activeTab === "drafts" && (
-            <div className="space-y-3">
-              {isDraftsLoading ? (
-                <div className="py-12 text-center text-sm text-gray-500">임시 보관함 불러오는 중...</div>
-              ) : drafts.length === 0 ? (
-                <div className="py-12 text-center">
-                  <p className="text-gray-400 text-sm">임시 보관함이 비어 있습니다.</p>
-                  <p className="text-gray-300 text-xs mt-1">빠른 추가로 등록한 내역이 여기에 쌓입니다.</p>
-                </div>
-              ) : (
-                drafts.map((draft) => (
-                  <button
-                    key={draft.id}
-                    onClick={() => handleOpenDraftModal(draft)}
-                    className="w-full flex items-center justify-between px-5 py-4 bg-white border border-amber-100 rounded-xl shadow-sm hover:bg-amber-50 hover:border-amber-300 transition-colors text-left group"
-                  >
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-medium text-gray-800">
-                        {draft.description || "(설명 없음)"}
-                      </span>
-                      <span className="text-xs text-gray-400">{draft.date}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`text-sm font-semibold ${draft.amount < 0 ? "text-red-500" : "text-blue-500"
-                          }`}
-                      >
-                        {draft.amount < 0 ? "-" : "+"}
-                        {Math.abs(draft.amount).toLocaleString()}원
-                      </span>
-                      <span className="text-xs text-amber-400 group-hover:text-amber-600 transition-colors whitespace-nowrap">
-                        탭하여 분류하기 →
-                      </span>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
+            <DraftInbox
+              drafts={drafts}
+              isLoading={isDraftsLoading}
+              onOpenDraft={handleOpenDraftModal}
+              onDeleteDraft={handleDelete}
+            />
           )}
         </div>
       </div>

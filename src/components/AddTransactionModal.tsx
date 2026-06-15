@@ -565,7 +565,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                   >
                     수입
                   </button>
-                  {!isSimpleMode && (
+                  {!isSimpleMode && mode !== "quick" && mode !== "confirm-draft" && (
                     <button
                       type="button"
                       onClick={() => setType("TRANSFER")}

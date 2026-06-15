@@ -70,6 +70,7 @@ export default function GlobalQuickAdd() {
       date: payload.date,
       amount: parsedAmount,
       description: payload.description || "",
+      type: payload.type === "INCOME" ? "INCOME" : "EXPENSE",
     });
   };
 

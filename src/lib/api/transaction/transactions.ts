@@ -122,6 +122,7 @@ export const quickAddTransaction = async (payload: {
   date: string;
   amount: number;
   description: string;
+  type?: string;
 }): Promise<void> => {
   const supabase = createClient();
   const {

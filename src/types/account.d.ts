@@ -9,6 +9,7 @@ interface Account {
   isDefault: boolean;
   sortOrder: number;
   isActive: boolean;
+  isSystem: boolean;
 }
 
 interface AccountCreateReq {
