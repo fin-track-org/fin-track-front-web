@@ -383,9 +383,14 @@ export default function TransactionPage() {
   const transactions = useMemo(() => {
     if (!openingBalance || rawTransactions.length === 0) return rawTransactions;
 
-    let currentTotal = openingBalance.totalAmount;
+    // 백엔드 업데이트를 대비하여 객체 형태(BalanceRes)로 처리하되, 
+    // 아직 숫자로 올 경우를 대비한 안전 장치 추가
+    let currentTotal = typeof openingBalance === "number" ? openingBalance : (openingBalance.totalAmount || 0);
     const accMap = new Map<string, number>();
-    openingBalance.accounts.forEach((a) => accMap.set(a.accountId, a.amount));
+    
+    if (typeof openingBalance !== "number" && openingBalance.accounts) {
+      openingBalance.accounts.forEach((a: any) => accMap.set(a.accountId, a.amount));
+    }
 
     return rawTransactions.map((t) => {
       const isTransfer = !!t.transferDetail || (t.type as string) === "TRANSFER";
@@ -969,8 +974,8 @@ export default function TransactionPage() {
               <div className={`flex flex-col shadow-md bg-white border border-gray-100 ${isExcelView ? "-mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-x-0 lg:border-x" : "rounded-xl"}`}>
                 <div className="sticky top-0 z-40 bg-white">
                   <LedgerTopBanner
-                    balanceData={balanceData}
-                    isLoading={isBalanceLoading}
+                    balanceData={typeof openingBalance !== "number" ? openingBalance : undefined}
+                    isLoading={isOpeningLoading}
                     accounts={accounts}
                     selectedAccountId={selectedAccountId}
                     onSelectAccount={setSelectedAccountId}
@@ -988,8 +993,12 @@ export default function TransactionPage() {
                   isExcelView={isExcelView}
                 />
 
-                <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                  <LedgerBottomBanner balanceData={balanceData} isLoading={isBalanceLoading} accounts={accounts} />
+                <div className="sticky bottom-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                  <LedgerBottomBanner 
+                    balanceData={typeof closingBalance !== "number" ? closingBalance : undefined} 
+                    isLoading={isClosingLoading} 
+                    accounts={accounts} 
+                  />
                 </div>
               </div>
 
