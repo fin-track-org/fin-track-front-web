@@ -493,7 +493,10 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
           className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center"
         >
           {/* backdrop */}
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+            onClick={() => onOpenChange(false)}
+          />
 
           <div className="relative w-full sm:max-w-xl mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:pb-6 space-y-5 animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:fade-in-0 duration-200 max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto">
             {/* 헤더 */}
@@ -544,52 +547,91 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
             )}
 
             <div className="space-y-5">
-              {/* 1) 거래유형 + 금액 (가장 먼저) */}
-              <div className={`grid grid-cols-1 gap-4 transition-all duration-300 ${isQuickExpanded ? 'md:grid-cols-2' : ''}`}>
-                <div className={`space-y-2 transition-all duration-300 overflow-hidden ${isQuickExpanded ? 'max-h-[100px] opacity-100' : 'max-h-0 opacity-0 !m-0'}`}>
-                  <Label className="ml-1">거래유형</Label>
-                  <Select
-                    value={type}
-                    onValueChange={(v) => setType(v as FormType)}
+              {/* 1) 거래유형 (항상 표시, Segmented Control) */}
+              <div className="space-y-2">
+                {isQuickExpanded && <Label className="ml-1">거래유형</Label>}
+                <div className="flex p-1 bg-gray-100/80 rounded-xl w-full">
+                  <button
+                    type="button"
+                    onClick={() => setType("EXPENSE")}
+                    className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${type === "EXPENSE" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="EXPENSE">지출</SelectItem>
-                      <SelectItem value="INCOME">수입</SelectItem>
-                      {!isSimpleMode && <SelectItem value="TRANSFER">이체/충전</SelectItem>}
-                    </SelectContent>
-                  </Select>
+                    지출
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setType("INCOME")}
+                    className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${type === "INCOME" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+                  >
+                    수입
+                  </button>
+                  {!isSimpleMode && (
+                    <button
+                      type="button"
+                      onClick={() => setType("TRANSFER")}
+                      className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${type === "TRANSFER" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+                    >
+                      이체/충전
+                    </button>
+                  )}
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center ml-1">
-                    <Label htmlFor="amount">금액</Label>
-                    {mode === "quick" && (
-                      <button
-                        type="button"
-                        onClick={() => setIsQuickExpanded(!isQuickExpanded)}
-                        className="text-xs text-sky-600 hover:underline transition-colors"
-                      >
-                        {isQuickExpanded ? "빠른 등록으로 전환" : "상세 등록으로 전환"}
-                      </button>
-                    )}
-                  </div>
+              {/* 2) 금액 (빠른 등록 시 거대한 입력창) */}
+              <div className={`space-y-2 transition-all duration-300 ${!isQuickExpanded ? 'py-4' : ''}`}>
+                <div className="flex justify-between items-center ml-1">
+                  <Label htmlFor="amount" className={!isQuickExpanded ? "sr-only" : ""}>금액</Label>
+                  {mode === "quick" && (
+                    <button
+                      type="button"
+                      onClick={() => setIsQuickExpanded(!isQuickExpanded)}
+                      className="text-xs text-sky-600 hover:text-sky-700 hover:underline transition-colors ml-auto font-medium"
+                    >
+                      {isQuickExpanded ? "빠른 등록으로 전환" : "상세 폼 열기"}
+                    </button>
+                  )}
+                </div>
+                
+                <div className="relative">
                   <Input
                     id="amount"
                     inputMode="numeric"
-                    placeholder="예: 18000"
+                    pattern="\d*"
+                    placeholder={!isQuickExpanded ? "얼마인가요?" : "예: 18,000"}
                     value={amountText}
-                    onChange={(e) => setAmountText(e.target.value)}
-                    className="focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/[^0-9]/g, "");
+                      setAmountText(digits ? Number(digits).toLocaleString() : "");
+                    }}
+                    className={`transition-all duration-300 ease-out ${
+                      !isQuickExpanded 
+                        ? "h-24 text-4xl sm:text-5xl text-center font-extrabold border-transparent shadow-none bg-transparent px-0 placeholder:text-gray-300 focus-visible:ring-0 focus-visible:border-transparent text-gray-800" 
+                        : "focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
+                    }`}
                   />
-                  {!isAmountValid && amountText.length > 0 && (
-                    <p className="text-xs text-red-600">
-                      금액은 0보다 커야 합니다.
-                    </p>
+                  {!isQuickExpanded && amountText && (
+                    <span className="absolute right-4 bottom-4 text-2xl font-bold text-gray-800 pointer-events-none hidden sm:block">원</span>
                   )}
                 </div>
+                
+                <div className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+                  !isQuickExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                }`}>
+                  <div className="overflow-hidden">
+                    <div className="flex justify-center flex-wrap gap-2 pt-2">
+                      <button type="button" onClick={() => setAmountText(prev => Number((toNumberOrNaN(prev) || 0) + 10000).toLocaleString())} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-full text-sm font-semibold transition-colors">+1만</button>
+                      <button type="button" onClick={() => setAmountText(prev => Number((toNumberOrNaN(prev) || 0) + 50000).toLocaleString())} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-full text-sm font-semibold transition-colors">+5만</button>
+                      <button type="button" onClick={() => setAmountText(prev => Number((toNumberOrNaN(prev) || 0) + 100000).toLocaleString())} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-full text-sm font-semibold transition-colors">+10만</button>
+                      <button type="button" onClick={() => setAmountText("")} className="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-500 rounded-full text-sm font-semibold transition-colors ml-1">정정</button>
+                    </div>
+                  </div>
+                </div>
+
+                {!isAmountValid && amountText.length > 0 && (
+                  <p className={`text-xs text-red-600 ${!isQuickExpanded ? 'text-center' : ''}`}>
+                    금액은 0보다 커야 합니다.
+                  </p>
+                )}
               </div>
 
               {/* 2) 카테고리 + 세부항목 (애니메이션 래퍼) */}
