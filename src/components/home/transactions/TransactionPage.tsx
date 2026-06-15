@@ -844,7 +844,7 @@ export default function TransactionPage() {
       <div className="w-full flex justify-center pb-4 lg:pb-0 bg-gray-50 min-h-screen">
         <div className="w-full max-w-[1920px] mx-auto flex flex-col gap-3 sm:gap-4 lg:p-6 px-1 py-4 sm:p-4">
           {/* --- 뷰 컨트롤 툴바 --- */}
-          <section className="flex flex-col xl:flex-row gap-2 xl:items-center xl:justify-between bg-white p-2 md:p-4 rounded-xl border border-gray-200 shadow-sm">
+          <section className={`flex flex-col xl:flex-row gap-2 xl:items-center xl:justify-between bg-white p-2 md:p-4 shadow-sm ${isExcelView ? "-mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-y border-x-0 lg:border border-gray-200" : "rounded-xl border border-gray-200"}`}>
             {activeTab === "transactions" ? (
               <>
                 {/* 좌측: 날짜 선택 */}
@@ -867,17 +867,17 @@ export default function TransactionPage() {
                 <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto justify-end">
                   <Link
                     href="/home/transactions/search"
-                    className="flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                    className="flex items-center gap-1 md:gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                   >
-                    <span className="text-sm md:text-base">🔍</span> 검색 뷰
+                    <span className="text-xs md:text-base">🔍</span> 검색 뷰
                   </Link>
 
                   {drafts.length > 0 && (
                     <button
                       onClick={() => setActiveTab("drafts")}
-                      className="relative flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-semibold transition-colors bg-white border border-amber-200 text-amber-600 hover:bg-amber-50"
+                      className="relative flex items-center gap-1 md:gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold transition-colors bg-white border border-amber-200 text-amber-600 hover:bg-amber-50"
                     >
-                      📬 임시 보관함
+                      <span className="text-xs md:text-base">📬</span> 임시 보관함
                       <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] md:min-w-[18px] md:h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] md:text-[11px] font-bold">
                         {drafts.length}
                       </span>
