@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BookOpen, BarChart3, User } from "lucide-react";
+import { Home, BookOpen, BarChart3, User, Plus } from "lucide-react";
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
@@ -25,13 +25,13 @@ export default function MobileBottomNav() {
           <span className="text-[10px] font-medium">가계부</span>
         </Link>
 
-        {/* 중앙 빠른 추가 버튼 (FAB) */}
-        <div className="relative w-16 h-full flex justify-center">
+        {/* 중앙 빠른 추가 버튼 (Squircle) */}
+        <div className="relative w-16 h-full flex items-center justify-center">
           <button 
             onClick={() => window.dispatchEvent(new Event("open-quick-add"))}
-            className="absolute -top-5 w-14 h-14 bg-sky-600 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform border-[4px] border-white"
+            className="w-12 h-10 bg-sky-600 hover:bg-sky-700 text-white rounded-[14px] flex items-center justify-center shadow-sm active:scale-95 transition-all"
           >
-            <span className="text-3xl font-light leading-none mb-1">+</span>
+            <Plus className="w-6 h-6" strokeWidth={2.5} />
           </button>
         </div>
 
