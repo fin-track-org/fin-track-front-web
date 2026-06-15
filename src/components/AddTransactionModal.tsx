@@ -292,12 +292,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
     try {
       if (type !== "TRANSFER") {
-        const initialCategory =
-          type === "INCOME"
-            ? (categories.find((c) => c.type === "INCOME")?.id ?? "")
-            : (categories.find((c) => c.type === "EXPENSE")?.id ?? "");
-
-        setCategory(initialCategory);
+        setCategory("");
         setSubCategory("");
       }
       setDate(todayISODateSeoul());
@@ -314,10 +309,11 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   // }, [type]);
 
   useEffect(() => {
+    if (category === "") return;
     const validCategoryNames = categoryOptions.map((c) => c.id);
 
     if (!validCategoryNames.includes(category)) {
-      setCategory(categoryOptions[0]?.id ?? "");
+      setCategory("");
       setSubCategory("");
     }
   }, [categoryOptions, category]);
@@ -348,6 +344,17 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     setError("");
     setSubCatError("");
   }, [open, defaultValues]);
+
+  // 간편모드 & 저축/투자 체크 시 도착 계좌(저축/투자 계좌) 자동 선택 및 고정
+  useEffect(() => {
+    if (isSimpleMode && isSavings) {
+      const systemSavingsAccount = accounts.find((a) => a.type === "SAVINGS_INVESTMENT" && a.isSystem) 
+                                || accounts.find((a) => a.type === "SAVINGS_INVESTMENT");
+      if (systemSavingsAccount && toAccountId !== systemSavingsAccount.id) {
+        setToAccountId(systemSavingsAccount.id);
+      }
+    }
+  }, [isSimpleMode, isSavings, accounts, toAccountId]);
 
   // ----------------------------
   // Handlers
@@ -498,8 +505,13 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
             onClick={() => onOpenChange(false)}
           />
 
-          <div className="relative w-full sm:max-w-xl mx-auto bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:pb-6 space-y-5 animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:fade-in-0 duration-200 max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto">
-            {/* 헤더 */}
+          <div className="relative w-full sm:max-w-xl mx-auto bg-white rounded-t-[1.75rem] sm:rounded-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.12)] p-5 sm:p-6 pb-2 sm:pb-6 flex flex-col animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in-0 duration-300 max-h-[92dvh] sm:max-h-[90vh]">
+            
+            <div className="flex-1 overflow-y-auto space-y-6 pb-[calc(1rem+env(safe-area-inset-bottom))] px-1 custom-scrollbar">
+              {/* 모바일 손잡이(핸들) */}
+              <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-5 sm:hidden" />
+              
+              {/* 헤더 */}
             <div className="flex items-center justify-between pb-1">
               <h2 className="text-xl font-bold text-gray-800">
                 {mode === "edit" ? "거래 수정" : mode === "confirm-draft" ? "임시 내역 분류" : mode === "quick" ? "빠른 거래 추가" : "거래 추가"}
@@ -554,14 +566,14 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                   <button
                     type="button"
                     onClick={() => setType("EXPENSE")}
-                    className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${type === "EXPENSE" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+                    className={`flex-1 py-3 sm:py-2 text-base sm:text-sm font-semibold rounded-lg transition-all ${type === "EXPENSE" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
                   >
                     지출
                   </button>
                   <button
                     type="button"
                     onClick={() => setType("INCOME")}
-                    className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${type === "INCOME" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+                    className={`flex-1 py-3 sm:py-2 text-base sm:text-sm font-semibold rounded-lg transition-all ${type === "INCOME" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
                   >
                     수입
                   </button>
@@ -569,7 +581,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                     <button
                       type="button"
                       onClick={() => setType("TRANSFER")}
-                      className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${type === "TRANSFER" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+                      className={`flex-1 py-3 sm:py-2 text-base sm:text-sm font-semibold rounded-lg transition-all ${type === "TRANSFER" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
                     >
                       이체/충전
                     </button>
@@ -579,8 +591,22 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
               {/* 2) 금액 (빠른 등록 시 거대한 입력창) */}
               <div className={`space-y-2 transition-all duration-300 ${!isQuickExpanded ? 'py-4' : ''}`}>
+                {type !== "TRANSFER" && (
+                  <div className="flex items-center gap-2 px-1 mb-2">
+                    <input
+                      type="checkbox"
+                      id="isSavings"
+                      checked={isSavings}
+                      onChange={(e) => setIsSavings(e.target.checked)}
+                      className="w-4.5 h-4.5 text-sky-600 rounded border-gray-300 focus:ring-sky-600 cursor-pointer"
+                    />
+                    <Label htmlFor="isSavings" className="text-[15px] font-semibold cursor-pointer select-none text-sky-700">
+                      이 거래를 저축/투자로 기록합니다
+                    </Label>
+                  </div>
+                )}
                 <div className="flex justify-between items-center ml-1">
-                  <Label htmlFor="amount" className={!isQuickExpanded ? "sr-only" : ""}>금액</Label>
+                  <Label htmlFor="amount" className={!isQuickExpanded ? "sr-only" : "text-sm font-semibold text-gray-700"}>금액</Label>
                   {mode === "quick" && (
                     <button
                       type="button"
@@ -606,7 +632,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                     className={`transition-all duration-300 ease-out ${
                       !isQuickExpanded 
                         ? "h-24 text-4xl sm:text-5xl text-center font-extrabold border-transparent shadow-none bg-transparent px-0 placeholder:text-gray-300 focus-visible:ring-0 focus-visible:border-transparent text-gray-800" 
-                        : "focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
+                        : "h-14 sm:h-12 text-xl font-bold focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px] rounded-xl"
                     }`}
                   />
                   {!isQuickExpanded && amountText && (
@@ -643,63 +669,69 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                 }`}
               >
                 <div className="overflow-hidden space-y-5">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 pt-1">
-                    <div className="space-y-2">
-                      <Label className="ml-1">카테고리</Label>
-                      <Select value={category} onValueChange={setCategory}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="카테고리 선택" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categoryOptions.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
+                  <div className="space-y-4 pt-1">
+                    <div className="space-y-2.5">
+                      <Label className="ml-1 text-sm font-semibold text-gray-700">카테고리</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {categoryOptions.map((c) => {
+                          const isSelected = category === c.id;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setCategory(isSelected ? "" : c.id);
+                                if (isSelected) setSubCategory(""); // 카테고리 취소 시 세부항목도 초기화
+                              }}
+                              className={`px-3 py-1.5 rounded-[10px] text-[13px] font-bold transition-all duration-200 ease-in-out whitespace-nowrap ${
+                                category && !isSelected
+                                  ? "bg-white text-gray-400 border border-gray-100 opacity-50 scale-[0.98] hover:opacity-80"
+                                  : isSelected 
+                                    ? "bg-gray-800 text-white shadow-md scale-100 border border-gray-800" 
+                                    : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200 scale-100"
+                              }`}
+                            >
                               {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label
-                        className={`ml-1 ${currentSubCats.length === 0 ? "text-gray-300" : ""}`}
-                      >
-                        세부 항목
-                      </Label>
-                      <Select
-                        value={subCategory}
-                        onValueChange={(v) => setSubCategory(v === "__none__" ? "" : v)}
-                        disabled={currentSubCats.length === 0}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="-" />
-                        </SelectTrigger>
-
-                        <SelectContent>
-                          <SelectItem value="__none__">-</SelectItem>
-                          {currentSubCats.map((sc) => (
-                            <SelectItem key={sc.id} value={sc.id}>
-                              {sc.name}
-                            </SelectItem>
-                          ))}
-
-                          <div className="border-t mt-1 pt-1">
-                            <Button
-                              size={"sm"}
+                    <div className={`space-y-2.5 transition-all duration-300 ${!category ? "hidden" : "block"}`}>
+                      <Label className="ml-1 text-sm font-semibold text-gray-700">세부 항목</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {currentSubCats.map((sc) => {
+                          const isSelected = subCategory === sc.id;
+                          return (
+                            <button
+                              key={sc.id}
                               type="button"
-                              variant="ghost"
-                              className="w-full justify-start"
-                              onClick={() => {
-                                setSubCatError("");
-                                setNewSubCatName("");
-                                setSubCatAddOpen(true);
-                              }}
+                              onClick={() => setSubCategory(isSelected ? "" : sc.id)}
+                              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                                isSelected 
+                                  ? "bg-sky-50 text-sky-700 border-sky-300 shadow-sm" 
+                                  : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+                              }`}
                             >
-                              + 세부 항목 추가
-                            </Button>
-                          </div>
-                        </SelectContent>
-                      </Select>
+                              {sc.name}
+                            </button>
+                          );
+                        })}
+                        {category && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSubCatError("");
+                              setNewSubCatName("");
+                              setSubCatAddOpen(true);
+                            }}
+                            className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-gray-50 text-gray-400 border border-dashed border-gray-300 hover:bg-gray-100 hover:text-gray-600 transition-all"
+                          >
+                            + 추가
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -734,7 +766,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                         </div>
                       ) : (
                         <Select value={accountId} onValueChange={handleAccountIdChange}>
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger className="w-full h-12 sm:h-10 text-base sm:text-sm rounded-xl">
                             <SelectValue placeholder="선택" />
                           </SelectTrigger>
                           <SelectContent>
@@ -762,8 +794,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                             {accounts.length === 0 ? "등록된 계좌가 없습니다" : "선택 가능한 도착 계좌가 없습니다"}
                           </div>
                         ) : (
-                          <Select value={toAccountId} onValueChange={handleToAccountIdChange}>
-                            <SelectTrigger className="w-full">
+                          <Select value={toAccountId} onValueChange={handleToAccountIdChange} disabled={isSimpleMode && isSavings}>
+                            <SelectTrigger className="w-full h-12 sm:h-10 text-base sm:text-sm rounded-xl">
                               <SelectValue placeholder="선택" />
                             </SelectTrigger>
                             <SelectContent>
@@ -778,21 +810,6 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                       </div>
                     )}
                   </div>
-                  
-                  {type !== "TRANSFER" && !isSimpleMode && (
-                    <div className="flex items-center gap-2 px-1">
-                      <input
-                        type="checkbox"
-                        id="isSavings"
-                        checked={isSavings}
-                        onChange={(e) => setIsSavings(e.target.checked)}
-                        className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary cursor-pointer"
-                      />
-                      <Label htmlFor="isSavings" className="text-sm font-medium cursor-pointer select-none text-gray-700">
-                        이 거래를 저축/투자로 기록합니다
-                      </Label>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -806,7 +823,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
+                  className="h-12 sm:h-10 text-base sm:text-sm focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px] rounded-xl"
                 />
               </div>
 
@@ -820,7 +837,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                   placeholder="예: 스타벅스 - 아이스 아메리카노"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="min-h-[88px] focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px]"
+                  className="min-h-[100px] text-base sm:text-sm focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px] rounded-xl resize-none"
                 />
               </div>
 
@@ -831,43 +848,48 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               )}
             </div>
 
-            <div className="flex gap-2 justify-end mt-4">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => onOpenChange(false)}
-                disabled={isSaving}
-              >
-                취소
-              </Button>
+            </div>
 
-              {mode === "quick" && !isQuickExpanded ? (
-                <Button type="button" onClick={handleSaveDraft} disabled={!canSaveDraft}>
-                  {isSaving ? "저장 중..." : "임시 저장"}
+            <div className="sticky bottom-0 bg-gradient-to-t from-white via-white to-white/90 pt-4 pb-[env(safe-area-inset-bottom)] mt-auto z-10">
+              <div className="flex gap-2.5 sm:gap-2 justify-end w-full">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isSaving}
+                  className="h-14 sm:h-11 text-base sm:text-sm font-bold flex-1 sm:flex-none rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700"
+                >
+                  취소
                 </Button>
-              ) : (
-                <>
-                  {(mode === "confirm-draft" || mode === "quick") && onSaveDraft && (
-                    <Button
-                      type="button"
-                      onClick={handleSaveDraft}
-                      disabled={!canSaveDraft}
-                      className="bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200 hover:border-amber-300"
-                    >
-                      {isSaving ? "저장 중..." : "임시저장"}
-                    </Button>
-                  )}
-                  <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
-                    {isSaving
-                      ? mode === "edit"
-                        ? "수정 중..."
-                        : "등록 중..."
-                      : mode === "edit"
-                        ? "수정"
-                        : "등록"}
+
+                {mode === "quick" && !isQuickExpanded ? (
+                  <Button type="button" onClick={handleSaveDraft} disabled={!canSaveDraft} className="h-14 sm:h-11 text-base sm:text-sm font-bold flex-1 sm:flex-none rounded-xl bg-sky-600 hover:bg-sky-700">
+                    {isSaving ? "저장 중..." : "임시 저장"}
                   </Button>
-                </>
-              )}
+                ) : (
+                  <>
+                    {(mode === "confirm-draft" || mode === "quick") && onSaveDraft && (
+                      <Button
+                        type="button"
+                        onClick={handleSaveDraft}
+                        disabled={!canSaveDraft}
+                        className="h-14 sm:h-11 text-base sm:text-sm font-bold flex-1 sm:flex-none rounded-xl bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200 hover:border-amber-300"
+                      >
+                        {isSaving ? "저장 중..." : "임시저장"}
+                      </Button>
+                    )}
+                    <Button type="button" onClick={handleSubmit} disabled={!canSubmit} className="h-14 sm:h-11 text-base sm:text-sm font-bold flex-[2] sm:flex-none rounded-xl bg-sky-600 hover:bg-sky-700">
+                      {isSaving
+                        ? mode === "edit"
+                          ? "수정 중..."
+                          : "등록 중..."
+                        : mode === "edit"
+                          ? "수정"
+                          : "등록"}
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -875,7 +897,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
       {/* 세부항목 추가 다이얼로그 */}
       <Dialog open={subCatAddOpen} onOpenChange={setSubCatAddOpen}>
-        <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl px-6">
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl px-6 z-[200]">
           <DialogHeader>
             <DialogTitle className="text-lg">세부 항목 추가</DialogTitle>
           </DialogHeader>
