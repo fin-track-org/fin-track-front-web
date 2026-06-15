@@ -168,6 +168,11 @@ export default function PaymentMethodTab() {
                               <Star className="w-2.5 h-2.5 fill-sky-600 text-sky-600" />기본
                             </span>
                           )}
+                          {account.isSystem && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px] font-bold flex-shrink-0">
+                              시스템
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-gray-400 mt-1 font-medium">{ACCOUNT_TYPE_LABEL[account.type]}</p>
                       </div>
@@ -177,7 +182,7 @@ export default function PaymentMethodTab() {
                             <Star className="w-4 h-4" />
                           </button>
                         )}
-                        {account.name !== "현금" && (
+                        {!account.isSystem && (
                           <>
                             <button onClick={() => setEditingAccount((prev) => ({ ...prev, [account.id]: { name: account.name, type: account.type } }))} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
                               <Pencil className="w-4 h-4" />

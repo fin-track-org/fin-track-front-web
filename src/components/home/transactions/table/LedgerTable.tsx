@@ -464,13 +464,13 @@ export default function LedgerTable({
                     <tr>
                       <td
                         colSpan={8}
-                        className={`md:hidden ${isExcelView ? "border border-gray-300 px-4 py-1.5 bg-[#f3f4f6] text-xs font-bold text-gray-500 text-center uppercase" : "px-6 py-2 bg-gray-50 text-xs font-semibold text-gray-400 uppercase border-t border-b border-gray-100"}`}
+                        className={`md:hidden ${isExcelView ? "border border-gray-300 py-1.5 bg-[#f3f4f6] text-xs font-bold text-gray-500 text-left pl-8 uppercase" : "py-2 bg-gray-50 text-xs font-semibold text-gray-400 uppercase border-t border-b border-gray-100 text-left pl-8"}`}
                       >
                         {date}
                       </td>
                       <td
                         colSpan={10}
-                        className={`hidden md:table-cell ${isExcelView ? "border border-gray-300 px-4 py-1.5 bg-[#f3f4f6] text-xs font-bold text-gray-500 text-center uppercase" : "px-6 py-2 bg-gray-50 text-xs font-semibold text-gray-400 uppercase border-t border-b border-gray-100"}`}
+                        className={`hidden md:table-cell ${isExcelView ? "border border-gray-300 py-1.5 bg-[#f3f4f6] text-xs font-bold text-gray-500 text-left pl-[180px] uppercase" : "py-2 bg-gray-50 text-xs font-semibold text-gray-400 uppercase border-t border-b border-gray-100 text-left pl-[180px]"}`}
                       >
                         {date}
                       </td>

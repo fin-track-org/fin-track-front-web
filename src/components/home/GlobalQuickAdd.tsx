@@ -26,6 +26,14 @@ export default function GlobalQuickAdd() {
   }, []);
 
   // ----------------------------
+  // 라우트 변경 시 닫기
+  // ----------------------------
+  useEffect(() => {
+    setIsMenuOpen(false);
+    setIsModalOpen(false);
+  }, [pathname]);
+
+  // ----------------------------
   // 통합 모달 상태
   // ----------------------------
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -62,6 +70,7 @@ export default function GlobalQuickAdd() {
       date: payload.date,
       amount: parsedAmount,
       description: payload.description || "",
+      type: payload.type === "INCOME" ? "INCOME" : "EXPENSE",
     });
   };
 
@@ -119,10 +128,9 @@ export default function GlobalQuickAdd() {
     queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
   };
 
-  // 특정 페이지에서 버튼 숨기기 (예: 마이페이지)
-  if (pathname.includes("/home/profile")) {
-    return null;
-  }
+  // 마이페이지 등 특정 페이지에서 데스크탑 FAB 버튼만 숨기기 위해
+  // 컴포넌트 자체를 null로 반환하면 이벤트 리스너가 죽어서 모바일 탭 바의 버튼이 작동하지 않습니다.
+  const isProfilePage = pathname.includes("/home/profile");
 
   return (
     <>
@@ -179,13 +187,15 @@ export default function GlobalQuickAdd() {
         </div>
 
         {/* 메인 토글 버튼 (데스크탑에서만 표시, 모바일은 하단 탭 바에서 이벤트 발생) */}
-        <button
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          aria-label="메뉴 열기"
-          className="hidden lg:flex items-center justify-center w-14 h-14 rounded-full bg-sky-600 text-white shadow-xl hover:bg-sky-700 active:scale-95 transition-all z-10 relative"
-        >
-          <Plus size={28} strokeWidth={2.5} className={`transition-transform duration-300 ${isMenuOpen ? "rotate-[135deg]" : "rotate-0"}`} />
-        </button>
+        {!isProfilePage && (
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label="메뉴 열기"
+            className="hidden lg:flex items-center justify-center w-14 h-14 rounded-full bg-sky-600 text-white shadow-xl hover:bg-sky-700 active:scale-95 transition-all z-10 relative"
+          >
+            <Plus size={28} strokeWidth={2.5} className={`transition-transform duration-300 ${isMenuOpen ? "rotate-[135deg]" : "rotate-0"}`} />
+          </button>
+        )}
       </div>
 
       {/* 통합 거래 추가 모달 */}

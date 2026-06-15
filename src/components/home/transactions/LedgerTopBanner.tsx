@@ -14,7 +14,7 @@ interface LedgerTopBannerProps {
 export default function LedgerTopBanner({ balanceData, isLoading, accounts, selectedAccountId, onSelectAccount }: LedgerTopBannerProps) {
   if (isLoading) {
     return (
-      <div className="w-full bg-[#1e3a8a] text-white px-4 py-2 md:p-4 rounded-t-xl flex items-center justify-center min-h-[60px] md:min-h-[70px]">
+      <div className="w-full bg-[#1e3a8a] text-white px-4 py-2 md:p-4 flex items-center justify-center min-h-[60px] md:min-h-[70px]">
         <span className="text-xs md:text-sm opacity-70">계좌 정보를 불러오는 중...</span>
       </div>
     );
@@ -27,7 +27,7 @@ export default function LedgerTopBanner({ balanceData, isLoading, accounts, sele
     .reduce((sum, acc) => sum + acc.amount, 0);
 
   return (
-    <div className="w-full bg-[#1e3a8a] text-white rounded-t-xl overflow-x-auto no-scrollbar">
+    <div className="w-full bg-[#1e3a8a] text-white overflow-x-auto no-scrollbar">
       <div className="flex flex-nowrap min-w-max">
         {accounts.length > 0 && (
           <button 

@@ -7,8 +7,9 @@ import { createClient } from "@/src/lib/supabase/client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import LedgerTable from "./table/LedgerTable";
 import TransactionDateSelector from "./TransactionDateSelector";
-import { CalendarDays, ChevronDown, X } from "lucide-react";
+import { CalendarDays, ChevronDown, X, Trash2 } from "lucide-react";
 import Link from "next/link";
+import DraftInbox from "./DraftInbox";
 import {
   useInfiniteQuery,
   useMutation,
@@ -383,9 +384,14 @@ export default function TransactionPage() {
   const transactions = useMemo(() => {
     if (!openingBalance || rawTransactions.length === 0) return rawTransactions;
 
-    let currentTotal = openingBalance.totalAmount;
+    // 백엔드 업데이트를 대비하여 객체 형태(BalanceRes)로 처리하되, 
+    // 아직 숫자로 올 경우를 대비한 안전 장치 추가
+    let currentTotal = typeof openingBalance === "number" ? openingBalance : (openingBalance.totalAmount || 0);
     const accMap = new Map<string, number>();
-    openingBalance.accounts.forEach((a) => accMap.set(a.accountId, a.amount));
+    
+    if (typeof openingBalance !== "number" && openingBalance.accounts) {
+      openingBalance.accounts.forEach((a: any) => accMap.set(a.accountId, a.amount));
+    }
 
     return rawTransactions.map((t) => {
       const isTransfer = !!t.transferDetail || (t.type as string) === "TRANSFER";
@@ -514,6 +520,7 @@ export default function TransactionPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["drafts"] });
     },
   });
 
@@ -738,7 +745,7 @@ export default function TransactionPage() {
     const bodyForDraft = {
       date: payload.date,
       amount: payload.amount,
-      type: payload.type,
+      type: payload.type === "INCOME" ? "INCOME" : "EXPENSE",
       categoryId: payload.categoryId ?? null,
       subcategoryId: payload.subCategoryId ?? null,
       accountId: payload.accountId ?? null,
@@ -844,7 +851,7 @@ export default function TransactionPage() {
       <div className="w-full flex justify-center pb-4 lg:pb-0 bg-gray-50 min-h-screen">
         <div className="w-full max-w-[1920px] mx-auto flex flex-col gap-3 sm:gap-4 lg:p-6 px-1 py-4 sm:p-4">
           {/* --- 뷰 컨트롤 툴바 --- */}
-          <section className="flex flex-col xl:flex-row gap-2 xl:items-center xl:justify-between bg-white p-2 md:p-4 rounded-xl border border-gray-200 shadow-sm">
+          <section className={`flex flex-col xl:flex-row gap-2 xl:items-center xl:justify-between bg-white p-2 md:p-4 shadow-sm ${isExcelView ? "-mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-y border-x-0 lg:border border-gray-200" : "rounded-xl border border-gray-200"}`}>
             {activeTab === "transactions" ? (
               <>
                 {/* 좌측: 날짜 선택 */}
@@ -867,17 +874,17 @@ export default function TransactionPage() {
                 <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto justify-end">
                   <Link
                     href="/home/transactions/search"
-                    className="flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                    className="flex items-center gap-1 md:gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                   >
-                    <span className="text-sm md:text-base">🔍</span> 검색 뷰
+                    <span className="text-xs md:text-base">🔍</span> 검색 뷰
                   </Link>
 
                   {drafts.length > 0 && (
                     <button
                       onClick={() => setActiveTab("drafts")}
-                      className="relative flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-semibold transition-colors bg-white border border-amber-200 text-amber-600 hover:bg-amber-50"
+                      className="relative flex items-center gap-1 md:gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold transition-colors bg-white border border-amber-200 text-amber-600 hover:bg-amber-50"
                     >
-                      📬 임시 보관함
+                      <span className="text-xs md:text-base">📬</span> 임시 보관함
                       <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] md:min-w-[18px] md:h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] md:text-[11px] font-bold">
                         {drafts.length}
                       </span>
@@ -969,7 +976,7 @@ export default function TransactionPage() {
               <div className={`flex flex-col shadow-md bg-white border border-gray-100 ${isExcelView ? "-mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-x-0 lg:border-x" : "rounded-xl"}`}>
                 <div className="sticky top-0 z-40 bg-white">
                   <LedgerTopBanner
-                    balanceData={openingBalance}
+                    balanceData={typeof openingBalance !== "number" ? openingBalance : undefined}
                     isLoading={isOpeningLoading}
                     accounts={accounts}
                     selectedAccountId={selectedAccountId}
@@ -988,8 +995,12 @@ export default function TransactionPage() {
                   isExcelView={isExcelView}
                 />
 
-                <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                  <LedgerBottomBanner balanceData={closingBalance} isLoading={isClosingLoading} accounts={accounts} />
+                <div className="sticky bottom-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                  <LedgerBottomBanner 
+                    balanceData={typeof closingBalance !== "number" ? closingBalance : undefined} 
+                    isLoading={isClosingLoading} 
+                    accounts={accounts} 
+                  />
                 </div>
               </div>
 
@@ -1010,43 +1021,12 @@ export default function TransactionPage() {
           )}
 
           {activeTab === "drafts" && (
-            <div className="space-y-3">
-              {isDraftsLoading ? (
-                <div className="py-12 text-center text-sm text-gray-500">임시 보관함 불러오는 중...</div>
-              ) : drafts.length === 0 ? (
-                <div className="py-12 text-center">
-                  <p className="text-gray-400 text-sm">임시 보관함이 비어 있습니다.</p>
-                  <p className="text-gray-300 text-xs mt-1">빠른 추가로 등록한 내역이 여기에 쌓입니다.</p>
-                </div>
-              ) : (
-                drafts.map((draft) => (
-                  <button
-                    key={draft.id}
-                    onClick={() => handleOpenDraftModal(draft)}
-                    className="w-full flex items-center justify-between px-5 py-4 bg-white border border-amber-100 rounded-xl shadow-sm hover:bg-amber-50 hover:border-amber-300 transition-colors text-left group"
-                  >
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-medium text-gray-800">
-                        {draft.description || "(설명 없음)"}
-                      </span>
-                      <span className="text-xs text-gray-400">{draft.date}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`text-sm font-semibold ${draft.amount < 0 ? "text-red-500" : "text-blue-500"
-                          }`}
-                      >
-                        {draft.amount < 0 ? "-" : "+"}
-                        {Math.abs(draft.amount).toLocaleString()}원
-                      </span>
-                      <span className="text-xs text-amber-400 group-hover:text-amber-600 transition-colors whitespace-nowrap">
-                        탭하여 분류하기 →
-                      </span>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
+            <DraftInbox
+              drafts={drafts}
+              isLoading={isDraftsLoading}
+              onOpenDraft={handleOpenDraftModal}
+              onDeleteDraft={handleDelete}
+            />
           )}
         </div>
       </div>

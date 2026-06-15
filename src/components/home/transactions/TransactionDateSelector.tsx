@@ -51,9 +51,9 @@ export default function TransactionDateSelector({
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-lg transition-colors"
+          className="flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs md:text-sm font-semibold rounded-lg transition-colors"
         >
-          {currentLabel} <ChevronDown className="w-4 h-4 text-gray-500" />
+          {currentLabel} <ChevronDown className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-500" />
         </button>
 
         {isOpen && (
@@ -86,7 +86,7 @@ export default function TransactionDateSelector({
           <ChevronLeft className="w-5 h-5" />
         </button>
 
-        <span className="text-lg font-bold text-gray-900 min-w-[120px] text-center tracking-tight">
+        <span className="text-base md:text-lg font-bold text-gray-900 min-w-[100px] md:min-w-[120px] text-center tracking-tight">
           {dateDisplayString}
         </span>
 
@@ -100,7 +100,7 @@ export default function TransactionDateSelector({
 
         <button
           onClick={onToday}
-          className="ml-1 px-3 py-1 text-xs font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 rounded-md transition-colors"
+          className="ml-0.5 md:ml-1 px-2.5 py-1 text-[10px] md:text-xs font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 rounded-md transition-colors"
         >
           오늘
         </button>
