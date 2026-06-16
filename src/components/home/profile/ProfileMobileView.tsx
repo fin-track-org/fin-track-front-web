@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { User, CreditCard, Tags, Wallet, Repeat, Settings, ChevronRight, ChevronLeft } from "lucide-react";
 
 import ProfileAccountTab from "./tabs/ProfileAccountTab";
 import PaymentMethodTab from "./tabs/PaymentMethodTab";
-import CategoryTab from "./tabs/CategoryTab";
+import CategoryTabMobile from "./tabs/CategoryTabMobile";
 import BudgetTab from "./tabs/BudgetTab";
 import RecurringTab from "./tabs/RecurringTab";
 import PreferencesTab from "./tabs/PreferencesTab";
@@ -15,11 +15,36 @@ type TabId = "profile" | "payment" | "category" | "budget" | "recurring" | "pref
 export default function ProfileMobileView() {
   const [activeTab, setActiveTab] = useState<TabId>(null);
 
+  const isPopStateTriggered = useRef(false);
+
+  useEffect(() => {
+    if (activeTab) {
+      isPopStateTriggered.current = false;
+      window.history.pushState({ profileTab: activeTab }, "", window.location.href);
+
+      const handlePopState = () => {
+        isPopStateTriggered.current = true;
+        setActiveTab(null);
+      };
+
+      window.addEventListener("popstate", handlePopState);
+
+      return () => {
+        window.removeEventListener("popstate", handlePopState);
+        if (!isPopStateTriggered.current) {
+          if (window.history.state?.profileTab) {
+            window.history.back();
+          }
+        }
+      };
+    }
+  }, [activeTab]);
+
   const renderActiveTabContent = () => {
     switch (activeTab) {
       case "profile": return <ProfileAccountTab />;
       case "preferences": return <PreferencesTab />;
-      case "category": return <CategoryTab />;
+      case "category": return <CategoryTabMobile />;
       case "payment": return <PaymentMethodTab />;
       case "budget": return <BudgetTab />;
       case "recurring": return <RecurringTab />;

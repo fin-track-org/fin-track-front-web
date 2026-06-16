@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, RefreshCw } from "lucide-react";
 import { adjustAccountBalance } from "@/src/lib/api/accountApi";
 
@@ -22,6 +22,36 @@ export default function AdjustBalanceModal({
   const [reason, setReason] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const isPopStateTriggered = useRef(false);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (isOpen) {
+      isPopStateTriggered.current = false;
+      window.history.pushState({ modal: "AdjustBalanceModal" }, "", window.location.href);
+
+      const handlePopState = () => {
+        isPopStateTriggered.current = true;
+        onCloseRef.current();
+      };
+
+      window.addEventListener("popstate", handlePopState);
+
+      return () => {
+        window.removeEventListener("popstate", handlePopState);
+        if (!isPopStateTriggered.current) {
+          if (window.history.state?.modal === "AdjustBalanceModal") {
+            window.history.back();
+          }
+        }
+      };
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -51,7 +81,7 @@ export default function AdjustBalanceModal({
       setActualBalance("");
       setReason("");
     } catch (err: any) {
-      setError(err.message || "금액 맞추기에 실패했습니다.");
+      setError(err.message || "잔액 조정에 실패했습니다.");
     } finally {
       setIsLoading(false);
     }
@@ -60,22 +90,33 @@ export default function AdjustBalanceModal({
   const selectedMethod = paymentMethods.find((m) => m.accountId === selectedAccountId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <RefreshCw className="text-primary" size={24} />
-            금액 맞추기
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-full"
-          >
-            <X size={20} />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center">
+      {/* backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" 
+        onClick={onClose}
+      />
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+      <div className="relative w-full sm:max-w-md mx-auto bg-white rounded-t-[1.75rem] sm:rounded-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.12)] p-5 sm:p-6 flex flex-col animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in-0 duration-300 max-h-[92dvh] sm:max-h-[90vh]">
+        
+        <div className="flex-1 overflow-y-auto pb-[calc(1rem+env(safe-area-inset-bottom))] px-1 custom-scrollbar">
+          {/* 모바일 손잡이(핸들) */}
+          <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-5 sm:hidden" />
+          
+          <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <RefreshCw className="text-primary" size={24} />
+              잔액 조정
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-full"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
               {error}
@@ -144,6 +185,8 @@ export default function AdjustBalanceModal({
               <option value="">사유를 선택해주세요 (선택사항)</option>
               <option value="이자/수익">이자/수익</option>
               <option value="수수료">수수료</option>
+              <option value="빌려준 돈">빌려준 돈</option>
+              <option value="빌린 돈">빌린 돈</option>
               <option value="포인트 적립/사용">포인트 적립/사용</option>
               <option value="입출금 내역 누락">입출금 내역 누락</option>
               <option value="기타">기타</option>
@@ -156,10 +199,11 @@ export default function AdjustBalanceModal({
               disabled={isLoading || !selectedAccountId || !actualBalance}
               className="w-full py-4 bg-primary text-white rounded-xl font-bold text-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? "조정 중..." : "잔액 맞추기"}
+              {isLoading ? "조정 중..." : "잔액 조정하기"}
             </button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

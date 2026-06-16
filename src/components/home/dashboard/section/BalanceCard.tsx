@@ -20,50 +20,50 @@ export default function BalanceCard({
   return (
     <>
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="p-6">
-        {/* 헤더 - 총 잔액 */}
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 text-gray-600 text-sm font-medium mb-2">
-              <Wallet size={18} />
-              <span>총 잔액</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsBalanceVisible(!isBalanceVisible)}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1.5 hover:bg-gray-100 rounded-lg"
-                aria-label={isBalanceVisible ? "잔액 숨기기" : "잔액 보기"}
-              >
-                {isBalanceVisible ? <Eye size={20} /> : <EyeOff size={20} />}
-              </button>
-              <div className="text-gray-900 text-3xl font-bold">
-                {isBalanceVisible ? (
-                  <>
-                    {totalBalance.toLocaleString()}
-                    <span className="text-xl font-normal ml-1 text-gray-600">원</span>
-                  </>
-                ) : (
-                  <span className="text-gray-400">••••••••</span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
+      <div className="p-5 flex flex-col gap-4">
+        {/* 상단: 잔액 정보 */}
+        <div>
+          <div className="flex items-center gap-1.5 text-gray-500 text-sm font-medium mb-1.5">
+            <Wallet size={16} />
+            <span>총 잔액</span>
             <button
-              onClick={() => setIsAdjustModalOpen(true)}
-              className="flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors px-3 py-2 rounded-lg"
+              onClick={() => setIsBalanceVisible(!isBalanceVisible)}
+              className="text-gray-400 hover:text-gray-600 transition-colors ml-0.5 p-1 hover:bg-gray-100 rounded-md"
+              aria-label={isBalanceVisible ? "잔액 숨기기" : "잔액 보기"}
             >
-              <RefreshCw size={14} />
-              <span>금액 맞추기</span>
-            </button>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
-              aria-label={isExpanded ? "접기" : "펼치기"}
-            >
-              {isExpanded ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
+              {isBalanceVisible ? <Eye size={16} /> : <EyeOff size={16} />}
             </button>
           </div>
+          <div className="text-gray-900 text-3xl font-bold tracking-tight">
+            {isBalanceVisible ? (
+              <>
+                {totalBalance.toLocaleString()}
+                <span className="text-xl font-medium ml-1 text-gray-500">원</span>
+              </>
+            ) : (
+              <span className="text-gray-400">••••••••</span>
+            )}
+          </div>
+        </div>
+
+        {/* 하단: 액션 버튼 */}
+        <div className="flex items-center justify-between pt-1">
+          <button
+            onClick={() => setIsAdjustModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-100 transition-colors px-3.5 py-2 rounded-xl"
+          >
+            <RefreshCw size={14} />
+            <span>잔액 조정</span>
+          </button>
+          
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors px-2 py-2 rounded-lg hover:bg-gray-50"
+            aria-label={isExpanded ? "접기" : "펼치기"}
+          >
+            {isExpanded ? "상세 접기" : "상세 보기"}
+            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
         </div>
 
         {/* 확장된 내용 - 결제수단별 잔액 */}

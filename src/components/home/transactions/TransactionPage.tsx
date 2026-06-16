@@ -9,6 +9,8 @@ import LedgerTable from "./table/LedgerTable";
 import TransactionDateSelector from "./TransactionDateSelector";
 import { CalendarDays, ChevronDown, X, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import SearchFilterBottomSheet from "./SearchFilterBottomSheet";
 import DraftInbox from "./DraftInbox";
 import {
   useInfiniteQuery,
@@ -59,6 +61,7 @@ export default function TransactionPage() {
   const [selectedCategoryCodes, setSelectedCategoryCodes] = useState<string[]>([]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
   // 활성 탭 (거래 내역 / 임시 보관함)
   const [activeTab, setActiveTab] = useState<"transactions" | "drafts">("transactions");
@@ -851,7 +854,7 @@ export default function TransactionPage() {
       <div className="w-full flex justify-center pb-4 lg:pb-0 bg-gray-50 min-h-screen">
         <div className="w-full max-w-[1920px] mx-auto flex flex-col gap-3 sm:gap-4 lg:p-6 px-1 py-4 sm:p-4">
           {/* --- 뷰 컨트롤 툴바 --- */}
-          <section className={`flex flex-col xl:flex-row gap-2 xl:items-center xl:justify-between bg-white p-2 md:p-4 shadow-sm ${isExcelView ? "-mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-y border-x-0 lg:border border-gray-200" : "rounded-xl border border-gray-200"}`}>
+          <section className="flex flex-col xl:flex-row gap-2 xl:items-center xl:justify-between bg-white p-2 md:p-4 shadow-sm -mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-y border-x-0 lg:border border-gray-200">
             {activeTab === "transactions" ? (
               <>
                 {/* 좌측: 날짜 선택 */}
@@ -872,12 +875,12 @@ export default function TransactionPage() {
 
                 {/* 우측: 검색뷰 전환, 임시보관함 전환, 새 거래 추가 */}
                 <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto justify-end">
-                  <Link
-                    href="/home/transactions/search"
+                  <button
+                    onClick={() => setIsSearchModalOpen(true)}
                     className="flex items-center gap-1 md:gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
                   >
-                    <span className="text-xs md:text-base">🔍</span> 검색 뷰
-                  </Link>
+                    <span className="text-xs md:text-base">🔍</span> 거래내역 검색
+                  </button>
 
                   {drafts.length > 0 && (
                     <button
@@ -973,7 +976,7 @@ export default function TransactionPage() {
                 )}
               </div>
 
-              <div className={`flex flex-col shadow-md bg-white border border-gray-100 ${isExcelView ? "-mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-x-0 lg:border-x" : "rounded-xl"}`}>
+              <div className="flex flex-col shadow-md bg-white border border-gray-100 -mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-x-0 lg:border-x">
                 <div className="sticky top-0 z-40 bg-white">
                   <LedgerTopBanner
                     balanceData={typeof openingBalance !== "number" ? openingBalance : undefined}
@@ -993,6 +996,7 @@ export default function TransactionPage() {
                   onReorder={handleReorder}
                   currentAccountId={selectedAccountId}
                   isExcelView={isExcelView}
+                  openingBalanceAmount={typeof openingBalance === "number" ? openingBalance : (openingBalance?.totalAmount ?? 0)}
                 />
 
                 <div className="sticky bottom-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
@@ -1046,6 +1050,30 @@ export default function TransactionPage() {
           />
         </>
       )}
+
+      {/* 검색 바텀 시트 */}
+      <SearchFilterBottomSheet
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        accounts={accounts}
+        rawCategories={rawCategories}
+        onApply={(filters) => {
+          const params = new URLSearchParams();
+          if (filters.searchTerm) params.set("q", filters.searchTerm);
+          if (filters.selectedAccountId) params.set("account", filters.selectedAccountId);
+          if (filters.selectedType !== "ALL") params.set("type", filters.selectedType);
+          if (filters.selectedCategoryIds.length > 0) {
+            params.set("categories", filters.selectedCategoryIds.join(","));
+          }
+          if (filters.selectedCategoryCodes.length > 0) {
+            params.set("codes", filters.selectedCategoryCodes.join(","));
+          }
+          if (filters.startDate) params.set("start", filters.startDate);
+          if (filters.endDate) params.set("end", filters.endDate);
+          
+          window.location.href = `/home/transactions/search?${params.toString()}`;
+        }}
+      />
     </>
   );
 }

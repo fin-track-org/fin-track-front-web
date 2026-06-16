@@ -6,10 +6,12 @@ import AddTransactionModal from "@/src/components/AddTransactionModal";
 import { createClient } from "@/src/lib/supabase/client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import LedgerTable from "./table/LedgerTable";
-import MonthSelector from "../dashboard/section/MonthSelector";
-import { CalendarDays, ChevronDown, Search, X, Trash2 } from "lucide-react";
+import { CalendarDays, ChevronDown, Search, X, Trash2, Settings2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import DraftInbox from "./DraftInbox";
+import { useSearchParams, useRouter } from "next/navigation";
+import LedgerTopBanner from "./LedgerTopBanner";
+import LedgerBottomBanner from "./LedgerBottomBanner";
+import SearchFilterBottomSheet from "./SearchFilterBottomSheet";
 import {
   useInfiniteQuery,
   useMutation,
@@ -18,9 +20,10 @@ import {
 } from "@tanstack/react-query";
 import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
-import { fetchTransactions, getDrafts, reorderTransactions, createTransfer, updateTransfer } from "@/src/lib/api/transaction/transactions";
+import { fetchTransactions, reorderTransactions, createTransfer, updateTransfer } from "@/src/lib/api/transaction/transactions";
 import { getAccounts } from "@/src/lib/api/accountApi";
 import { useToast } from "@/src/hook/useToast";
+import { useUserSettings } from "@/src/hook/useUserSettings";
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
@@ -33,40 +36,24 @@ export default function SearchPage() {
   // 무한 스크롤 로더
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  // 날짜
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { userSetting } = useUserSettings();
+  const isExcelView = userSetting?.ledgerTheme === "EXCEL";
 
-  // 검색
-  const [searchTerm, setSearchTerm] = useState("");
+  // URL에서 필터 상태 읽기
+  const searchTerm = searchParams.get("q") || "";
+  const selectedAccountId = searchParams.get("account") || "";
+  const selectedType = (searchParams.get("type") as "ALL" | "EXPENSE" | "INCOME") || "ALL";
+  const selectedCategoryIds = searchParams.get("categories") ? searchParams.get("categories")!.split(",") : [];
+  const selectedCategoryCodes = searchParams.get("codes") ? searchParams.get("codes")!.split(",") : [];
+  const customStart = searchParams.get("start") || "";
+  const customEnd = searchParams.get("end") || "";
 
-  // 모바일 검색/필터 접기/펼치기 상태
-  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-
-  // 결제수단 필터
-  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
-
-  // 카테고리 필터
-  const [selectedType, setSelectedType] = useState<
-    "ALL" | "EXPENSE" | "INCOME"
-  >("ALL");
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
-  const [selectedCategoryCodes, setSelectedCategoryCodes] = useState<string[]>([]);
+  // 바텀 시트 상태
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // 활성 탭 (거래 내역 / 임시 보관함)
-  const [activeTab, setActiveTab] = useState<"transactions" | "drafts">("transactions");
-
-  // 임시 내역 분류 모달 모드
-  const [isDraftMode, setIsDraftMode] = useState(false);
-
-  // 날짜 범위 필터
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [dateRangeMode, setDateRangeMode] = useState<"month" | "custom">("month");
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
-  const [tempStart, setTempStart] = useState("");
-  const [tempEnd, setTempEnd] = useState("");
 
   // 새 거래용 defaultValues
   const [modalDefaultValues, setModalDefaultValues] = useState<
@@ -78,16 +65,22 @@ export default function SearchPage() {
     useState<Transaction | null>(null);
 
   const { startDate, endDate } = useMemo(() => {
-    if (dateRangeMode === "custom" && customStart && customEnd) {
+    if (customStart && customEnd) {
       return { startDate: customStart, endDate: customEnd };
     }
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    const end = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-    return { startDate: start, endDate: end };
-  }, [dateRangeMode, customStart, customEnd, currentMonth]);
+    return { startDate: "", endDate: "" };
+  }, [customStart, customEnd]);
+
+  // 바텀 시트에 넘겨줄 초기 필터 객체
+  const currentFilters = {
+    searchTerm,
+    selectedAccountId,
+    selectedType,
+    selectedCategoryIds,
+    selectedCategoryCodes,
+    startDate: customStart,
+    endDate: customEnd,
+  };
 
   /* ----------------------------------------------------------------------- */
   /* 카테고리 조회 api */
@@ -101,123 +94,7 @@ export default function SearchPage() {
     queryFn: () => getCategories(),
   });
 
-  const filteredCategories = useMemo(() => {
-    if (selectedType === "ALL") return rawCategories;
-    return rawCategories.filter((c) => c.type === selectedType);
-  }, [rawCategories, selectedType]);
 
-  // 전체 선택 시 카테고리를 수입 / 지출 섹션으로 분리해서 렌더링하기 위한 목록
-  const incomeCategories = useMemo(() => {
-    return rawCategories.filter(
-      (c) =>
-        c.type === "INCOME" &&
-        c.code !== "TRANSFER_INCOME" &&
-        c.code !== "SAVINGS_INCOME"
-    );
-  }, [rawCategories]);
-
-  // 전체 선택 시 카테고리를 수입 / 지출 섹션으로 분리해서 렌더링하기 위한 목록
-  const expenseCategories = useMemo(() => {
-    return rawCategories.filter((c) => c.type === "EXPENSE");
-  }, [rawCategories]);
-
-  useEffect(() => {
-    if (selectedType === "ALL") return;
-
-    setSelectedCategoryIds((prev) =>
-      prev.filter((id) => {
-        const category = rawCategories.find((c) => c.id === id);
-        return category?.type === selectedType;
-      }),
-    );
-  }, [selectedType, rawCategories]);
-
-  const toggleCategory = (categoryId: string) => {
-    setSelectedCategoryIds((prev) =>
-      prev.includes(categoryId)
-        ? prev.filter((id) => id !== categoryId)
-        : [...prev, categoryId],
-    );
-  };
-
-  const toggleCategoryCode = (codes: string[]) => {
-    setSelectedCategoryCodes((prev) => {
-      const hasAll = codes.every((c) => prev.includes(c));
-      if (hasAll) {
-        return prev.filter((c) => !codes.includes(c));
-      } else {
-        const newPrev = prev.filter((c) => !codes.includes(c));
-        return [...newPrev, ...codes];
-      }
-    });
-  };
-
-  // 전체 카테고리 선택 해제 = 전체 보기
-  const handleSelectAllCategories = () => {
-    setSelectedCategoryIds([]);
-    setSelectedCategoryCodes([]);
-  };
-
-  const assetManagementCodes = [
-    "TRANSFER_EXPENSE", "TRANSFER_INCOME",
-    "SAVINGS_EXPENSE", "SAVINGS_INCOME",
-    "BALANCE_ADJUST_EXPENSE", "BALANCE_ADJUST_INCOME"
-  ];
-
-  // 수입 전체 버튼 활성 상태
-  const isAllIncomeCategoriesSelected =
-    incomeCategories.length > 0 &&
-    incomeCategories.every((c) => selectedCategoryIds.includes(c.id));
-
-  // 지출 전체 버튼 활성 상태
-  const isAllExpenseCategoriesSelected =
-    expenseCategories.length > 0 &&
-    expenseCategories.every((c) => selectedCategoryIds.includes(c.id));
-
-  // 자산 관리 전체 버튼 활성 상태
-  const isAllAssetManagementCategoriesSelected =
-    assetManagementCodes.every((c) => selectedCategoryCodes.includes(c));
-
-  // 수입 카테고리 전체 선택/해제
-  const handleSelectAllIncomeCategories = () => {
-    if (isAllIncomeCategoriesSelected) {
-      // 이미 모두 선택된 상태면 수입 카테고리만 제거
-      setSelectedCategoryIds((prev) => prev.filter((id) => !incomeCategories.some((c) => c.id === id)));
-    } else {
-      // 모두 선택되지 않은 상태면 수입 카테고리 모두 추가
-      setSelectedCategoryIds((prev) => {
-        const otherIds = prev.filter((id) => !incomeCategories.some((c) => c.id === id));
-        return [...otherIds, ...incomeCategories.map((c) => c.id)];
-      });
-    }
-  };
-
-  // 지출 카테고리 전체 선택/해제
-  const handleSelectAllExpenseCategories = () => {
-    if (isAllExpenseCategoriesSelected) {
-      setSelectedCategoryIds((prev) => prev.filter((id) => !expenseCategories.some((c) => c.id === id)));
-    } else {
-      setSelectedCategoryIds((prev) => {
-        const otherIds = prev.filter((id) => !expenseCategories.some((c) => c.id === id));
-        return [...otherIds, ...expenseCategories.map((c) => c.id)];
-      });
-    }
-  };
-
-  // 자산 관리 전체 선택/해제
-  const handleSelectAllAssetManagementCategories = () => {
-    if (isAllAssetManagementCategoriesSelected) {
-      setSelectedCategoryCodes((prev) => prev.filter((code) => !assetManagementCodes.includes(code)));
-    } else {
-      setSelectedCategoryCodes((prev) => {
-        const otherCodes = prev.filter((code) => !assetManagementCodes.includes(code));
-        return [...otherCodes, ...assetManagementCodes];
-      });
-    }
-  };
-
-  // 전체 버튼 활성 상태 (어느 것도 선택되지 않았을 때)
-  const isAllCategoriesSelected = selectedCategoryIds.length === 0 && selectedCategoryCodes.length === 0;
   /* ----------------------------------------------------------------------- */
 
   /* 세부 항목 (소분류) 조회 */
@@ -285,15 +162,9 @@ export default function SearchPage() {
 
   // LedgerTable에 넘길 실제 거래 배열 추출
   const transactions = data?.pages.flatMap((page) => page.content) ?? [];
-
-  /* 임시 보관함 조회 */
-  const {
-    data: drafts = [],
-    isLoading: isDraftsLoading,
-  } = useQuery({
-    queryKey: ["drafts"],
-    queryFn: getDrafts,
-  });
+  
+  const totalIncome = transactions.filter(t => t.type === 'INCOME').reduce((acc, t) => acc + t.amount, 0);
+  const totalExpense = transactions.filter(t => t.type === 'EXPENSE').reduce((acc, t) => acc + t.amount, 0);
 
   /* 무한 스크롤 */
   useEffect(() => {
@@ -365,7 +236,6 @@ export default function SearchPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["drafts"] });
     },
   });
 
@@ -406,29 +276,12 @@ export default function SearchPage() {
     setIsModalOpen(true);
   };
 
-  // 임시 내역 분류 모달 열기
-  const handleOpenDraftModal = (draft: DraftTransaction) => {
-    setEditingTransaction(draft as unknown as Transaction);
-    setIsDraftMode(true);
-    setModalDefaultValues({
-      date: draft.date,
-      type: draft.type ?? "EXPENSE",
-      amount: Math.abs(draft.amount),
-      categoryId: draft.category?.id ?? "",
-      subCategoryId: draft.subcategory?.id ?? "",
-      accountId: draft.account?.id ?? "",
-      description: draft.description ?? "",
-    });
-    setIsModalOpen(true);
-  };
-
   // 모달 닫기(새 props 방식)
   const handleOpenChange = (open: boolean) => {
     setIsModalOpen(open);
     if (!open) {
       setEditingTransaction(null);
       setModalDefaultValues(undefined);
-      setIsDraftMode(false);
     }
   };
 
@@ -462,7 +315,6 @@ export default function SearchPage() {
       subcategoryId: payload.subCategoryId ?? null,
       description: payload.description ?? null,
       accountId: payload.accountId ?? null,
-      ...(isDraftMode && { isDraft: false }),
     });
 
     try {
@@ -563,104 +415,12 @@ export default function SearchPage() {
     }
 
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    if (isDraftMode) {
-      queryClient.invalidateQueries({ queryKey: ["drafts"] });
-    }
     // 모달 닫기 + 수정 해제
     setIsModalOpen(false);
     setEditingTransaction(null);
   };
 
-  /* 임시저장 (날짜, 금액, 메모만 업데이트) */
-  const handleSaveDraft = async (
-    payload: Partial<CreateTransactionPayload>,
-  ): Promise<void> => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
 
-    if (!session) throw new Error("로그인이 필요합니다.");
-
-    if (!editingTransaction?.id) {
-      throw new Error("수정할 임시 내역이 없습니다.");
-    }
-
-    const apiUrl = `${SPRING_BOOT_URL}/api/v1/transactions/${editingTransaction.id}`;
-
-    const bodyForDraft = {
-      date: payload.date,
-      amount: payload.amount,
-      type: payload.type === "INCOME" ? "INCOME" : "EXPENSE",
-      categoryId: payload.categoryId ?? null,
-      subcategoryId: payload.subCategoryId ?? null,
-      accountId: payload.accountId ?? null,
-      description: payload.description ?? null,
-      isDraft: true, // 임시 상태 유지
-    };
-
-    const res = await fetch(apiUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(bodyForDraft),
-    });
-
-    if (!res.ok) {
-      let msg = "임시저장 실패";
-      try {
-        const errJson = await res.json();
-        msg = errJson?.message || msg;
-      } catch {}
-      throw new Error(msg);
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["drafts"] });
-    setIsModalOpen(false);
-    setEditingTransaction(null);
-  };
-
-  /* 날짜 범위 */
-  const handleOpenDatePicker = () => {
-    if (showDatePicker) {
-      setShowDatePicker(false);
-      return;
-    }
-    setTempStart(startDate);
-    setTempEnd(endDate);
-    setShowDatePicker(true);
-  };
-
-  const applyDateRange = () => {
-    if (!tempStart || !tempEnd || tempStart > tempEnd) return;
-    setCustomStart(tempStart);
-    setCustomEnd(tempEnd);
-    setDateRangeMode("custom");
-    setShowDatePicker(false);
-  };
-
-  const clearCustomRange = () => {
-    setCustomStart("");
-    setCustomEnd("");
-    setDateRangeMode("month");
-    setShowDatePicker(false);
-  };
-
-  /* 이전/다음 달 */
-  const handlePreviousMonth = () => {
-    setDateRangeMode("month");
-    setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1),
-    );
-  };
-
-  const handleNextMonth = () => {
-    setDateRangeMode("month");
-    setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1),
-    );
-  };
 
   const isPageLoading = isTransactionsLoading || isCategoriesLoading;
   const pageError =
@@ -681,360 +441,106 @@ export default function SearchPage() {
   return (
     <>
     <div className="w-full flex justify-center pb-20 lg:pb-0 bg-gray-50 min-h-screen">
-      <div className="w-full max-w-6xl mx-auto flex flex-col gap-6 lg:p-6 p-4">
-        {/* 상단 탭 (장부 뷰 / 검색 뷰) */}
-        <div className="flex bg-white px-6 pt-4 rounded-xl border border-gray-200 shadow-sm gap-6 mb-2">
-          <Link href="/home/transactions" className="pb-3 text-gray-500 hover:text-gray-900 font-medium transition-colors">장부 뷰 (엑셀)</Link>
-          <Link href="/home/transactions/search" className="pb-3 border-b-2 border-black font-bold text-gray-900">검색 뷰 (목록)</Link>
-        </div>
-
-        {/* --- 필터 및 검색바 --- */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
-            <button
-              onClick={() => setActiveTab("transactions")}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                activeTab === "transactions"
-                  ? "bg-sky-600 text-white shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              거래 내역
-            </button>
-            <button
-              onClick={() => setActiveTab("drafts")}
-              className={`relative flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                activeTab === "drafts"
-                  ? "bg-amber-500 text-white shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              임시 보관함
-              {drafts.length > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[11px] font-bold">
-                  {drafts.length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          <button
-            onClick={() => {
-              setEditingTransaction(null);
-              setIsDraftMode(false);
-              setModalDefaultValues({
-                date: new Date().toISOString().split("T")[0],
-                type: "EXPENSE",
-                categoryId: rawCategories.find((c) => c.type === "EXPENSE")?.id,
-                accountId: accounts[0]?.id,
-              });
-              setIsModalOpen(true);
-            }}
-            className="bg-sky-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-sky-700 transition-colors text-sm shadow-sm"
+      <div className="w-full max-w-[1920px] mx-auto flex flex-col gap-3 sm:gap-4 lg:p-6 px-1 py-4 sm:p-4">
+        {/* 필터 요약 및 돌아가기 툴바 */}
+        <section className="flex flex-row items-center gap-2 md:gap-3 bg-white p-2 md:p-3 shadow-sm -mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-y border-x-0 lg:border border-gray-200">
+          <Link
+            href="/home/transactions"
+            className="flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors shrink-0 md:mr-2"
+            title="장부 뷰로 돌아가기"
           >
-            + 새 거래 추가
-          </button>
-        </div>
+            <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" strokeWidth={2.5} />
+          </Link>
+          
+          <div className="w-px h-6 bg-gray-200 shrink-0 hidden md:block mr-3"></div>
 
-        {activeTab === "transactions" && (
-          <>
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100">
-                <MonthSelector
-                  currentMonth={currentMonth}
-                  onPrev={handlePreviousMonth}
-                  onNext={handleNextMonth}
-                />
+          <div className="flex flex-wrap items-center gap-1.5 flex-1 overflow-x-auto no-scrollbar pr-2 py-1">
+            {searchTerm && <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium border border-gray-200 whitespace-nowrap">검색어: {searchTerm}</span>}
+            {customStart && customEnd ? (
+              <span className="px-2.5 py-1 bg-sky-50 text-sky-700 rounded-lg text-xs font-medium border border-sky-100 whitespace-nowrap">{customStart.substring(2)} ~ {customEnd.substring(2)}</span>
+            ) : (
+              <span className="px-2.5 py-1 bg-sky-50 text-sky-700 rounded-lg text-xs font-medium border border-sky-100 whitespace-nowrap">전체 기간</span>
+            )}
+            {selectedAccountId && (
+              <span className="px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium border border-purple-100 whitespace-nowrap">
+                {accounts.find(a => a.id === selectedAccountId)?.name || "알 수 없음"}
+              </span>
+            )}
+            {selectedType !== "ALL" && (
+              <span className={`px-2.5 py-1 rounded-lg text-xs font-medium border whitespace-nowrap ${selectedType === 'INCOME' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+                {selectedType === "INCOME" ? "수입만" : "지출만"}
+              </span>
+            )}
+            {selectedCategoryIds.length > 0 && (
+              <span className="px-2.5 py-1 bg-orange-50 text-orange-700 rounded-lg text-xs font-medium border border-orange-100 whitespace-nowrap">
+                카테고리 {selectedCategoryIds.length}개
+              </span>
+            )}
+            {selectedCategoryCodes.length > 0 && (
+              <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-medium border border-indigo-100 whitespace-nowrap">
+                특수 분류 {selectedCategoryCodes.length}개
+              </span>
+            )}
+            
+            {/* 필터가 없을 때 */}
+            {!searchTerm && !selectedAccountId && selectedType === "ALL" && selectedCategoryIds.length === 0 && selectedCategoryCodes.length === 0 && (!customStart || !customEnd) && (
+              <span className="text-xs text-gray-400 font-medium px-1 whitespace-nowrap">모든 거래 (전체 기간)</span>
+            )}
+          </div>
+        </section>
+
+
+        <div className="flex flex-col shadow-md bg-white border border-gray-100 -mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-x-0 lg:border-x">
+          <div className="sticky top-0 z-40 bg-white">
+            <div className="w-full bg-[#1e3a8a] text-white overflow-x-auto no-scrollbar lg:rounded-t-xl border-b border-gray-200">
+              <div className="flex flex-nowrap items-center min-w-max h-full min-h-[60px] md:min-h-[70px] px-4 md:px-5 gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm md:text-base font-bold text-sky-200">검색 결과</span>
+                  <span className="text-lg md:text-xl font-bold text-white">{transactions.length}건</span>
+                </div>
+                
+                <div className="flex-1 min-w-[20px]"></div>
+                
                 <button
-                  onClick={handleOpenDatePicker}
-                  className={`whitespace-nowrap shrink-0 flex justify-center items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
-                    dateRangeMode === "custom"
-                      ? "bg-sky-50 text-sky-700 border-sky-300"
-                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                  }`}
+                  onClick={() => setIsSearchModalOpen(true)}
+                  className="flex shrink-0 items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 bg-sky-800/80 hover:bg-sky-700 text-xs md:text-sm font-semibold rounded-lg transition-colors border border-sky-600/50 shadow-sm"
                 >
-                  <CalendarDays size={16} />
-                  <span>
-                    {dateRangeMode === "custom"
-                      ? `${customStart} ~ ${customEnd}`
-                      : "기간 지정"}
-                  </span>
-                  {dateRangeMode === "custom" && (
-                    <X
-                      size={14}
-                      className="ml-1 cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clearCustomRange();
-                      }}
-                    />
-                  )}
+                  <span>⚙️</span>
+                  <span>필터 변경</span>
                 </button>
               </div>
-
-              {showDatePicker && (
-                <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-end gap-4">
-                  <div className="flex flex-col gap-1.5 flex-1 min-w-[120px]">
-                    <label className="text-xs font-semibold text-gray-500">시작일</label>
-                    <input
-                      type="date"
-                      value={tempStart}
-                      onChange={(e) => setTempStart(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-                    />
-                  </div>
-                  <span className="mb-3 text-gray-400 font-medium">~</span>
-                  <div className="flex flex-col gap-1.5 flex-1 min-w-[120px]">
-                    <label className="text-xs font-semibold text-gray-500">종료일</label>
-                    <input
-                      type="date"
-                      value={tempEnd}
-                      onChange={(e) => setTempEnd(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-                    />
-                  </div>
-                  <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                    <button
-                      onClick={applyDateRange}
-                      disabled={!tempStart || !tempEnd || tempStart > tempEnd}
-                      className="flex-1 sm:flex-none px-4 py-2 bg-sky-600 text-white text-sm rounded-lg font-medium hover:bg-sky-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      적용
-                    </button>
-                    <button
-                      onClick={() => setShowDatePicker(false)}
-                      className="flex-1 sm:flex-none px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                    >
-                      닫기
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
-
-        {/* 검색/필터 */}
-        <div className="bg-white p-4 md:p-5 rounded-xl shadow-sm border border-gray-100 mb-6 mt-4">
-          {/* 모바일에서만 검색/필터 접기/펼치기 헤더 표시 */}
-          <div className="flex items-center justify-between md:hidden cursor-pointer" onClick={() => setIsMobileFilterOpen((prev) => !prev)}>
-            <p className="text-sm font-semibold text-gray-900">검색 및 필터</p>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 p-1"
-            >
-              <ChevronDown
-                size={22}
-                className={`transition-transform duration-300 ease-in-out ${
-                  isMobileFilterOpen ? "rotate-180" : "rotate-0"
-                }`}
-              />
-            </button>
           </div>
+          <LedgerTable
+            transactions={transactions}
+            loading={isPageLoading}
+            error={pageError?.message ?? null}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onReorder={handleReorder}
+            currentAccountId={selectedAccountId}
+            isExcelView={isExcelView}
+          />
 
-          <div
-            className={`overflow-hidden transition-all duration-300 ease-in-out md:overflow-visible ${
-              isMobileFilterOpen
-                ? "max-h-[1500px] opacity-100 mt-4"
-                : "max-h-0 opacity-0"
-            } md:max-h-none md:opacity-100 md:mt-0`}
-          >
-            <div className="flex flex-col gap-5">
-              {/* 검색 + 결제수단 필터 */}
-              <div className="flex flex-col gap-3 md:flex-row">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="거래 내역 검색..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:bg-white transition-colors"
-                  />
+          <div className="sticky bottom-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div className="w-full bg-[#1e3a8a] text-white overflow-x-auto no-scrollbar lg:rounded-b-xl border-t-0">
+              <div className="flex flex-nowrap items-center min-w-max h-full min-h-[60px] md:min-h-[70px]">
+                <div className="px-4 py-2 md:py-3 flex flex-col justify-center min-w-[120px] md:min-w-[140px] bg-sky-900/40 border-r border-white/20">
+                  <span className="text-[10px] md:text-xs text-sky-200 font-semibold mb-0.5 md:mb-1 uppercase tracking-wider">검색된 수입 합계</span>
+                  <span className="text-sm md:text-base font-bold text-emerald-300">
+                    +&#8361;{totalIncome.toLocaleString()}
+                  </span>
                 </div>
-                <select
-                  value={selectedAccountId}
-                  onChange={(e) => setSelectedAccountId(e.target.value)}
-                  className="py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:bg-white transition-colors md:w-56"
-                >
-                  <option value="">결제수단 전체</option>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 카테고리 필터 섹션 */}
-              <div className="pt-4 border-t border-gray-100">
-                {/* 전체일 때만 전체 / 수입 전체 / 지출 전체 / 자산 관리 전체 버튼 노출 */}
-                {selectedType === "ALL" ? (
-                  <div className="mb-4 flex flex-wrap gap-2">
-                    <button
-                      onClick={handleSelectAllCategories}
-                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
-                        isAllCategoriesSelected
-                          ? "bg-gray-800 text-white shadow-sm"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      전체
-                    </button>
-                    <button
-                      onClick={handleSelectAllIncomeCategories}
-                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
-                        isAllIncomeCategoriesSelected
-                          ? "bg-emerald-600 text-white shadow-sm"
-                          : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      }`}
-                    >
-                      수입 전체
-                    </button>
-                    <button
-                      onClick={handleSelectAllExpenseCategories}
-                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
-                        isAllExpenseCategoriesSelected
-                          ? "bg-sky-600 text-white shadow-sm"
-                          : "bg-sky-50 text-sky-700 hover:bg-sky-100"
-                      }`}
-                    >
-                      지출 전체
-                    </button>
-                    <button
-                      onClick={handleSelectAllAssetManagementCategories}
-                      className={`px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
-                        isAllAssetManagementCategoriesSelected
-                          ? "bg-purple-600 text-white shadow-sm"
-                          : "bg-purple-50 text-purple-700 hover:bg-purple-100"
-                      }`}
-                    >
-                      자산 관리 전체
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleSelectAllCategories}
-                    className={`mb-4 px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors ${
-                      isAllCategoriesSelected
-                        ? "bg-gray-800 text-white shadow-sm"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    전체
-                  </button>
-                )}
-
-                {/* 거래 유형이 전체일 때는 수입 / 지출 / 자산관리 카테고리를 섹션으로 분리해서 표시 */}
-                {selectedType === "ALL" ? (
-                  <div className="space-y-5">
-                    {/* 수입 카테고리 섹션 */}
-                    <div>
-                      <p className="mb-2.5 text-xs font-semibold text-gray-400">수입</p>
-                      <div className="flex flex-wrap gap-2">
-                        {incomeCategories.map((c) => {
-                          const selected = selectedCategoryIds.includes(c.id);
-                          return (
-                            <button
-                              key={c.id}
-                              onClick={() => toggleCategory(c.id)}
-                              className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
-                                selected
-                                  ? "bg-emerald-50 border-emerald-500 text-emerald-700"
-                                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
-                              }`}
-                            >
-                              {c.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* 지출 카테고리 섹션 */}
-                    <div>
-                      <p className="mb-2.5 text-xs font-semibold text-gray-400">지출</p>
-                      <div className="flex flex-wrap gap-2">
-                        {expenseCategories.map((c) => {
-                          const selected = selectedCategoryIds.includes(c.id);
-                          return (
-                            <button
-                              key={c.id}
-                              onClick={() => toggleCategory(c.id)}
-                              className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
-                                selected
-                                  ? "bg-sky-50 border-sky-500 text-sky-700"
-                                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
-                              }`}
-                            >
-                              {c.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    {/* 자산 관리 섹션 */}
-                    <div>
-                      <p className="mb-2.5 text-xs font-semibold text-gray-400">자산 관리</p>
-                      <div className="flex flex-wrap gap-2">
-                        {[
-                          { label: "이체", codes: ["TRANSFER_EXPENSE", "TRANSFER_INCOME"] },
-                          { label: "저축/투자", codes: ["SAVINGS_EXPENSE", "SAVINGS_INCOME"] },
-                          { label: "잔액 조정", codes: ["BALANCE_ADJUST_EXPENSE", "BALANCE_ADJUST_INCOME"] },
-                        ].map((sys) => {
-                          const selected = sys.codes.every((c) => selectedCategoryCodes.includes(c));
-                          return (
-                            <button
-                              key={sys.label}
-                              onClick={() => toggleCategoryCode(sys.codes)}
-                              className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
-                                selected
-                                  ? "bg-purple-50 border-purple-500 text-purple-700"
-                                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
-                              }`}
-                            >
-                              {sys.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  // 거래 유형이 지출/수입으로 선택된 경우에는 기존처럼 한 그룹으로 표시
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {filteredCategories.map((c) => {
-                      const selected = selectedCategoryIds.includes(c.id);
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() => toggleCategory(c.id)}
-                          className={`px-3.5 py-1.5 text-sm rounded-full font-medium whitespace-nowrap transition-colors border ${
-                             selected
-                               ? selectedType === "INCOME"
-                                 ? "bg-emerald-50 border-emerald-500 text-emerald-700"
-                                 : "bg-sky-50 border-sky-500 text-sky-700"
-                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
-                          }`}
-                        >
-                          {c.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                <div className="px-4 py-2 md:py-3 flex flex-col justify-center min-w-[120px] md:min-w-[140px]">
+                  <span className="text-[10px] md:text-xs text-sky-200 font-semibold mb-0.5 md:mb-1 uppercase tracking-wider">검색된 지출 합계</span>
+                  <span className="text-sm md:text-base font-bold text-red-300">
+                    -&#8361;{totalExpense.toLocaleString()}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-
-        <LedgerTable
-          transactions={transactions}
-          loading={isPageLoading}
-          error={pageError?.message ?? null}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onReorder={handleReorder}
-          currentAccountId={selectedAccountId}
-        />
 
         <div ref={loadMoreRef} className="h-4" />
 
@@ -1049,19 +555,34 @@ export default function SearchPage() {
             모든 거래 내역을 불러왔습니다.
           </div>
         )}
-        </>
-        )}
 
-        {activeTab === "drafts" && (
-          <DraftInbox
-            drafts={drafts}
-            isLoading={isDraftsLoading}
-            onOpenDraft={handleOpenDraftModal}
-            onDeleteDraft={handleDelete}
-          />
-        )}
       </div>
     </div>
+
+      {/* 검색 필터 바텀시트 */}
+      <SearchFilterBottomSheet
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        accounts={accounts}
+        rawCategories={rawCategories}
+        initialFilters={currentFilters}
+        onApply={(filters) => {
+          const params = new URLSearchParams();
+          if (filters.searchTerm) params.set("q", filters.searchTerm);
+          if (filters.selectedAccountId) params.set("account", filters.selectedAccountId);
+          if (filters.selectedType !== "ALL") params.set("type", filters.selectedType);
+          if (filters.selectedCategoryIds.length > 0) {
+            params.set("categories", filters.selectedCategoryIds.join(","));
+          }
+          if (filters.selectedCategoryCodes.length > 0) {
+            params.set("codes", filters.selectedCategoryCodes.join(","));
+          }
+          if (filters.startDate) params.set("start", filters.startDate);
+          if (filters.endDate) params.set("end", filters.endDate);
+          
+          router.replace(`/home/transactions/search?${params.toString()}`);
+        }}
+      />
 
       {(isModalOpen || editingTransaction) && (
         <>
@@ -1072,9 +593,8 @@ export default function SearchPage() {
             categories={rawCategories}
             accounts={accounts}
             onSubmit={handleSubmitTransaction}
-            onSaveDraft={isDraftMode ? handleSaveDraft : undefined}
             defaultValues={modalDefaultValues}
-            mode={isDraftMode ? "confirm-draft" : editingTransaction ? "edit" : "create"}
+            mode={editingTransaction ? "edit" : "create"}
           />
         </>
       )}

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { X, Bookmark, ChevronLeft, RotateCcw } from "lucide-react";
 
 import {
@@ -260,6 +260,31 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   // ----------------------------
   // Effects
   // ----------------------------
+
+  const isPopStateTriggered = useRef(false);
+
+  useEffect(() => {
+    if (open) {
+      isPopStateTriggered.current = false;
+      window.history.pushState({ modal: "AddTransactionModal" }, "", window.location.href);
+
+      const handlePopState = () => {
+        isPopStateTriggered.current = true;
+        onOpenChange(false);
+      };
+
+      window.addEventListener("popstate", handlePopState);
+
+      return () => {
+        window.removeEventListener("popstate", handlePopState);
+        if (!isPopStateTriggered.current) {
+          if (window.history.state?.modal === "AddTransactionModal") {
+            window.history.back();
+          }
+        }
+      };
+    }
+  }, [open, onOpenChange]);
 
   // open될 때 type 기본값 리셋/반영
   useEffect(() => {
