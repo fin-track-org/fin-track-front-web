@@ -5,7 +5,7 @@ import { User, CreditCard, Tags, Wallet, Repeat, Settings, ChevronRight, Chevron
 
 import ProfileAccountTab from "./tabs/ProfileAccountTab";
 import PaymentMethodTab from "./tabs/PaymentMethodTab";
-import CategoryTab from "./tabs/CategoryTab";
+import CategoryTabMobile from "./tabs/CategoryTabMobile";
 import BudgetTab from "./tabs/BudgetTab";
 import RecurringTab from "./tabs/RecurringTab";
 import PreferencesTab from "./tabs/PreferencesTab";
@@ -44,7 +44,7 @@ export default function ProfileMobileView() {
     switch (activeTab) {
       case "profile": return <ProfileAccountTab />;
       case "preferences": return <PreferencesTab />;
-      case "category": return <CategoryTab />;
+      case "category": return <CategoryTabMobile />;
       case "payment": return <PaymentMethodTab />;
       case "budget": return <BudgetTab />;
       case "recurring": return <RecurringTab />;

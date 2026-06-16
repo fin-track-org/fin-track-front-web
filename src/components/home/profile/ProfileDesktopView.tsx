@@ -5,7 +5,7 @@ import { User, CreditCard, Tags, Wallet, Repeat, Settings } from "lucide-react";
 
 import ProfileAccountTab from "./tabs/ProfileAccountTab";
 import PaymentMethodTab from "./tabs/PaymentMethodTab";
-import CategoryTab from "./tabs/CategoryTab";
+import CategoryTabDesktop from "./tabs/CategoryTabDesktop";
 import BudgetTab from "./tabs/BudgetTab";
 import RecurringTab from "./tabs/RecurringTab";
 import PreferencesTab from "./tabs/PreferencesTab";
@@ -84,7 +84,7 @@ export default function ProfileDesktopView() {
         <div className="flex-1 min-w-0 pb-12">
           {activeTab === "profile" && <ProfileAccountTab />}
           {activeTab === "preferences" && <PreferencesTab />}
-          {activeTab === "category" && <CategoryTab />}
+          {activeTab === "category" && <CategoryTabDesktop />}
           {activeTab === "payment" && <PaymentMethodTab />}
           {activeTab === "budget" && <BudgetTab />}
           {activeTab === "recurring" && <RecurringTab />}

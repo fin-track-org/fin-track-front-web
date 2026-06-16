@@ -86,9 +86,6 @@ function CategoryRow({ category }: { category: Category }) {
         <div className="flex items-center gap-3 min-w-0">
           <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${isIncome ? "bg-emerald-500" : "bg-sky-500"}`} />
           <span className="text-sm font-medium text-gray-800 truncate">{category.name}</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${isIncome ? "bg-emerald-50 text-emerald-600" : "bg-sky-50 text-sky-600"}`}>
-            {isIncome ? "수입" : "지출"}
-          </span>
         </div>
         <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
@@ -148,7 +145,7 @@ function CategoryRow({ category }: { category: Category }) {
                           <span className="text-xs">수정</span>
                         </button>
                         <button
-                          onClick={() => { if (confirm(`"${sc.name}" 항목을 삭제하시겠습니까?`)) mutateDelete(sc.id); }}
+                          onClick={() => { if (window.confirm(`"${sc.name}" 항목을 삭제하시겠습니까?`)) mutateDelete(sc.id); }}
                           className="p-1 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -195,41 +192,88 @@ function CategoryRow({ category }: { category: Category }) {
   );
 }
 
-export default function CategoryTab() {
+export default function CategoryTabDesktop() {
   const { data: allCategories = [], isLoading: isAllCategoriesLoading } = useQuery({
     queryKey: ["categories"],
     queryFn: () => getCategories(),
     staleTime: 1000 * 60 * 5,
   });
 
+  const incomeCategories = allCategories.filter((c) => c.type === "INCOME");
+  const expenseCategories = allCategories.filter((c) => c.type === "EXPENSE");
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      {/* 카테고리 관리 */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2 px-6 py-5 border-b border-gray-100 bg-white">
-          <Tags className="w-4.5 h-4.5 text-sky-500" />
-          <h2 className="font-bold text-gray-900 text-base">카테고리 관리</h2>
-        </div>
-        <p className="px-6 py-4 text-xs text-gray-400 border-b border-gray-100/60 bg-gray-50/30 font-medium">
-          대분류 항목은 고정되어 있으며 각 항목을 클릭하여 하위 소분류를 추가, 수정, 삭제할 수 있습니다.
-        </p>
+      <div className="flex items-center gap-2 mb-2">
+        <Tags className="w-5 h-5 text-sky-500" />
+        <h2 className="font-bold text-gray-900 text-lg">카테고리 관리</h2>
+      </div>
+      <p className="text-sm text-gray-500 bg-sky-50/50 p-4 rounded-xl border border-sky-100/50">
+        대분류 항목은 고정되어 있으며 각 항목을 클릭하여 하위 소분류를 추가, 수정, 삭제할 수 있습니다.
+      </p>
 
-        {isAllCategoriesLoading ? (
-          <div className="divide-y divide-gray-100 bg-white">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center justify-between px-6 py-5">
-                <Skeleton className="h-4 w-36" />
-                <Skeleton className="h-4 w-8" />
-              </div>
-            ))}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+        {/* 수입 카테고리 */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 bg-emerald-50/30 flex items-center justify-between">
+            <h3 className="font-semibold text-emerald-800 text-sm">수입 카테고리</h3>
+            <span className="text-xs font-medium text-emerald-600 bg-emerald-100/50 px-2.5 py-1 rounded-full">
+              {incomeCategories.length}개
+            </span>
           </div>
-        ) : (
-          <ul className="divide-y divide-gray-100/60 bg-white">
-            {allCategories.map((category) => (
-              <CategoryRow key={category.id} category={category} />
-            ))}
-          </ul>
-        )}
+
+          {isAllCategoriesLoading ? (
+            <div className="divide-y divide-gray-100 bg-white">
+              {[1, 2].map((i) => (
+                <div key={i} className="flex items-center justify-between px-6 py-5">
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-4 w-8" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-100/60 bg-white">
+              {incomeCategories.length === 0 ? (
+                <li className="px-6 py-8 text-center text-sm text-gray-400">수입 카테고리가 없습니다.</li>
+              ) : (
+                incomeCategories.map((category) => (
+                  <CategoryRow key={category.id} category={category} />
+                ))
+              )}
+            </ul>
+          )}
+        </div>
+
+        {/* 지출 카테고리 */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 bg-sky-50/30 flex items-center justify-between">
+            <h3 className="font-semibold text-sky-800 text-sm">지출 카테고리</h3>
+            <span className="text-xs font-medium text-sky-600 bg-sky-100/50 px-2.5 py-1 rounded-full">
+              {expenseCategories.length}개
+            </span>
+          </div>
+
+          {isAllCategoriesLoading ? (
+            <div className="divide-y divide-gray-100 bg-white">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center justify-between px-6 py-5">
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-4 w-8" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-100/60 bg-white">
+              {expenseCategories.length === 0 ? (
+                <li className="px-6 py-8 text-center text-sm text-gray-400">지출 카테고리가 없습니다.</li>
+              ) : (
+                expenseCategories.map((category) => (
+                  <CategoryRow key={category.id} category={category} />
+                ))
+              )}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );
