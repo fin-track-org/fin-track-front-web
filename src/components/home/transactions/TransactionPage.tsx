@@ -377,34 +377,8 @@ export default function TransactionPage() {
     },
   });
 
-  // 활성 계좌 ID 목록 (전체 계좌 조회 시 비활성 계좌를 제외하기 위함)
-  const activeAccountIds = useMemo(() => {
-    return new Set(accounts.filter(a => a.isActive).map(a => a.id));
-  }, [accounts]);
-
   // LedgerTable에 넘길 실제 거래 배열 추출
-  const rawTransactions = useMemo(() => {
-    const allTxs = data?.pages.flatMap((page) => page.content) ?? [];
-    if (selectedAccountId) return allTxs;
-    return allTxs.filter(t => activeAccountIds.has(t.account.id));
-  }, [data, selectedAccountId, activeAccountIds]);
-
-  // 시작 잔액 계산 (비활성 계좌 제외 로직 포함)
-  const calculatedOpeningBalance = useMemo(() => {
-    if (!openingBalance) return 0;
-    if (typeof openingBalance === "number") return openingBalance;
-    if (selectedAccountId) return openingBalance.totalAmount || 0;
-    
-    let total = 0;
-    if (openingBalance.accounts) {
-      openingBalance.accounts.forEach((a: any) => {
-        if (activeAccountIds.has(a.accountId)) {
-          total += a.amount;
-        }
-      });
-    }
-    return total;
-  }, [openingBalance, selectedAccountId, activeAccountIds]);
+  const rawTransactions = data?.pages.flatMap((page) => page.content) ?? [];
 
   // 잔액 누적 계산 로직 (수입/지출/잔액/계좌잔액)
   const transactions = useMemo(() => {
@@ -412,7 +386,7 @@ export default function TransactionPage() {
 
     // 백엔드 업데이트를 대비하여 객체 형태(BalanceRes)로 처리하되, 
     // 아직 숫자로 올 경우를 대비한 안전 장치 추가
-    let currentTotal = calculatedOpeningBalance;
+    let currentTotal = typeof openingBalance === "number" ? openingBalance : (openingBalance.totalAmount || 0);
     const accMap = new Map<string, number>();
     
     if (typeof openingBalance !== "number" && openingBalance.accounts) {
@@ -465,7 +439,7 @@ export default function TransactionPage() {
         runningLinkedAccountBalance: runningLinkedAccountBalance,
       };
     });
-  }, [rawTransactions, openingBalance, selectedAccountId, calculatedOpeningBalance]);
+  }, [rawTransactions, openingBalance, selectedAccountId]);
 
   /* 임시 보관함 조회 */
   const {
@@ -1019,7 +993,7 @@ export default function TransactionPage() {
                   onReorder={handleReorder}
                   currentAccountId={selectedAccountId}
                   isExcelView={isExcelView}
-                  openingBalanceAmount={calculatedOpeningBalance}
+                  openingBalanceAmount={typeof openingBalance === "number" ? openingBalance : (openingBalance?.totalAmount ?? 0)}
                 />
 
                 <div className="sticky bottom-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
