@@ -851,7 +851,7 @@ export default function TransactionPage() {
       <div className="w-full flex justify-center pb-4 lg:pb-0 bg-gray-50 min-h-screen">
         <div className="w-full max-w-[1920px] mx-auto flex flex-col gap-3 sm:gap-4 lg:p-6 px-1 py-4 sm:p-4">
           {/* --- 뷰 컨트롤 툴바 --- */}
-          <section className={`flex flex-col xl:flex-row gap-2 xl:items-center xl:justify-between bg-white p-2 md:p-4 shadow-sm ${isExcelView ? "-mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-y border-x-0 lg:border border-gray-200" : "rounded-xl border border-gray-200"}`}>
+          <section className="flex flex-col xl:flex-row gap-2 xl:items-center xl:justify-between bg-white p-2 md:p-4 shadow-sm -mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-y border-x-0 lg:border border-gray-200">
             {activeTab === "transactions" ? (
               <>
                 {/* 좌측: 날짜 선택 */}
@@ -973,7 +973,7 @@ export default function TransactionPage() {
                 )}
               </div>
 
-              <div className={`flex flex-col shadow-md bg-white border border-gray-100 ${isExcelView ? "-mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-x-0 lg:border-x" : "rounded-xl"}`}>
+              <div className="flex flex-col shadow-md bg-white border border-gray-100 -mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-x-0 lg:border-x">
                 <div className="sticky top-0 z-40 bg-white">
                   <LedgerTopBanner
                     balanceData={typeof openingBalance !== "number" ? openingBalance : undefined}
