@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, RefreshCw } from "lucide-react";
 import { adjustAccountBalance } from "@/src/lib/api/accountApi";
 
@@ -22,6 +22,31 @@ export default function AdjustBalanceModal({
   const [reason, setReason] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const isPopStateTriggered = useRef(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      isPopStateTriggered.current = false;
+      window.history.pushState({ modal: "AdjustBalanceModal" }, "", window.location.href);
+
+      const handlePopState = () => {
+        isPopStateTriggered.current = true;
+        onClose();
+      };
+
+      window.addEventListener("popstate", handlePopState);
+
+      return () => {
+        window.removeEventListener("popstate", handlePopState);
+        if (!isPopStateTriggered.current) {
+          if (window.history.state?.modal === "AdjustBalanceModal") {
+            window.history.back();
+          }
+        }
+      };
+    }
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
