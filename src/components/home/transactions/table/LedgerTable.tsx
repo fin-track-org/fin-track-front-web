@@ -24,6 +24,18 @@ import LedgerRow from "./LedgerRow";
 import SkeletonRow from "../SkeletonRow";
 import { getTransactionColor, getTransactionSign, getAccountIcon } from "@/src/lib/transactionUtils";
 
+function formatDateFriendly(dateStr: string) {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  
+  const days = ["일", "월", "화", "수", "목", "금", "토"];
+  const month = d.getMonth() + 1;
+  const date = d.getDate();
+  const day = days[d.getDay()];
+  
+  return `${month}월 ${date}일 (${day})`;
+}
+
 interface Props {
   transactions: Transaction[];
   loading: boolean;
@@ -33,6 +45,7 @@ interface Props {
   onReorder: (transactionIds: string[]) => void;
   currentAccountId?: string;
   isExcelView?: boolean;
+  openingBalanceAmount?: number;
 }
 
 /* ────────────────────────── Sortable wrappers ────────────────────────── */
@@ -117,7 +130,7 @@ function SortableMobileCard({
     <div
       ref={setNodeRef}
       style={style}
-      className="rounded-xl border bg-white p-3 sm:p-4 shadow-sm flex gap-2 sm:gap-3"
+      className="rounded-lg border bg-white p-2.5 sm:p-3 shadow-sm flex gap-2"
     >
       {/* 드래그 핸들 */}
       <button
@@ -130,31 +143,37 @@ function SortableMobileCard({
         <GripVertical className="w-5 h-5" />
       </button>
 
-      <div className="flex flex-1 items-start justify-between gap-3 min-w-0">
-        <div className="min-w-0">
-          <p className="text-sm text-gray-500">{transaction.date}</p>
-          <p className="mt-1 font-semibold truncate">{transaction.description}</p>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <span className="rounded-md px-2 py-1 bg-sky-100 text-sky-600">
+      <div className="flex flex-1 items-start justify-between gap-2 min-w-0">
+        <div className="min-w-0 pt-0.5 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 rounded bg-sky-100 text-sky-700 px-1.5 py-0.5 text-[11px] font-medium">
               {transaction.category.name}
             </span>
+            <p className="font-semibold text-[14px] text-gray-800 truncate">{transaction.description}</p>
+          </div>
+          <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
             {transaction.transferDetail ? (
-              <div className="flex items-center gap-1.5 mt-1 text-[11px]">
-                <span className="flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-gray-600 font-medium border border-gray-200">
+              <div className="flex flex-wrap items-center gap-1 mt-0.5 text-[10px]">
+                <span className="flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-gray-600 font-medium border border-gray-200">
                   <span>{getAccountIcon(transaction.transferDetail.fromAccount.type)}</span>
                   {transaction.transferDetail.fromAccount.name}
+                  {transaction.type === "EXPENSE" && transaction.runningAccountBalance !== undefined ? ` (잔액: ${transaction.runningAccountBalance.toLocaleString()}원)` : ""}
+                  {transaction.type === "INCOME" && transaction.runningLinkedAccountBalance !== undefined ? ` (잔액: ${transaction.runningLinkedAccountBalance.toLocaleString()}원)` : ""}
                 </span>
-                <span className="text-gray-400 text-[10px]">▶</span>
-                <span className="flex items-center gap-1 rounded-md bg-sky-50 px-2 py-1 text-sky-700 font-medium border border-sky-100">
+                <span className="text-gray-400 text-[9px]">▶</span>
+                <span className="flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-sky-700 font-medium border border-sky-100">
                   <span>{getAccountIcon(transaction.transferDetail.toAccount.type)}</span>
                   {transaction.transferDetail.toAccount.name}
+                  {transaction.type === "EXPENSE" && transaction.runningLinkedAccountBalance !== undefined ? ` (잔액: ${transaction.runningLinkedAccountBalance.toLocaleString()}원)` : ""}
+                  {transaction.type === "INCOME" && transaction.runningAccountBalance !== undefined ? ` (잔액: ${transaction.runningAccountBalance.toLocaleString()}원)` : ""}
                 </span>
               </div>
             ) : (
               transaction.account?.name && (
-                <span className="flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-gray-700 font-medium">
+                <span className="flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-gray-700 font-medium">
                   <span>{getAccountIcon(transaction.account.type)}</span>
                   {transaction.account.name}
+                  {transaction.runningAccountBalance !== undefined ? ` (잔액: ${transaction.runningAccountBalance.toLocaleString()}원)` : ""}
                 </span>
               )
             )}
@@ -166,26 +185,28 @@ function SortableMobileCard({
             const sign = getTransactionSign(transaction as any, currentAccountId);
             const colorClass = getTransactionColor(transaction as any, currentAccountId);
             return (
-              <p className={`text-sm font-bold ${colorClass}`}>
-                {sign}{amountAbs}원
-              </p>
+              <div className="flex items-center justify-end gap-1.5">
+                <span className={`text-[13px] font-bold ${colorClass}`}>
+                  {sign}{amountAbs}원
+                </span>
+                <span className="text-gray-300 text-[11px]">|</span>
+                <span className="text-[10px] text-gray-500 font-medium">
+                  총 {transaction.runningTotalBalance?.toLocaleString() ?? "-"}원
+                </span>
+              </div>
             );
           })()}
-          <div className="flex flex-col items-end mt-1 text-[10px] text-gray-500 font-medium">
-            <span>총 {transaction.runningTotalBalance?.toLocaleString() ?? "-"}원</span>
-            <span className="text-sky-600">계좌 {transaction.runningAccountBalance?.toLocaleString() ?? "-"}원</span>
-          </div>
 
-          <div className="mt-2 flex justify-end gap-2">
+          <div className="mt-1.5 flex justify-end gap-1.5">
             <button
               onClick={() => onEdit(transaction)}
-              className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs hover:bg-gray-200"
+              className="rounded-md bg-gray-100 px-2.5 py-1 text-[11px] font-medium hover:bg-gray-200"
             >
               수정
             </button>
             <button
               onClick={() => onDelete(transaction.id)}
-              className="rounded-lg bg-red-100 px-3 py-1.5 text-xs text-red-700 hover:bg-red-200"
+              className="rounded-md bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-100"
             >
               삭제
             </button>
@@ -207,6 +228,7 @@ export default function LedgerTable({
   onReorder,
   currentAccountId,
   isExcelView = true,
+  openingBalanceAmount = 0,
 }: Props) {
   const [localTransactions, setLocalTransactions] =
     useState<Transaction[]>(transactions);
@@ -305,7 +327,7 @@ export default function LedgerTable({
   return (
     <>
       {/* ✅ 모바일: 카드 (엑셀 뷰가 아닐 때만 노출) */}
-      <div className={`${isExcelView ? "hidden" : "md:hidden"} space-y-4`}>
+      <div className={`${isExcelView ? "hidden" : "md:hidden"} space-y-2.5`}>
         {loading &&
           Array.from({ length: 6 }).map((_, i) => (
             <div
@@ -339,9 +361,9 @@ export default function LedgerTable({
         {!loading &&
           !error &&
           groupedByDate.map(([date, items]) => (
-            <div key={date}>
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-2 px-1">
-                {date}
+            <div key={date} className="pt-1">
+              <p className="text-xs font-semibold text-gray-500 mb-1 px-1 tracking-tight">
+                {formatDateFriendly(date)}
               </p>
               <DndContext
                 sensors={sensors}
@@ -353,7 +375,7 @@ export default function LedgerTable({
                   items={items.map((t) => t.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {items.map((t) => (
                       <SortableMobileCard
                         key={t.id}
@@ -371,20 +393,24 @@ export default function LedgerTable({
 
         {/* 모바일 뷰 통계 요약 카드 */}
         {!loading && !error && localTransactions.length > 0 && (
-          <div className="mt-4 p-4 rounded-xl border border-gray-200 bg-gray-50 flex flex-col gap-2 shadow-sm">
-            <h3 className="text-xs font-bold text-gray-500 uppercase mb-1">현재 기간 합계</h3>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-600">총 수입</span>
-              <span className="font-bold text-blue-600">+{stats.income.toLocaleString()}원</span>
+          <div className="mt-4 p-3.5 rounded-xl border border-gray-200 bg-gray-50 flex flex-col gap-1.5 shadow-sm">
+            <h3 className="text-[11px] font-bold text-gray-500 uppercase mb-0.5">현재 기간 합계</h3>
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-gray-600 font-medium">시작 잔액</span>
+              <span className="font-semibold text-gray-900">{openingBalanceAmount.toLocaleString()}원</span>
             </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-600">총 지출</span>
-              <span className="font-bold text-red-600">-{stats.expense.toLocaleString()}원</span>
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-gray-600 font-medium">총 수입</span>
+              <span className="font-semibold text-blue-600">+{stats.income.toLocaleString()}원</span>
             </div>
-            <div className="h-px bg-gray-200 my-1" />
+            <div className="flex justify-between items-center text-[13px]">
+              <span className="text-gray-600 font-medium">총 지출</span>
+              <span className="font-semibold text-red-600">-{stats.expense.toLocaleString()}원</span>
+            </div>
+            <div className="h-px bg-gray-200 my-1.5" />
             <div className="flex justify-between items-center">
-              <span className="text-gray-700 font-semibold">최종 잔액</span>
-              <span className="font-bold text-gray-900 text-base">{stats.finalBalance !== undefined ? `${stats.finalBalance.toLocaleString()}원` : "-"}</span>
+              <span className="text-gray-700 font-semibold text-[13px]">최종 잔액</span>
+              <span className="font-bold text-gray-900 text-[14px]">{stats.finalBalance !== undefined ? `${stats.finalBalance.toLocaleString()}원` : "-"}</span>
             </div>
           </div>
         )}
@@ -464,15 +490,15 @@ export default function LedgerTable({
                     <tr>
                       <td
                         colSpan={8}
-                        className={`md:hidden ${isExcelView ? "border border-gray-300 py-1.5 bg-[#f3f4f6] text-xs font-bold text-gray-500 text-left pl-8 uppercase" : "py-2 bg-gray-50 text-xs font-semibold text-gray-400 uppercase border-t border-b border-gray-100 text-left pl-8"}`}
+                        className={`md:hidden ${isExcelView ? "border border-gray-300 py-1.5 bg-[#f3f4f6] text-xs font-bold text-gray-500 text-left pl-8" : "py-2 bg-gray-50 text-[13px] font-bold text-gray-600 border-t border-b border-gray-100 text-left pl-8"}`}
                       >
-                        {date}
+                        {formatDateFriendly(date)}
                       </td>
                       <td
                         colSpan={10}
-                        className={`hidden md:table-cell ${isExcelView ? "border border-gray-300 py-1.5 bg-[#f3f4f6] text-xs font-bold text-gray-500 text-left pl-[180px] uppercase" : "py-2 bg-gray-50 text-xs font-semibold text-gray-400 uppercase border-t border-b border-gray-100 text-left pl-[180px]"}`}
+                        className={`hidden md:table-cell ${isExcelView ? "border border-gray-300 py-1.5 bg-[#f3f4f6] text-xs font-bold text-gray-500 text-left pl-[180px]" : "py-2 bg-gray-50 text-[13px] font-bold text-gray-600 border-t border-b border-gray-100 text-left pl-[180px]"}`}
                       >
-                        {date}
+                        {formatDateFriendly(date)}
                       </td>
                     </tr>
                     <SortableContext
@@ -494,21 +520,29 @@ export default function LedgerTable({
 
                 <tfoot>
                   <tr>
-                    <td className={`${isExcelView ? "border border-gray-300" : ""} bg-gray-100 hidden md:table-cell`}></td>
-                    <td className={`${isExcelView ? "border border-gray-300" : ""} bg-gray-100 hidden md:table-cell`}></td>
-                    <td colSpan={2} className={`${isExcelView ? "border border-gray-300 px-4 py-2" : "px-6 py-4"} text-center font-bold text-gray-700 bg-gray-100`}>
+                    <td colSpan={2} className={`${isExcelView ? "border border-gray-300 px-4 py-2" : "px-6 py-3"} text-center font-bold text-gray-700 bg-gray-100 hidden md:table-cell`}>
                       현재 기간 합계
                     </td>
-                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-4"} text-right font-bold text-blue-600 bg-blue-50/50`}>
+                    <td colSpan={2} className={`${isExcelView ? "border border-gray-300 px-4 py-2" : "px-6 py-3"} text-center font-bold text-gray-700 bg-gray-100 md:hidden`}>
+                      합계
+                    </td>
+                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-3"} text-right font-semibold text-gray-800 bg-gray-50/50`}>
+                      <span className="text-[10px] text-gray-500 block">시작 잔액</span>
+                      {openingBalanceAmount.toLocaleString()}원
+                    </td>
+                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-3"} text-right font-semibold text-blue-600 bg-blue-50/50`}>
+                      <span className="text-[10px] text-blue-400 block">총 수입</span>
                       +{stats.income.toLocaleString()}원
                     </td>
-                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-4"} text-right font-bold text-red-600 bg-red-50/50`}>
+                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-3"} text-right font-semibold text-red-600 bg-red-50/50`}>
+                      <span className="text-[10px] text-red-400 block">총 지출</span>
                       -{stats.expense.toLocaleString()}원
                     </td>
-                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-4"} text-right font-bold text-gray-800 bg-gray-100`}>
+                    <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-3"} text-right font-bold text-gray-800 bg-gray-100`}>
+                      <span className="text-[10px] text-gray-500 block">최종 잔액</span>
                       {stats.finalBalance !== undefined ? `${stats.finalBalance.toLocaleString()}원` : "-"}
                     </td>
-                    <td colSpan={3} className={`${isExcelView ? "border border-gray-300 px-4 py-2" : "px-6 py-4"} bg-gray-100`}></td>
+                    <td colSpan={3} className={`${isExcelView ? "border border-gray-300 px-4 py-2" : "px-6 py-3"} bg-gray-100`}></td>
                   </tr>
                 </tfoot>
               </>
