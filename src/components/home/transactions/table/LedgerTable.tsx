@@ -5,7 +5,8 @@ import {
   DndContext,
   closestCenter,
   DragEndEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
@@ -136,7 +137,8 @@ function SortableMobileCard({
       <button
         {...attributes}
         {...listeners}
-        className="shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-400 touch-none self-center"
+        className="shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-400 self-center"
+        style={{ touchAction: 'pan-y' }}
         title="드래그하여 순서 변경"
         aria-label="순서 변경"
       >
@@ -241,7 +243,8 @@ export default function LedgerTable({
   );
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
