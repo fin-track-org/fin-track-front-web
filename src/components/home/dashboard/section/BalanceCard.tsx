@@ -54,7 +54,7 @@ export default function BalanceCard({
               className="flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition-colors px-3 py-2 rounded-lg"
             >
               <RefreshCw size={14} />
-              <span>금액 맞추기</span>
+              <span>잔액 조정</span>
             </button>
             <button
               onClick={() => setIsExpanded(!isExpanded)}

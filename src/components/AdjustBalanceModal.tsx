@@ -51,7 +51,7 @@ export default function AdjustBalanceModal({
       setActualBalance("");
       setReason("");
     } catch (err: any) {
-      setError(err.message || "금액 맞추기에 실패했습니다.");
+      setError(err.message || "잔액 조정에 실패했습니다.");
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +65,7 @@ export default function AdjustBalanceModal({
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <RefreshCw className="text-primary" size={24} />
-            금액 맞추기
+            잔액 조정
           </h2>
           <button
             onClick={onClose}
@@ -144,6 +144,8 @@ export default function AdjustBalanceModal({
               <option value="">사유를 선택해주세요 (선택사항)</option>
               <option value="이자/수익">이자/수익</option>
               <option value="수수료">수수료</option>
+              <option value="빌려준 돈">빌려준 돈</option>
+              <option value="빌린 돈">빌린 돈</option>
               <option value="포인트 적립/사용">포인트 적립/사용</option>
               <option value="입출금 내역 누락">입출금 내역 누락</option>
               <option value="기타">기타</option>
@@ -156,7 +158,7 @@ export default function AdjustBalanceModal({
               disabled={isLoading || !selectedAccountId || !actualBalance}
               className="w-full py-4 bg-primary text-white rounded-xl font-bold text-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? "조정 중..." : "잔액 맞추기"}
+              {isLoading ? "조정 중..." : "잔액 조정하기"}
             </button>
           </div>
         </form>

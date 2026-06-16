@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Zap, FileText } from "lucide-react";
+import { Plus, Zap, FileText, RefreshCw } from "lucide-react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { quickAddTransaction } from "@/src/lib/api/transaction/transactions";
 import { usePathname } from "next/navigation";
@@ -10,6 +10,8 @@ import { getCategories } from "@/src/lib/api/categoryApi";
 import { getAccounts } from "@/src/lib/api/accountApi";
 import { createClient } from "@/src/lib/supabase/client";
 import { createTransfer } from "@/src/lib/api/transaction/transactions";
+import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
+import AdjustBalanceModal from "@/src/components/AdjustBalanceModal";
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
@@ -49,6 +51,14 @@ export default function GlobalQuickAdd() {
     queryKey: ["accounts"],
     queryFn: () => getAccounts(),
   });
+
+  const { data: balanceData } = useQuery({
+    queryKey: ["dashboardBalances"],
+    queryFn: () => getDashboardBalances(),
+    retry: false,
+  });
+
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
 
   const { mutateAsync: submitQuickAsync } = useMutation({
     mutationFn: quickAddTransaction,
@@ -144,6 +154,26 @@ export default function GlobalQuickAdd() {
 
       {/* FAB 및 스피드 다이얼 메뉴 */}
       <div className={`fixed z-[100] flex flex-col items-center lg:items-end gap-3 transition-all duration-300 ${isMenuOpen ? 'bottom-[110px] left-1/2 -translate-x-1/2 lg:left-auto lg:-translate-x-0 lg:bottom-24 lg:right-6' : 'bottom-0 left-1/2 -translate-x-1/2 lg:left-auto lg:-translate-x-0 lg:bottom-6 lg:right-6 pointer-events-none lg:pointer-events-auto'}`}>
+        {/* 잔액 조정 버튼 */}
+        <div
+          className={`relative flex items-center justify-center transition-all duration-500 origin-bottom ${
+            isMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-16 opacity-0 scale-50 pointer-events-none"
+          }`}
+        >
+          <span className="absolute right-full mr-4 w-max bg-white text-gray-700 px-3 py-1.5 rounded-lg shadow-md text-sm font-bold border border-gray-100">
+            잔액 조정
+          </span>
+          <button
+            onClick={() => {
+              setIsMenuOpen(false);
+              setIsAdjustModalOpen(true);
+            }}
+            className="flex items-center justify-center w-14 h-14 rounded-full bg-indigo-500 text-white shadow-lg hover:bg-indigo-600 transition-colors"
+          >
+            <RefreshCw size={24} />
+          </button>
+        </div>
+
         {/* 일반 등록 버튼 */}
         <div
           className={`relative flex items-center justify-center transition-all duration-300 origin-bottom ${
@@ -207,6 +237,20 @@ export default function GlobalQuickAdd() {
         onSubmit={handleSubmitRegularTransaction}
         onSaveDraft={handleSaveDraftFromModal}
         mode={modalMode}
+      />
+
+      {/* 잔액 조정 모달 */}
+      <AdjustBalanceModal
+        isOpen={isAdjustModalOpen}
+        onClose={() => setIsAdjustModalOpen(false)}
+        paymentMethods={balanceData?.paymentMethods || []}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["dashboardBalances"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboardDaily"] });
+          queryClient.invalidateQueries({ queryKey: ["transactions"] });
+          queryClient.invalidateQueries({ queryKey: ["recentTransactions"] });
+        }}
       />
     </>
   );
