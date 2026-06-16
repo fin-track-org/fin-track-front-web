@@ -157,8 +157,30 @@ button {
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --animate-slide-up-bottom-sheet: slideUpBottomSheet 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-slide-down-bottom-sheet: slideDownBottomSheet 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-fade-in-overlay: fadeInOverlay 0.2s ease-out forwards;
+  --animate-fade-out-overlay: fadeOutOverlay 0.2s ease-out forwards;
+}
+
+@keyframes slideUpBottomSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slideDownBottomSheet {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOutOverlay {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .dark {
