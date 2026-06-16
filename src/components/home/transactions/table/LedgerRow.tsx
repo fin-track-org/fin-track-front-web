@@ -32,7 +32,8 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
         <button
           {...dragHandleAttributes}
           {...dragHandleListeners}
-          className={`cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none p-1 rounded transition-colors ${isExcelView ? "inline-block" : ""}`}
+          className={`cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1 rounded transition-colors ${isExcelView ? "inline-block" : ""}`}
+          style={{ touchAction: 'pan-y' }}
           title="드래그하여 순서 변경"
           aria-label="순서 변경"
         >
