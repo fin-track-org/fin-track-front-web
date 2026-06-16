@@ -160,13 +160,15 @@ function SortableMobileCard({
                   {transaction.type === "EXPENSE" && transaction.runningAccountBalance !== undefined ? ` (잔액: ${transaction.runningAccountBalance.toLocaleString()}원)` : ""}
                   {transaction.type === "INCOME" && transaction.runningLinkedAccountBalance !== undefined ? ` (잔액: ${transaction.runningLinkedAccountBalance.toLocaleString()}원)` : ""}
                 </span>
-                <span className="text-gray-400 text-[9px]">▶</span>
-                <span className="flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-sky-700 font-medium border border-sky-100">
-                  <span>{getAccountIcon(transaction.transferDetail.toAccount.type)}</span>
-                  {transaction.transferDetail.toAccount.name}
-                  {transaction.type === "EXPENSE" && transaction.runningLinkedAccountBalance !== undefined ? ` (잔액: ${transaction.runningLinkedAccountBalance.toLocaleString()}원)` : ""}
-                  {transaction.type === "INCOME" && transaction.runningAccountBalance !== undefined ? ` (잔액: ${transaction.runningAccountBalance.toLocaleString()}원)` : ""}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 text-[9px]">▶</span>
+                  <span className="flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-sky-700 font-medium border border-sky-100">
+                    <span>{getAccountIcon(transaction.transferDetail.toAccount.type)}</span>
+                    {transaction.transferDetail.toAccount.name}
+                    {transaction.type === "EXPENSE" && transaction.runningLinkedAccountBalance !== undefined ? ` (잔액: ${transaction.runningLinkedAccountBalance.toLocaleString()}원)` : ""}
+                    {transaction.type === "INCOME" && transaction.runningAccountBalance !== undefined ? ` (잔액: ${transaction.runningAccountBalance.toLocaleString()}원)` : ""}
+                  </span>
+                </div>
               </div>
             ) : (
               transaction.account?.name && (
