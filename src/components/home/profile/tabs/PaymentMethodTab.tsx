@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, Plus, Check, X, Star, Pencil, Trash2, Wallet, Building2, Landmark, Shapes } from "lucide-react";
 import { getAccounts, createAccount, updateAccount, deleteAccount, setDefaultAccount } from "@/src/lib/api/accountApi";
+import { useUserSettings } from "@/src/hook/useUserSettings";
 
 const Skeleton = ({ className }: { className?: string }) => (
   <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
@@ -69,15 +70,25 @@ function AccountForm({
   initialData, 
   onSave, 
   onCancel, 
-  isSubmitting 
+  isSubmitting,
+  ledgerMode
 }: { 
   initialData?: Account; 
   onSave: (data: any) => void; 
   onCancel: () => void;
   isSubmitting?: boolean;
+  ledgerMode?: string;
 }) {
   const [name, setName] = useState(initialData?.name || "");
-  const [type, setType] = useState<AccountType>(initialData?.type || "CREDIT_CARD");
+  const [type, setType] = useState<AccountType>(initialData?.type || (ledgerMode === "SIMPLE" ? "CREDIT_CARD" : "SAVINGS_INVESTMENT"));
+
+  // Ensure default type is valid if initialData is not provided and ledgerMode is SIMPLE
+  useState(() => {
+    if (!initialData && ledgerMode === "SIMPLE" && type === "SAVINGS_INVESTMENT") {
+      setType("CREDIT_CARD");
+    }
+  });
+
   const [creditLimit, setCreditLimit] = useState<number | null>(initialData?.creditLimit ?? null);
   const [performanceTarget, setPerformanceTarget] = useState<number | null>(initialData?.performanceTarget ?? null);
 
@@ -88,7 +99,7 @@ function AccountForm({
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-2">결제수단 종류</label>
           <div className="flex flex-wrap gap-2">
-            {ACCOUNT_TYPE_OPTIONS.map((t) => (
+            {ACCOUNT_TYPE_OPTIONS.filter((t) => !(ledgerMode === "SIMPLE" && t === "SAVINGS_INVESTMENT")).map((t) => (
               <button
                 key={t}
                 type="button"
@@ -166,6 +177,8 @@ export default function PaymentMethodTab() {
   const [showAccountForm, setShowAccountForm] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
 
+  const { userSetting } = useUserSettings();
+
   const { data: accounts = [], isLoading: isAccountsLoading } = useQuery({
     queryKey: ["accounts"],
     queryFn: getAccounts,
@@ -233,6 +246,7 @@ export default function PaymentMethodTab() {
               onSave={mutateCreateAccount} 
               onCancel={() => setShowAccountForm(false)} 
               isSubmitting={isCreatingAccount} 
+              ledgerMode={userSetting?.ledgerMode}
             />
           </div>
         )}
@@ -280,6 +294,7 @@ export default function PaymentMethodTab() {
                       onSave={(data) => mutateUpdateAccount({ id: account.id, data })} 
                       onCancel={() => setEditingAccountId(null)} 
                       isSubmitting={isUpdatingAccount} 
+                      ledgerMode={userSetting?.ledgerMode}
                     />
                   </li>
                 );
