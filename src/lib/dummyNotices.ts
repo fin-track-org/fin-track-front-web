@@ -1,4 +1,4 @@
-import { Notice } from "@/types/notice";
+import { Notice } from "@/src/types/notice";
 
 export const DUMMY_NOTICES: Notice[] = [
   {
