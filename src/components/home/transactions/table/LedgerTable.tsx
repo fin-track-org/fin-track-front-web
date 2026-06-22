@@ -149,7 +149,9 @@ function SortableMobileCard({
         <div className="min-w-0 pt-0.5 flex-1">
           <div className="flex items-center gap-2">
             <span className="shrink-0 rounded bg-sky-100 text-sky-700 px-1.5 py-0.5 text-[11px] font-medium">
-              {transaction.category.name}
+              {transaction.subcategory?.name 
+                ? `${transaction.category.name} > ${transaction.subcategory.name}` 
+                : transaction.category.name}
             </span>
             <p className="font-semibold text-[14px] text-gray-800 truncate">{transaction.description}</p>
           </div>
