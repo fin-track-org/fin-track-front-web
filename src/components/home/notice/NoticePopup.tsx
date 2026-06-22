@@ -109,7 +109,7 @@ export default function NoticePopup() {
           </p>
         </div>
 
-        {/* Footer */}
+        {/* Footer (추후 네이버 카페 연동 시 복구)
         {currentNotice.detailUrl && (
           <div className="p-4 bg-gray-50 border-t border-gray-100">
             <button
@@ -120,6 +120,7 @@ export default function NoticePopup() {
             </button>
           </div>
         )}
+        */}
       </div>
     </div>
   );

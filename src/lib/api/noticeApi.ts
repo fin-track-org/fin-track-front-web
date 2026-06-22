@@ -1,20 +1,34 @@
 import { Notice } from "@/src/types/notice";
+import { createClient } from "@/src/lib/supabase/client";
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
+async function getToken(): Promise<string> {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error("No active session");
+  return session.access_token;
+}
+
 export async function getNotices(): Promise<Notice[]> {
   try {
+    const token = await getToken();
     const res = await fetch(`${SPRING_BOOT_URL}/api/v1/notices`, {
       method: "GET",
       headers: {
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      // 공지사항은 자주 바뀌지 않으므로 적절히 캐싱을 하거나 ISR을 사용할 수 있습니다.
-      // 여기서는 항상 최신을 가져오도록 설정합니다.
       cache: "no-store", 
     });
 
-    if (!res.ok) throw new Error("공지사항 조회 실패");
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => "No text");
+      console.error(`Backend returned ${res.status}: ${errorText}`);
+      throw new Error(`공지사항 조회 실패 (${res.status})`);
+    }
     
     // 백엔드의 CommonResponse<List<NoticeRes>> 형태라고 가정
     const json = await res.json();
