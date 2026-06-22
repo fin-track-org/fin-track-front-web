@@ -4,10 +4,10 @@
 
 import AddTransactionModal from "@/src/components/AddTransactionModal";
 import { createClient } from "@/src/lib/supabase/client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import LedgerTable from "./table/LedgerTable";
 import TransactionDateSelector from "./TransactionDateSelector";
-import { CalendarDays, ChevronDown, X, Trash2 } from "lucide-react";
+import { CalendarDays, ChevronDown, X, Trash2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SearchFilterBottomSheet from "./SearchFilterBottomSheet";
@@ -49,6 +49,34 @@ export default function TransactionPage() {
 
   // 모바일 검색/필터 접기/펼치기 상태
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+
+  // 배너 스크롤 동기화를 위한 ref 및 상태
+  const topBannerRef = useRef<HTMLDivElement>(null);
+  const bottomBannerRef = useRef<HTMLDivElement>(null);
+  const isSyncingTop = useRef(false);
+  const isSyncingBottom = useRef(false);
+
+  const handleTopScroll = () => {
+    if (isSyncingTop.current) {
+      isSyncingTop.current = false;
+      return;
+    }
+    if (topBannerRef.current && bottomBannerRef.current) {
+      isSyncingBottom.current = true;
+      bottomBannerRef.current.scrollLeft = topBannerRef.current.scrollLeft;
+    }
+  };
+
+  const handleBottomScroll = () => {
+    if (isSyncingBottom.current) {
+      isSyncingBottom.current = false;
+      return;
+    }
+    if (topBannerRef.current && bottomBannerRef.current) {
+      isSyncingTop.current = true;
+      topBannerRef.current.scrollLeft = bottomBannerRef.current.scrollLeft;
+    }
+  };
 
   // 결제수단 필터
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
@@ -295,6 +323,22 @@ export default function TransactionPage() {
 
   // 전체 버튼 활성 상태 (어느 것도 선택되지 않았을 때)
   const isAllCategoriesSelected = selectedCategoryIds.length === 0 && selectedCategoryCodes.length === 0;
+
+  // 저축/투자 계좌 표시 여부
+  const [showSavingsAccount, setShowSavingsAccount] = useState(true);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("show_savings_accounts");
+    if (saved !== null) {
+      setShowSavingsAccount(saved === "true");
+    }
+  }, []);
+
+  const handleToggleSavingsAccount = (checked: boolean) => {
+    setShowSavingsAccount(checked);
+    localStorage.setItem("show_savings_accounts", String(checked));
+  };
+
   /* ----------------------------------------------------------------------- */
 
   /* 세부 항목 (소분류) 조회 */
@@ -316,6 +360,13 @@ export default function TransactionPage() {
     queryKey: ["accounts"],
     queryFn: getAccounts,
   });
+
+  // 필터링된 결제수단 목록
+  const filteredAccounts = useMemo(() => {
+    if (showSavingsAccount) return accounts;
+    return accounts.filter(a => a.type !== "SAVINGS_INVESTMENT");
+  }, [accounts, showSavingsAccount]);
+
   /* 잔액 조회 (장부 뷰) */
   const { data: openingBalance, isLoading: isOpeningLoading } = useQuery({
     queryKey: ["openingBalance", startDate, selectedAccountId],
@@ -326,6 +377,43 @@ export default function TransactionPage() {
     queryKey: ["closingBalance", endDate, selectedAccountId],
     queryFn: () => getClosingBalance(endDate, selectedAccountId),
   });
+
+  // 필터링된 시작 잔액
+  const filteredOpeningBalance = useMemo(() => {
+    if (!openingBalance || typeof openingBalance === "number") return openingBalance;
+    if (showSavingsAccount) return openingBalance;
+
+    const filteredAccountsBalances = openingBalance.accounts.filter(a => {
+      const acc = accounts.find(account => account.id === a.accountId);
+      return acc?.type !== "SAVINGS_INVESTMENT";
+    });
+
+    const newTotal = filteredAccountsBalances.reduce((sum, a) => sum + a.amount, 0);
+
+    return {
+      totalAmount: newTotal,
+      accounts: filteredAccountsBalances
+    };
+  }, [openingBalance, showSavingsAccount, accounts]);
+
+  // 필터링된 기말 잔액
+  const filteredClosingBalance = useMemo(() => {
+    if (!closingBalance || typeof closingBalance === "number") return closingBalance;
+    if (showSavingsAccount) return closingBalance;
+
+    const filteredAccountsBalances = closingBalance.accounts.filter(a => {
+      const acc = accounts.find(account => account.id === a.accountId);
+      return acc?.type !== "SAVINGS_INVESTMENT";
+    });
+
+    const newTotal = filteredAccountsBalances.reduce((sum, a) => sum + a.amount, 0);
+
+    return {
+      totalAmount: newTotal,
+      accounts: filteredAccountsBalances
+    };
+  }, [closingBalance, showSavingsAccount, accounts]);
+
   /* 결제수단별 잔액 조회 */
   const {
     data: balanceData,
@@ -389,7 +477,7 @@ export default function TransactionPage() {
 
     // 백엔드 업데이트를 대비하여 객체 형태(BalanceRes)로 처리하되, 
     // 아직 숫자로 올 경우를 대비한 안전 장치 추가
-    let currentTotal = typeof openingBalance === "number" ? openingBalance : (openingBalance.totalAmount || 0);
+    let currentTotal = typeof filteredOpeningBalance === "number" ? filteredOpeningBalance : (filteredOpeningBalance?.totalAmount || 0);
     const accMap = new Map<string, number>();
     
     if (typeof openingBalance !== "number" && openingBalance.accounts) {
@@ -432,7 +520,12 @@ export default function TransactionPage() {
       if (isTransfer && !selectedAccountId) {
         // 총 잔액 유지
       } else {
-        currentTotal += signedAmount;
+        const acc = accounts.find(a => a.id === t.account.id);
+        const isSavings = acc?.type === "SAVINGS_INVESTMENT";
+        
+        if (showSavingsAccount || !isSavings) {
+          currentTotal += signedAmount;
+        }
       }
 
       return {
@@ -581,14 +674,14 @@ export default function TransactionPage() {
   };
 
   // 모달 닫기(새 props 방식)
-  const handleOpenChange = (open: boolean) => {
+  const handleOpenChange = useCallback((open: boolean) => {
     setIsModalOpen(open);
     if (!open) {
       setEditingTransaction(null);
       setModalDefaultValues(undefined);
       setIsDraftMode(false);
     }
-  };
+  }, []);
 
   /* 저장(추가/수정) */
   const handleSubmitTransaction = async (
@@ -915,18 +1008,17 @@ export default function TransactionPage() {
             ) : (
               <>
                 {/* 임시 보관함 모드 툴바 */}
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">📬</span>
-                  <h1 className="text-xl font-bold text-gray-900">임시 보관함</h1>
-                  <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-bold">{drafts.length}건</span>
-                </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 md:gap-3">
                   <button
                     onClick={() => setActiveTab("transactions")}
-                    className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                    className="p-1.5 md:p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors focus:outline-none"
+                    aria-label="장부 뷰로 돌아가기"
                   >
-                    ← 장부 뷰로 돌아가기
+                    <ArrowLeft className="w-5 h-5" />
                   </button>
+                  <span className="text-xl">📬</span>
+                  <h1 className="text-lg font-bold text-gray-900">임시 보관함</h1>
+                  <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[11px] md:text-xs font-bold">{drafts.length}건</span>
                 </div>
               </>
             )}
@@ -977,13 +1069,26 @@ export default function TransactionPage() {
               </div>
 
               <div className="flex flex-col shadow-md bg-white border border-gray-100 -mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-x-0 lg:border-x">
+                <div className="flex items-center justify-end px-4 py-2 border-b border-gray-100 bg-gray-50/50">
+                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={showSavingsAccount} 
+                      onChange={(e) => handleToggleSavingsAccount(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                    />
+                    저축/투자 계좌 포함
+                  </label>
+                </div>
                 <div className="sticky top-0 z-40 bg-white">
                   <LedgerTopBanner
-                    balanceData={typeof openingBalance !== "number" ? openingBalance : undefined}
+                    balanceData={typeof filteredOpeningBalance !== "number" ? filteredOpeningBalance : undefined}
                     isLoading={isOpeningLoading}
-                    accounts={accounts}
+                    accounts={filteredAccounts}
                     selectedAccountId={selectedAccountId}
                     onSelectAccount={setSelectedAccountId}
+                    scrollRef={topBannerRef}
+                    onScroll={handleTopScroll}
                   />
                 </div>
 
@@ -996,14 +1101,18 @@ export default function TransactionPage() {
                   onReorder={handleReorder}
                   currentAccountId={selectedAccountId}
                   isExcelView={isExcelView}
-                  openingBalanceAmount={typeof openingBalance === "number" ? openingBalance : (openingBalance?.totalAmount ?? 0)}
+                  openingBalanceAmount={typeof filteredOpeningBalance === "number" ? filteredOpeningBalance : (filteredOpeningBalance?.totalAmount ?? 0)}
                 />
 
                 <div className="sticky bottom-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                   <LedgerBottomBanner 
-                    balanceData={typeof closingBalance !== "number" ? closingBalance : undefined} 
+                    balanceData={typeof filteredClosingBalance !== "number" ? filteredClosingBalance : undefined} 
                     isLoading={isClosingLoading} 
-                    accounts={accounts} 
+                    accounts={filteredAccounts} 
+                    selectedAccountId={selectedAccountId}
+                    onSelectAccount={setSelectedAccountId}
+                    scrollRef={bottomBannerRef}
+                    onScroll={handleBottomScroll}
                   />
                 </div>
               </div>

@@ -42,6 +42,7 @@ export const getDashboardBalances = async (): Promise<{
     (account) => ({
       accountId: account.accountId,
       paymentMethodName: account.accountName,
+      type: account.accountType,
       balance: account.balance,
     })
   );

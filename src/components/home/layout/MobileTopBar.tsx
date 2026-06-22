@@ -27,6 +27,30 @@ export default function MobileTopBar() {
     router.refresh();
   };
 
+  // 뒤로가기 버튼 처리 (안드로이드/모바일 프로필 사이드바)
+  React.useEffect(() => {
+    if (!isMenuOpen) return;
+
+    // Next.js의 기존 history state를 유지하면서 플래그만 추가
+    const currentState = window.history.state;
+    window.history.pushState({ ...currentState, profileOpen: true }, "");
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (!e.state?.profileOpen) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      // 백드롭 등 다른 방법으로 닫혔을 때 추가했던 히스토리 제거
+      if (window.history.state?.profileOpen) {
+        window.history.back();
+      }
+    };
+  }, [isMenuOpen]);
+
   return (
     <>
       <header className="lg:hidden h-14 flex items-center justify-between gap-2 px-4 border-b border-gray-200 bg-white sticky top-0 z-30">

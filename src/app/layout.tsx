@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import NextTopLoader from 'nextjs-toploader';
 import Providers from "./providers";
 
 export const metadata: Metadata = {
@@ -53,6 +54,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#ffffff" />
       </head>
       <body className="antialiased">
+        <NextTopLoader color="#0ea5e9" height={3} showSpinner={false} />
         <Providers>{children}</Providers>
         <Analytics />
       </body>

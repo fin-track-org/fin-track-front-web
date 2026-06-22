@@ -262,29 +262,48 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   // ----------------------------
 
   const isPopStateTriggered = useRef(false);
+  const onOpenChangeRef = useRef(onOpenChange);
+  const isOpenRef = useRef(open);
+
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
+
+  useEffect(() => {
+    isOpenRef.current = open;
+  }, [open]);
 
   useEffect(() => {
     if (open) {
       isPopStateTriggered.current = false;
-      window.history.pushState({ modal: "AddTransactionModal" }, "", window.location.href);
+      
+      // 이미 히스토리가 쌓여있지 않은 경우에만 push
+      if (window.history.state?.modal !== "AddTransactionModal") {
+        window.history.pushState({ modal: "AddTransactionModal" }, "", window.location.href);
+      }
 
       const handlePopState = () => {
         isPopStateTriggered.current = true;
-        onOpenChange(false);
+        onOpenChangeRef.current(false);
       };
 
       window.addEventListener("popstate", handlePopState);
 
       return () => {
         window.removeEventListener("popstate", handlePopState);
+        // 모달이 닫힐 때(unmount 또는 open=false) 히스토리를 정리하되,
+        // StrictMode의 빠른 unmount/mount 사이클에서 즉시 뒤로가기가 실행되지 않도록 지연 처리
         if (!isPopStateTriggered.current) {
-          if (window.history.state?.modal === "AddTransactionModal") {
-            window.history.back();
-          }
+          setTimeout(() => {
+            // 실제로 모달이 닫힌 상태이고 모달 히스토리가 남아있다면 뒤로가기 실행
+            if (!isOpenRef.current && window.history.state?.modal === "AddTransactionModal") {
+              window.history.back();
+            }
+          }, 50);
         }
       };
     }
-  }, [open, onOpenChange]);
+  }, [open]);
 
   // open될 때 type 기본값 리셋/반영
   useEffect(() => {
