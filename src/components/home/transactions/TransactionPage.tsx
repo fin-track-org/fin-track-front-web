@@ -4,10 +4,10 @@
 
 import AddTransactionModal from "@/src/components/AddTransactionModal";
 import { createClient } from "@/src/lib/supabase/client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import LedgerTable from "./table/LedgerTable";
 import TransactionDateSelector from "./TransactionDateSelector";
-import { CalendarDays, ChevronDown, X, Trash2 } from "lucide-react";
+import { CalendarDays, ChevronDown, X, Trash2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SearchFilterBottomSheet from "./SearchFilterBottomSheet";
@@ -674,14 +674,14 @@ export default function TransactionPage() {
   };
 
   // 모달 닫기(새 props 방식)
-  const handleOpenChange = (open: boolean) => {
+  const handleOpenChange = useCallback((open: boolean) => {
     setIsModalOpen(open);
     if (!open) {
       setEditingTransaction(null);
       setModalDefaultValues(undefined);
       setIsDraftMode(false);
     }
-  };
+  }, []);
 
   /* 저장(추가/수정) */
   const handleSubmitTransaction = async (
@@ -1008,18 +1008,17 @@ export default function TransactionPage() {
             ) : (
               <>
                 {/* 임시 보관함 모드 툴바 */}
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">📬</span>
-                  <h1 className="text-xl font-bold text-gray-900">임시 보관함</h1>
-                  <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-bold">{drafts.length}건</span>
-                </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 md:gap-3">
                   <button
                     onClick={() => setActiveTab("transactions")}
-                    className="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                    className="p-1.5 md:p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors focus:outline-none"
+                    aria-label="장부 뷰로 돌아가기"
                   >
-                    ← 장부 뷰로 돌아가기
+                    <ArrowLeft className="w-5 h-5" />
                   </button>
+                  <span className="text-xl">📬</span>
+                  <h1 className="text-lg font-bold text-gray-900">임시 보관함</h1>
+                  <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[11px] md:text-xs font-bold">{drafts.length}건</span>
                 </div>
               </>
             )}
