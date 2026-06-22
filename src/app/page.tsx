@@ -97,7 +97,7 @@ export default function LandingPage() {
         {/* ===== Hero ===== */}
         <section className="relative overflow-hidden bg-white pt-24 pb-32 px-6 text-center">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-64 bg-sky-50 rounded-full blur-3xl -z-10 opacity-60"></div>
-          
+
           <div className="flex flex-col items-center gap-3 mb-8">
             <span className="inline-block bg-sky-50 text-sky-600 border border-sky-100 text-xs font-bold px-3.5 py-1.5 rounded-full tracking-wide">
               게으른 완벽주의자를 위한 가계부 ✨
@@ -109,9 +109,9 @@ export default function LandingPage() {
 
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-[1.2] tracking-tight mb-6">
             최소한의 입력으로 <br className="hidden sm:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-500 to-indigo-500">최대한의 효율</span>을 경험하세요
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-500 to-indigo-500">최대한의 효율</span>을 경험하세요!
           </h1>
-          
+
           <p className="text-base md:text-lg text-slate-500 max-w-lg mx-auto mb-10 leading-relaxed font-medium">
             복잡한 과정은 다 덜어냈습니다. 가장 적은 노력으로 <br className="hidden sm:block" />
             예산, 카테고리, 결제수단별 맞춤 통계를 똑똑하게 관리해보세요.
@@ -136,7 +136,7 @@ export default function LandingPage() {
               </h2>
               <p className="text-slate-500 font-medium">가계부 쓰다 포기한 사람들을 위해 만들었습니다.</p>
             </div>
-            
+
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               {features.map((f) => (
                 <div
