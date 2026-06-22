@@ -1,4 +1,4 @@
-import { Notice } from "@/types/notice";
+import { Notice } from "@/src/types/notice";
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
@@ -22,7 +22,7 @@ export async function getNotices(): Promise<Notice[]> {
   } catch (error) {
     console.error("Failed to fetch notices:", error);
     // 백엔드가 꺼져있을 때를 대비한 더미 폴백 로직 (개발용)
-    const { DUMMY_NOTICES } = await import("@/lib/dummyNotices");
+    const { DUMMY_NOTICES } = await import("@/src/lib/dummyNotices");
     return DUMMY_NOTICES;
   }
 }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Bell, X } from "lucide-react";
-import { Notice } from "@/types/notice";
+import { Notice } from "@/src/types/notice";
 import { getNotices } from "@/src/lib/api/noticeApi";
 
 interface NotificationBellProps {

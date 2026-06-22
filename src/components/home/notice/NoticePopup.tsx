@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
-import { Notice } from "@/types/notice";
+import { Notice } from "@/src/types/notice";
 import { getNotices } from "@/src/lib/api/noticeApi";
 
 export default function NoticePopup() {
