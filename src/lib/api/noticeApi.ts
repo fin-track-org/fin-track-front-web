@@ -21,8 +21,6 @@ export async function getNotices(): Promise<Notice[]> {
     return json.data ?? [];
   } catch (error) {
     console.error("Failed to fetch notices:", error);
-    // 백엔드가 꺼져있을 때를 대비한 더미 폴백 로직 (개발용)
-    const { DUMMY_NOTICES } = await import("@/src/lib/dummyNotices");
-    return DUMMY_NOTICES;
+    return [];
   }
 }
