@@ -44,6 +44,30 @@ export default function NotificationBell({ variant = "icon" }: NotificationBellP
     return () => window.removeEventListener("storage", loadReadNotices);
   }, [isOpen]); // 드롭다운 열 때마다 최신 상태 반영
 
+  // 뒤로가기 버튼 처리 (안드로이드/모바일)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Next.js의 기존 history state를 유지하면서 플래그만 추가
+    const currentState = window.history.state;
+    window.history.pushState({ ...currentState, noticeOpen: true }, "");
+
+    const handlePopState = (e: PopStateEvent) => {
+      if (!e.state?.noticeOpen) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      // 만약 백드롭이나 X버튼으로 닫혔을 경우, 추가했던 히스토리를 빼줌
+      if (window.history.state?.noticeOpen) {
+        window.history.back();
+      }
+    };
+  }, [isOpen]);
+
   const hasNew = notices.some((n) => !readNotices.includes(n.id));
 
   const handleNoticeClick = (id: number) => {
