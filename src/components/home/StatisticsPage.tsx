@@ -457,8 +457,13 @@ export default function StatisticsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">통계</h1>
-          <p className="text-sm text-gray-500 mt-0.5">월별 수입·지출 패턴을 분석합니다</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900">통계</h1>
+            <span className="px-2.5 py-0.5 text-xs font-medium text-sky-600 bg-sky-50 rounded-full flex items-center">
+              ✨ 곧 더 유용한 통계가 추가될 예정이에요
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 mt-1">월별 수입·지출 패턴을 분석합니다</p>
         </div>
         <MonthNav current={currentMonth} onPrev={handlePrev} onNext={handleNext} />
       </div>
