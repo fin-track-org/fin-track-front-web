@@ -241,18 +241,17 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     selectedCategory?.code === "ETC_EXPENSE" ||
     selectedCategory?.code === "ETC_INCOME";
 
-  // 임시저장: 날짜, 금액, 메모만 필요
+  // 임시저장: 날짜, 금액만 있으면 가능 (메모 미입력 시 자동 채움)
   const canSaveDraft =
     Boolean(date) &&
     isAmountValid &&
-    Boolean(description) &&
     !isSaving;
 
   // 등록(완전한 거래): 카테고리, 결제수단 필수 (세부 항목은 선택)
   // TRANSFER 이거나 isSavings 인 경우 두 계좌 모두 필요. 카테고리는 무시됨.
   const canRegister = (type === "TRANSFER" || isSavings)
-    ? Boolean(date) && isAmountValid && Boolean(accountId) && Boolean(toAccountId) && Boolean(description) && !isSaving
-    : Boolean(date) && Boolean(category) && isAmountValid && Boolean(accountId) && Boolean(description) && !isSaving;
+    ? Boolean(date) && isAmountValid && Boolean(accountId) && Boolean(toAccountId) && !isSaving
+    : Boolean(date) && Boolean(category) && isAmountValid && Boolean(accountId) && !isSaving;
 
   // 기존 create/edit 모드는 등록 조건 사용
   const canSubmit = mode === "confirm-draft" ? canRegister : canRegister;
@@ -455,6 +454,24 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     setError("");
     if (!canSaveDraft || !onSaveDraft) return;
 
+    let finalDescription = description.trim();
+    if (!finalDescription) {
+      const subCatName = currentSubCats.find((sc) => sc.id === subCategory)?.name || "";
+      const catName = categoryOptions.find((c) => c.id === category)?.name || "";
+      
+      if (subCatName) {
+        finalDescription = subCatName;
+      } else if (catName) {
+        finalDescription = catName;
+      } else if (type === "TRANSFER") {
+        finalDescription = "이체";
+      } else if (isSavings) {
+        finalDescription = "저축";
+      } else {
+        finalDescription = "내용 없음";
+      }
+    }
+
     const payload: Partial<CreateTransactionPayload> = {
       date,
       type,
@@ -462,7 +479,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       categoryId: category || undefined,
       subCategoryId: subCategory || undefined,
       accountId: accountId || undefined,
-      description: description.trim() ? description.trim() : null,
+      description: finalDescription,
     };
 
     try {
@@ -484,13 +501,31 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     setError("");
     if (!canSubmit) return;
 
+    let finalDescription = description.trim();
+    if (!finalDescription) {
+      const subCatName = currentSubCats.find((sc) => sc.id === subCategory)?.name || "";
+      const catName = categoryOptions.find((c) => c.id === category)?.name || "";
+      
+      if (subCatName) {
+        finalDescription = subCatName;
+      } else if (catName) {
+        finalDescription = catName;
+      } else if (type === "TRANSFER") {
+        finalDescription = "이체";
+      } else if (isSavings) {
+        finalDescription = "저축";
+      } else {
+        finalDescription = "내용 없음";
+      }
+    }
+
     const payload: CreateTransactionPayload = {
       date,
       type,
       amount: amountAbs,
       categoryId: category,
       subCategoryId: subCategory,
-      description: description.trim() ? description.trim() : null,
+      description: finalDescription,
       accountId,
       toAccountId,
       isSavings,
@@ -878,7 +913,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                 </Label>
                 <Textarea
                   id="description"
-                  placeholder="예: 스타벅스 - 아이스 아메리카노"
+                  placeholder="예: 스타벅스 (미입력 시 세부 항목/카테고리로 자동 입력)"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="min-h-[100px] text-base sm:text-sm focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px] rounded-xl resize-none"
