@@ -18,15 +18,26 @@ export default function BalanceCard({
   const [includeSavings, setIncludeSavings] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem("show_savings_accounts");
-    if (saved !== null) {
-      setIncludeSavings(saved === "true");
+    const savedSavings = localStorage.getItem("show_savings_accounts");
+    if (savedSavings !== null) {
+      setIncludeSavings(savedSavings === "true");
+    }
+
+    const savedVisibility = localStorage.getItem("show_total_balance");
+    if (savedVisibility !== null) {
+      setIsBalanceVisible(savedVisibility === "true");
     }
   }, []);
 
   const handleToggleSavings = (checked: boolean) => {
     setIncludeSavings(checked);
     localStorage.setItem("show_savings_accounts", String(checked));
+  };
+
+  const handleToggleVisibility = () => {
+    const newVal = !isBalanceVisible;
+    setIsBalanceVisible(newVal);
+    localStorage.setItem("show_total_balance", String(newVal));
   };
 
   const filteredMethods = includeSavings
@@ -46,7 +57,7 @@ export default function BalanceCard({
             <Wallet size={16} />
             <span>총 잔액</span>
             <button
-              onClick={() => setIsBalanceVisible(!isBalanceVisible)}
+              onClick={handleToggleVisibility}
               className="text-gray-400 hover:text-gray-600 transition-colors ml-0.5 p-1 hover:bg-gray-100 rounded-md"
               aria-label={isBalanceVisible ? "잔액 숨기기" : "잔액 보기"}
             >
