@@ -43,6 +43,7 @@ export default function TransactionPage() {
   // 날짜 및 뷰 모드
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"daily" | "weekly" | "monthly" | "custom">("weekly");
+  const [isViewModeLoaded, setIsViewModeLoaded] = useState(false);
 
   // 검색
   const [searchTerm, setSearchTerm] = useState("");
@@ -103,6 +104,27 @@ export default function TransactionPage() {
   const [customEnd, setCustomEnd] = useState("");
   const [tempStart, setTempStart] = useState("");
   const [tempEnd, setTempEnd] = useState("");
+
+  useEffect(() => {
+    const savedMode = localStorage.getItem("transaction_view_mode");
+    if (savedMode === "daily" || savedMode === "weekly" || savedMode === "monthly" || savedMode === "custom") {
+      setViewMode(savedMode);
+    }
+    const savedStart = localStorage.getItem("transaction_custom_start");
+    if (savedStart) setCustomStart(savedStart);
+    const savedEnd = localStorage.getItem("transaction_custom_end");
+    if (savedEnd) setCustomEnd(savedEnd);
+
+    setIsViewModeLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (isViewModeLoaded) {
+      localStorage.setItem("transaction_view_mode", viewMode);
+      if (customStart) localStorage.setItem("transaction_custom_start", customStart);
+      if (customEnd) localStorage.setItem("transaction_custom_end", customEnd);
+    }
+  }, [viewMode, customStart, customEnd, isViewModeLoaded]);
 
   const { userSetting } = useUserSettings();
   const isExcelView = userSetting?.ledgerTheme === "EXCEL";
