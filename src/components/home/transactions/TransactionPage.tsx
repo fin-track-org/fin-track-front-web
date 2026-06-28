@@ -36,6 +36,10 @@ const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
 export default function TransactionPage() {
   const supabase = createClient();
+  const { activeQuestCode, stepIndex, quests, stopQuest } = useQuestStore();
+  const fastDraftQuest = quests.find(q => q.questCode === "FAST_DRAFT");
+  const isFastDraftAlreadyCompleted = fastDraftQuest?.isCompleted || fastDraftQuest?.isRewardClaimed;
+  
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -99,7 +103,6 @@ export default function TransactionPage() {
 
   const [isDraftMode, setIsDraftMode] = useState(false);
   
-  const { activeQuestCode, stepIndex, stopQuest } = useQuestStore();
 
   // 자동 탭 전환 효과 제거 (유저가 직접 임시 보관함을 누르도록 유도)
 
@@ -1190,24 +1193,35 @@ export default function TransactionPage() {
               여기서 상세 내용을 마저 적으면<br/>
               <span className="font-semibold text-emerald-600">실제 거래 내역으로 등록</span>됩니다.
             </p>
-            <button
-              onClick={async () => {
-                try {
-                  await completeQuest("FAST_DRAFT");
-                  await claimQuestReward("FAST_DRAFT");
-                  queryClient.invalidateQueries({ queryKey: ["quests"] });
-                  queryClient.invalidateQueries({ queryKey: ["me"] }); // 포인트 갱신을 위해 me 조회 무효화
+            {isFastDraftAlreadyCompleted ? (
+              <button
+                onClick={() => {
                   useQuestStore.getState().stopQuest();
-                  toast.success("빠른 추가 튜토리얼 완료! 포인트를 획득했습니다.");
-                } catch (e) {
-                  console.error(e);
-                  toast.error("미션 보상 수령 중 오류가 발생했습니다.");
-                }
-              }}
-              className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
-            >
-              미션 완료하고 포인트 받기!
-            </button>
+                }}
+                className="w-full py-3.5 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95"
+              >
+                닫기
+              </button>
+            ) : (
+              <button
+                onClick={async () => {
+                  try {
+                    await completeQuest("FAST_DRAFT");
+                    await claimQuestReward("FAST_DRAFT");
+                    queryClient.invalidateQueries({ queryKey: ["quests"] });
+                    queryClient.invalidateQueries({ queryKey: ["me"] }); // 포인트 갱신을 위해 me 조회 무효화
+                    useQuestStore.getState().stopQuest();
+                    toast.success("빠른 추가 튜토리얼 완료! 포인트를 획득했습니다.");
+                  } catch (e) {
+                    console.error(e);
+                    toast.error("미션 보상 수령 중 오류가 발생했습니다.");
+                  }
+                }}
+                className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
+              >
+                미션 완료하고 포인트 받기!
+              </button>
+            )}
           </div>
         </div>
       )}

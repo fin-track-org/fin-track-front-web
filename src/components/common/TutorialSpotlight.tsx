@@ -31,9 +31,16 @@ const GET_QUEST_STEPS = (isMobile: boolean): Record<string, Step[]> => ({
       target: "#tutorial-quick-add-modal",
       content: "금액과 간단한 메모를 입력하고 저장 버튼을 눌러보세요.",
       skipBeacon: true,
-      placement: "bottom",
+      placement: "center",
       overlayClickAction: false,
+      buttons: [],
       isFixed: true,
+      hideOverlay: true,
+      styles: {
+        tooltip: {
+          display: "none",
+        },
+      },
     },
     {
       target: isMobile ? "#tutorial-nav-ledger-mobile" : "#tutorial-nav-ledger-desktop",
@@ -51,6 +58,17 @@ const GET_QUEST_STEPS = (isMobile: boolean): Record<string, Step[]> => ({
       placement: "bottom",
       overlayClickAction: false,
       buttons: [], // 유저가 직접 탭을 눌러야만 스텝이 넘어가도록 버튼 숨김
+    },
+    {
+      // 스텝 5: 커스텀 모달 렌더링을 위해 조이라이드가 자동 종료되지 않도록 대기하는 투명 스텝
+      target: "body",
+      content: "",
+      hideOverlay: true,
+      styles: {
+        tooltip: {
+          display: "none",
+        },
+      },
     }
   ],
   "CATEGORIZE_DRAFT": [
@@ -157,6 +175,7 @@ export default function TutorialSpotlight() {
           disableFocusTrap: true,
           showProgress: true,
           buttons: ["back", "close", "primary", "skip"],
+          targetWaitTimeout: 10000, // 페이지 이동 및 데이터 로딩 시간을 고려하여 10초 대기
         }}
       styles={{
         tooltipContainer: {

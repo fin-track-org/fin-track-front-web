@@ -125,10 +125,13 @@ export default function QuestProgressWidget() {
               {/* 우측 버튼 */}
               <div className="flex-shrink-0">
                 {quest.isRewardClaimed ? (
-                  <span className="flex items-center text-xs font-bold text-slate-400 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                    <CheckCircle2 size={14} className="mr-1" />
-                    수령완료
-                  </span>
+                  <button
+                    onClick={() => handleStartQuest(quest.questCode)}
+                    className="flex items-center text-xs font-bold text-slate-500 hover:text-slate-700 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  >
+                    <Play size={14} className="mr-1" />
+                    다시 해보기
+                  </button>
                 ) : quest.isCompleted ? (
                   <button
                     onClick={() => claimMutation.mutate(quest.questCode)}
