@@ -62,7 +62,7 @@ export default function BudgetBar({ month }: BudgetBarProps) {
   const totalUsed = budgetUsages.reduce((sum, b) => sum + (b?.spentAmount ?? 0), 0);
 
   return (
-    <section className="xl:flex-1 p-6 bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col xl:min-h-0">
+    <section id="tutorial-budget-setting" className="xl:flex-1 p-6 bg-white rounded-xl shadow-sm border border-gray-100 h-full flex flex-col xl:min-h-0">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">월 예산 및 사용 현황</h3>

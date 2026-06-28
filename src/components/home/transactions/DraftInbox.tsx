@@ -21,7 +21,7 @@ export default function DraftInbox({ drafts, isLoading, onOpenDraft, onDeleteDra
   }
 
   return (
-    <div className="space-y-3">
+    <div id="tutorial-draft-content" className="space-y-3">
       {drafts.map((draft) => (
         <div
           key={draft.id}

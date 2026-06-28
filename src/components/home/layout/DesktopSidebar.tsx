@@ -17,6 +17,7 @@ import { createClient } from "@/src/lib/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMe } from "@/src/lib/api/userApi";
 import NotificationBell from "@/src/components/home/NotificationBell";
+import { useQuestStore } from "@/src/store/useQuestStore";
 
 export default function DesktopSidebar() {
   const router = useRouter();
@@ -91,6 +92,16 @@ export default function DesktopSidebar() {
               <Link
                 key={item.path}
                 href={item.path}
+                id={item.path === "/home/transactions" ? "tutorial-nav-ledger-desktop" : undefined}
+                onClick={() => {
+                  // 임시 등록 후 스텝 3에서 가계부를 누르면 스텝 4로 이동
+                  if (item.path === "/home/transactions") {
+                    const store = useQuestStore.getState();
+                    if (store.activeQuestCode === "FAST_DRAFT" && store.stepIndex === 3) {
+                      store.nextStep();
+                    }
+                  }
+                }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${active
                   ? "bg-sky-50 text-sky-600 font-bold"
                   : "text-gray-700 hover:bg-gray-50"

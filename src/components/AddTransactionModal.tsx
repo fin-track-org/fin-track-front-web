@@ -49,6 +49,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     onSaveDraft,
     defaultValues,
     mode,
+    isTutorialMode,
   } = props;
 
   const queryClient = useQueryClient();
@@ -619,7 +620,13 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                     key={template.id}
                     type="button"
                     onClick={() => handleApplyTemplate(template)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full text-xs font-medium text-gray-700 transition-colors max-w-[140px]"
+                    disabled={isTutorialMode}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-gray-700 transition-colors max-w-[140px] ${
+                      isTutorialMode 
+                        ? "bg-gray-100 opacity-50 cursor-not-allowed" 
+                        : "bg-gray-50 hover:bg-gray-100 border border-gray-200"
+                    }`}
+                    title={isTutorialMode ? "튜토리얼 중에는 비활성화됩니다" : ""}
                   >
                     <span className="text-[10px] flex-shrink-0">{template.type === 'EXPENSE' ? '📉' : '📈'}</span>
                     <span className="truncate">{template.title}</span>
@@ -629,7 +636,15 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                   <button
                     type="button"
                     onClick={() => setShowAllTemplates(!showAllTemplates)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${showAllTemplates ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' : 'bg-sky-50 hover:bg-sky-100 border border-sky-100 text-sky-700'}`}
+                    disabled={isTutorialMode}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      isTutorialMode
+                        ? "bg-gray-100 opacity-50 cursor-not-allowed text-gray-400"
+                        : showAllTemplates 
+                          ? 'bg-gray-100 hover:bg-gray-200 text-gray-700' 
+                          : 'bg-sky-50 hover:bg-sky-100 border border-sky-100 text-sky-700'
+                    }`}
+                    title={isTutorialMode ? "튜토리얼 중에는 비활성화됩니다" : ""}
                   >
                     <Bookmark size={12} /> {showAllTemplates ? '접기' : '더보기'}
                   </button>
@@ -690,9 +705,15 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                     <button
                       type="button"
                       onClick={() => setIsQuickExpanded(!isQuickExpanded)}
-                      className="text-xs text-sky-600 hover:text-sky-700 hover:underline transition-colors ml-auto font-medium"
+                      disabled={isTutorialMode}
+                      className={`text-xs transition-colors ml-auto font-medium ${
+                        isTutorialMode 
+                          ? "text-gray-400 cursor-not-allowed" 
+                          : "text-sky-600 hover:text-sky-700 hover:underline"
+                      }`}
+                      title={isTutorialMode ? "튜토리얼 중에는 비활성화됩니다" : ""}
                     >
-                      {isQuickExpanded ? "빠른 등록으로 전환" : "상세 폼 열기"}
+                      {isTutorialMode ? "튜토리얼 중 비활성화" : (isQuickExpanded ? "빠른 등록으로 전환" : "상세 폼 열기")}
                     </button>
                   )}
                 </div>
