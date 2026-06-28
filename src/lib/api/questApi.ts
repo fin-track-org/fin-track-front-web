@@ -28,7 +28,11 @@ export const getQuests = async (): Promise<QuestResponseDto[]> => {
   if (!response.ok) throw new Error("퀘스트 목록을 불러오는데 실패했습니다.");
   
   const result = await response.json();
-  return result.data;
+  return result.data.map((q: any) => ({
+    ...q,
+    isCompleted: q.isCompleted ?? q.completed ?? false,
+    isRewardClaimed: q.isRewardClaimed ?? q.rewardClaimed ?? false,
+  }));
 };
 
 export const completeQuest = async (questCode: string): Promise<void> => {
