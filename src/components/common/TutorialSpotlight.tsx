@@ -146,23 +146,23 @@ export default function TutorialSpotlight() {
         stepIndex={stepIndex}
         run={isRunning && steps.length > 0}
         continuous
-        disableFocusTrap={true}
         scrollToFirstStep
-      showProgress
-      showSkipButton
-      onEvent={handleJoyrideCallback}
-      styles={{
-        options: {
+        onEvent={handleJoyrideCallback}
+        options={{
           zIndex: 10000,
           primaryColor: "#10b981", // emerald-500
           backgroundColor: isDarkMode ? "#1e293b" : "#ffffff", // slate-800 or white
           textColor: isDarkMode ? "#f8fafc" : "#334155", // slate-50 or slate-700
           overlayColor: "rgba(0, 0, 0, 0.6)",
-        },
+          disableFocusTrap: true,
+          showProgress: true,
+          buttons: ["back", "close", "primary", "skip"],
+        }}
+      styles={{
         tooltipContainer: {
           textAlign: "left",
         },
-        buttonNext: {
+        buttonPrimary: {
           backgroundColor: "#10b981",
           borderRadius: "8px",
           padding: "8px 16px",
@@ -170,7 +170,7 @@ export default function TutorialSpotlight() {
         },
         buttonSkip: {
           color: isDarkMode ? "#94a3b8" : "#64748b",
-          fontWeight: "medium",
+          fontWeight: 500,
         },
       }}
       locale={{
