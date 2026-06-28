@@ -3,6 +3,7 @@ import MobileTopBar from "@/src/components/home/layout/MobileTopBar";
 import MobileBottomNav from "@/src/components/home/layout/MobileBottomNav";
 import GlobalQuickAdd from "@/src/components/home/GlobalQuickAdd";
 import Footer from "@/src/components/Footer";
+import TutorialSpotlight from "@/src/components/common/TutorialSpotlight";
 
 export default function DashboardLayout({
   children,
@@ -34,6 +35,8 @@ export default function DashboardLayout({
 
       {/* 글로벌 빠른 추가 모달 (FAB) */}
       <GlobalQuickAdd />
+      {/* 튜토리얼 스포트라이트 전역 컴포넌트 */}
+      <TutorialSpotlight />
     </div>
   );
 }

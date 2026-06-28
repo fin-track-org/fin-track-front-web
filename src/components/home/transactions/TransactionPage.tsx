@@ -28,6 +28,8 @@ import { useUserSettings } from "@/src/hook/useUserSettings";
 import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
 import LedgerTopBanner from "./LedgerTopBanner";
 import LedgerBottomBanner from "./LedgerBottomBanner";
+import { useQuestStore } from "@/src/store/useQuestStore";
+import { completeQuest, claimQuestReward } from "@/src/lib/api/questApi";
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
@@ -95,8 +97,11 @@ export default function TransactionPage() {
   // 활성 탭 (거래 내역 / 임시 보관함)
   const [activeTab, setActiveTab] = useState<"transactions" | "drafts">("transactions");
 
-  // 임시 내역 분류 모달 모드
   const [isDraftMode, setIsDraftMode] = useState(false);
+  
+  const { activeQuestCode, stepIndex, stopQuest } = useQuestStore();
+
+  // 자동 탭 전환 효과 제거 (유저가 직접 임시 보관함을 누르도록 유도)
 
   // 날짜 범위 필터
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -999,7 +1004,13 @@ export default function TransactionPage() {
 
                   {drafts.length > 0 && (
                     <button
-                      onClick={() => setActiveTab("drafts")}
+                      id="tutorial-draft-tab"
+                      onClick={() => {
+                        setActiveTab("drafts");
+                        if (activeQuestCode === "FAST_DRAFT" && stepIndex === 4) {
+                          useQuestStore.getState().nextStep();
+                        }
+                      }}
                       className="relative flex items-center gap-1 md:gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold transition-colors bg-white border border-amber-200 text-amber-600 hover:bg-amber-50"
                     >
                       <span className="text-xs md:text-base">📬</span> 임시 보관함
@@ -1165,6 +1176,41 @@ export default function TransactionPage() {
           )}
         </div>
       </div>
+
+      {/* FAST_DRAFT 커스텀 튜토리얼 완료 모달 */}
+      {activeQuestCode === "FAST_DRAFT" && stepIndex === 5 && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-sm w-full flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
+            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+              <span className="text-4xl">🎉</span>
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">튜토리얼 완료!</h2>
+            <p className="text-gray-600 mb-6 leading-relaxed">
+              임시 보관함에 들어왔습니다!<br/>
+              여기서 상세 내용을 마저 적으면<br/>
+              <span className="font-semibold text-emerald-600">실제 거래 내역으로 등록</span>됩니다.
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  await completeQuest("FAST_DRAFT");
+                  await claimQuestReward("FAST_DRAFT");
+                  queryClient.invalidateQueries({ queryKey: ["quests"] });
+                  queryClient.invalidateQueries({ queryKey: ["me"] }); // 포인트 갱신을 위해 me 조회 무효화
+                  useQuestStore.getState().stopQuest();
+                  toast.success("빠른 추가 튜토리얼 완료! 포인트를 획득했습니다.");
+                } catch (e) {
+                  console.error(e);
+                  toast.error("미션 보상 수령 중 오류가 발생했습니다.");
+                }
+              }}
+              className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
+            >
+              미션 완료하고 포인트 받기!
+            </button>
+          </div>
+        </div>
+      )}
 
       {(isModalOpen || editingTransaction) && (
         <>

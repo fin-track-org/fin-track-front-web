@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, BookOpen, BarChart3, User, Plus } from "lucide-react";
+import { useQuestStore } from "@/src/store/useQuestStore";
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const { activeQuestCode, stepIndex, nextStep } = useQuestStore();
 
   const isActive = (path: string) => {
     if (path === "/home") return pathname === "/home";
@@ -20,7 +22,16 @@ export default function MobileBottomNav() {
           <span className="text-[10px] font-medium">홈</span>
         </Link>
 
-        <Link href="/home/transactions" className={`flex flex-col items-center justify-center w-14 h-full gap-1 ${isActive("/home/transactions") ? "text-sky-600" : "text-gray-400 hover:text-gray-600"}`}>
+        <Link 
+          href="/home/transactions" 
+          id="tutorial-nav-ledger-mobile"
+          onClick={() => {
+            if (activeQuestCode === "FAST_DRAFT" && stepIndex === 3) {
+              nextStep();
+            }
+          }}
+          className={`flex flex-col items-center justify-center w-14 h-full gap-1 ${isActive("/home/transactions") ? "text-sky-600" : "text-gray-400 hover:text-gray-600"}`}
+        >
           <BookOpen className="w-[22px] h-[22px]" strokeWidth={isActive("/home/transactions") ? 2.5 : 2} />
           <span className="text-[10px] font-medium">가계부</span>
         </Link>
@@ -28,7 +39,13 @@ export default function MobileBottomNav() {
         {/* 중앙 빠른 추가 버튼 (Squircle) */}
         <div className="relative w-16 h-full flex items-center justify-center">
           <button 
-            onClick={() => window.dispatchEvent(new Event("open-quick-add"))}
+            id="tutorial-quick-add-mobile"
+            onClick={() => {
+              window.dispatchEvent(new Event("open-quick-add"));
+              if (activeQuestCode === "FAST_DRAFT" && stepIndex === 0) {
+                setTimeout(() => nextStep(), 350);
+              }
+            }}
             className="w-12 h-10 bg-sky-600 hover:bg-sky-700 text-white rounded-[14px] flex items-center justify-center shadow-sm active:scale-95 transition-all"
           >
             <Plus className="w-6 h-6" strokeWidth={2.5} />

@@ -49,7 +49,7 @@ export default function BalanceCard({
   const calculatedTotal = filteredMethods.reduce((sum, m) => sum + m.balance, 0);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div id="tutorial-balance-check" className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-4 md:p-5 flex flex-col gap-2">
         {/* 상단: 타이틀, 눈알 버튼, 체크박스 */}
         <div className="flex items-center justify-between">

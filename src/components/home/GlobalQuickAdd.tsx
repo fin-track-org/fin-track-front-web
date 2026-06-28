@@ -12,14 +12,21 @@ import { createClient } from "@/src/lib/supabase/client";
 import { createTransfer } from "@/src/lib/api/transaction/transactions";
 import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
 import AdjustBalanceModal from "@/src/components/AdjustBalanceModal";
+import { useQuestStore } from "@/src/store/useQuestStore";
+import { useToast } from "@/src/hook/useToast";
+import { useRouter } from "next/navigation";
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
 export default function GlobalQuickAdd() {
   const pathname = usePathname();
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const { activeQuestCode, stepIndex, nextStep, stopQuest } = useQuestStore();
+  const { toast } = useToast();
 
   useEffect(() => {
     const handleOpen = () => setIsMenuOpen(prev => !prev);
@@ -60,6 +67,14 @@ export default function GlobalQuickAdd() {
 
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
 
+  // 모달이 열렸을 때 퀘스트 스텝 업데이트 로직
+  useEffect(() => {
+    if (activeQuestCode === "FAST_DRAFT" && isModalOpen && stepIndex === 1) {
+      // 모달 애니메이션이 끝난 후 스텝 이동 (안전하게 350ms 대기)
+      setTimeout(() => nextStep(), 350);
+    }
+  }, [activeQuestCode, isModalOpen, stepIndex, nextStep]);
+
   const { mutateAsync: submitQuickAsync } = useMutation({
     mutationFn: quickAddTransaction,
     onSuccess: () => {
@@ -68,6 +83,11 @@ export default function GlobalQuickAdd() {
       queryClient.invalidateQueries({ queryKey: ["dashboardBalances"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setIsModalOpen(false);
+      toast.success("임시 등록이 완료되었습니다!");
+
+      if (activeQuestCode === "FAST_DRAFT" && stepIndex === 2) {
+        nextStep(); // 폼 저장 시 즉시 스텝을 3으로 증가시켜 모달 닫힘에 의한 stopQuest 방지
+      }
     },
   });
 
@@ -156,9 +176,8 @@ export default function GlobalQuickAdd() {
       <div className={`fixed z-[100] flex flex-col items-center lg:items-end gap-3 transition-all duration-300 ${isMenuOpen ? 'bottom-[110px] left-1/2 -translate-x-1/2 lg:left-auto lg:-translate-x-0 lg:bottom-24 lg:right-6' : 'bottom-0 left-1/2 -translate-x-1/2 lg:left-auto lg:-translate-x-0 lg:bottom-6 lg:right-6 pointer-events-none lg:pointer-events-auto'}`}>
         {/* 잔액 조정 버튼 */}
         <div
-          className={`relative flex items-center justify-center transition-all duration-500 origin-bottom ${
-            isMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-16 opacity-0 scale-50 pointer-events-none"
-          }`}
+          className={`relative flex items-center justify-center transition-all duration-500 origin-bottom ${isMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-16 opacity-0 scale-50 pointer-events-none"
+            }`}
         >
           <span className="absolute right-full mr-4 w-max bg-white text-gray-700 px-3 py-1.5 rounded-lg shadow-md text-sm font-bold border border-gray-100">
             잔액 조정
@@ -176,9 +195,8 @@ export default function GlobalQuickAdd() {
 
         {/* 일반 등록 버튼 */}
         <div
-          className={`relative flex items-center justify-center transition-all duration-300 origin-bottom ${
-            isMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-12 opacity-0 scale-50 pointer-events-none"
-          }`}
+          className={`relative flex items-center justify-center transition-all duration-300 origin-bottom ${isMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-12 opacity-0 scale-50 pointer-events-none"
+            }`}
         >
           <span className="absolute right-full mr-4 w-max bg-white text-gray-700 px-3 py-1.5 rounded-lg shadow-md text-sm font-bold border border-gray-100">
             상세 등록
@@ -197,14 +215,14 @@ export default function GlobalQuickAdd() {
 
         {/* 빠른 등록 버튼 */}
         <div
-          className={`relative flex items-center justify-center transition-all duration-200 origin-bottom ${
-            isMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-6 opacity-0 scale-50 pointer-events-none"
-          }`}
+          className={`relative flex items-center justify-center transition-all duration-200 origin-bottom ${isMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-6 opacity-0 scale-50 pointer-events-none"
+            }`}
         >
           <span className="absolute right-full mr-4 w-max bg-white text-gray-700 px-3 py-1.5 rounded-lg shadow-md text-sm font-bold border border-gray-100">
             빠른 등록 (임시 보관)
           </span>
           <button
+            id="tutorial-quick-add-menu-item"
             onClick={() => {
               setIsMenuOpen(false);
               setModalMode("quick");
@@ -219,7 +237,13 @@ export default function GlobalQuickAdd() {
         {/* 메인 토글 버튼 (데스크탑에서만 표시, 모바일은 하단 탭 바에서 이벤트 발생) */}
         {!isProfilePage && (
           <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            id="tutorial-quick-add-desktop"
+            onClick={() => {
+              setIsMenuOpen(!isMenuOpen);
+              if (activeQuestCode === "FAST_DRAFT" && stepIndex === 0) {
+                setTimeout(() => nextStep(), 350);
+              }
+            }}
             aria-label="메뉴 열기"
             className="hidden lg:flex items-center justify-center w-14 h-14 rounded-full bg-sky-600 text-white shadow-xl hover:bg-sky-700 active:scale-95 transition-all z-10 relative"
           >
@@ -229,15 +253,26 @@ export default function GlobalQuickAdd() {
       </div>
 
       {/* 통합 거래 추가 모달 */}
-      <AddTransactionModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-        categories={rawCategories}
-        accounts={rawAccounts}
-        onSubmit={handleSubmitRegularTransaction}
-        onSaveDraft={handleSaveDraftFromModal}
-        mode={modalMode}
-      />
+      <div id="tutorial-quick-add-modal">
+        <AddTransactionModal
+          open={isModalOpen}
+          onOpenChange={(newOpen) => {
+            setIsModalOpen(newOpen);
+            // 튜토리얼 도중에 모달을 닫아버리면 튜토리얼 강제 종료
+            // 주의: 클로저 버그 방지를 위해 Zustand에서 최신 상태를 직접 가져옴
+            const currentStep = useQuestStore.getState().stepIndex;
+            if (!newOpen && activeQuestCode === "FAST_DRAFT" && currentStep <= 2) {
+              stopQuest();
+            }
+          }}
+          categories={rawCategories}
+          accounts={rawAccounts}
+          onSubmit={handleSubmitRegularTransaction}
+          onSaveDraft={handleSaveDraftFromModal}
+          mode={modalMode}
+          isTutorialMode={activeQuestCode === "FAST_DRAFT"}
+        />
+      </div>
 
       {/* 잔액 조정 모달 */}
       <AdjustBalanceModal
