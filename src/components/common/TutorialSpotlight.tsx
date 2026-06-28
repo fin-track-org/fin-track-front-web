@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Joyride, CallBackProps, Step } from "react-joyride";
+import { Joyride, Step, EventData } from "react-joyride";
 import { useQuestStore } from "@/src/store/useQuestStore";
 import { useTheme } from "next-themes";
 import { completeQuest } from "@/src/lib/api/questApi";
@@ -108,7 +108,7 @@ export default function TutorialSpotlight() {
     }
   }, [activeQuestCode, isMobile]);
 
-  const handleJoyrideCallback = async (data: CallBackProps) => {
+  const handleJoyrideCallback = async (data: EventData) => {
     const { status, action, index, type } = data;
     
     // 종료 또는 건너뛰기
@@ -150,7 +150,7 @@ export default function TutorialSpotlight() {
         scrollToFirstStep
       showProgress
       showSkipButton
-      callback={handleJoyrideCallback}
+      onEvent={handleJoyrideCallback}
       styles={{
         options: {
           zIndex: 10000,
