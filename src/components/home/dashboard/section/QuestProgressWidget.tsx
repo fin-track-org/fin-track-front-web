@@ -7,10 +7,12 @@ import { useQuestStore } from "@/src/store/useQuestStore";
 import { ChevronDown, ChevronUp, Gift, Play, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
+import { useToast } from "@/src/hook/useToast";
 
 export default function QuestProgressWidget() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(false);
   
   const { quests, setQuests, startQuest } = useQuestStore();
@@ -52,6 +54,12 @@ export default function QuestProgressWidget() {
   const progressPercent = Math.round((completedCount / totalCount) * 100);
 
   const handleStartQuest = (questCode: string) => {
+    // 임시: FAST_DRAFT 외의 다른 퀘스트는 준비중 토스트 띄우기
+    if (questCode !== "FAST_DRAFT") {
+      toast.info("아직 튜토리얼이 준비 중입니다. 조금만 기다려주세요! 🛠️");
+      return;
+    }
+
     // 퀘스트 종류에 따른 라우팅
     if (questCode === "FAST_DRAFT" || questCode === "CHECK_BALANCE") {
       // 대시보드에서 진행되는 경우
