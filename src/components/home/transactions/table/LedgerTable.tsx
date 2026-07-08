@@ -44,6 +44,7 @@ interface Props {
   onEdit: (t: Transaction) => void;
   onDelete: (id: string) => void;
   onReorder: (transactionIds: string[]) => void;
+  onViewDetail?: (t: Transaction) => void;
   currentAccountId?: string;
   isExcelView?: boolean;
   openingBalanceAmount?: number;
@@ -101,12 +102,14 @@ function SortableMobileCard({
   transaction,
   onEdit,
   onDelete,
+  onViewDetail,
   isExcelView,
   currentAccountId,
 }: {
   transaction: Transaction;
   onEdit: (t: Transaction) => void;
   onDelete: (id: string) => void;
+  onViewDetail?: (t: Transaction) => void;
   isExcelView?: boolean;
   currentAccountId?: string;
 }) {
@@ -131,12 +134,14 @@ function SortableMobileCard({
     <div
       ref={setNodeRef}
       style={style}
-      className="rounded-lg border bg-white p-2.5 sm:p-3 shadow-sm flex gap-2"
+      onClick={() => onViewDetail?.(transaction)}
+      className={`rounded-lg border bg-white p-2.5 sm:p-3 shadow-sm flex gap-2 ${onViewDetail ? "cursor-pointer active:bg-gray-50" : ""}`}
     >
       {/* 드래그 핸들 */}
       <button
         {...attributes}
         {...listeners}
+        onClick={(e) => e.stopPropagation()}
         className="shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-400 self-center"
         style={{ touchAction: 'pan-y' }}
         title="드래그하여 순서 변경"
@@ -205,13 +210,19 @@ function SortableMobileCard({
 
           <div className="mt-1.5 flex justify-end gap-1.5">
             <button
-              onClick={() => onEdit(transaction)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(transaction);
+              }}
               className="rounded-md bg-gray-100 px-2.5 py-1 text-[11px] font-medium hover:bg-gray-200"
             >
               수정
             </button>
             <button
-              onClick={() => onDelete(transaction.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(transaction.id);
+              }}
               className="rounded-md bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-100"
             >
               삭제
@@ -232,6 +243,7 @@ export default function LedgerTable({
   onEdit,
   onDelete,
   onReorder,
+  onViewDetail,
   currentAccountId,
   isExcelView = true,
   openingBalanceAmount = 0,
@@ -389,6 +401,7 @@ export default function LedgerTable({
                         transaction={t}
                         onEdit={onEdit}
                         onDelete={onDelete}
+                        onViewDetail={onViewDetail}
                         currentAccountId={currentAccountId}
                       />
                     ))}
