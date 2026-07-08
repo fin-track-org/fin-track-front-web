@@ -3,6 +3,7 @@
 "use client";
 
 import AddTransactionModal from "@/src/components/AddTransactionModal";
+import TransactionDetailModal from "./TransactionDetailModal";
 import { createClient } from "@/src/lib/supabase/client";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import LedgerTable from "./table/LedgerTable";
@@ -144,6 +145,10 @@ export default function TransactionPage() {
 
   // 수정할 거래 내역 (null이면 추가 모드)
   const [editingTransaction, setEditingTransaction] =
+    useState<Transaction | null>(null);
+
+  // 상세보기 중인 거래 내역 (모바일 카드 탭 시)
+  const [detailTransaction, setDetailTransaction] =
     useState<Transaction | null>(null);
 
   const { startDate, endDate } = useMemo(() => {
@@ -1135,6 +1140,7 @@ export default function TransactionPage() {
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onReorder={handleReorder}
+                  onViewDetail={setDetailTransaction}
                   currentAccountId={selectedAccountId}
                   isExcelView={isExcelView}
                   openingBalanceAmount={typeof filteredOpeningBalance === "number" ? filteredOpeningBalance : (filteredOpeningBalance?.totalAmount ?? 0)}
@@ -1241,6 +1247,22 @@ export default function TransactionPage() {
           />
         </>
       )}
+
+      {/* 거래 상세보기 모달 (모바일 카드 탭) */}
+      <TransactionDetailModal
+        transaction={detailTransaction}
+        open={!!detailTransaction}
+        onOpenChange={(open) => !open && setDetailTransaction(null)}
+        onEdit={(t) => {
+          setDetailTransaction(null);
+          handleEdit(t);
+        }}
+        onDelete={(id) => {
+          setDetailTransaction(null);
+          handleDelete(id);
+        }}
+        currentAccountId={selectedAccountId}
+      />
 
       {/* 검색 바텀 시트 */}
       <SearchFilterBottomSheet
