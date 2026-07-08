@@ -20,7 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, CreditCard } from "lucide-react";
+import { GripVertical, Pencil, Trash2 } from "lucide-react";
 import LedgerRow from "./LedgerRow";
 import SkeletonRow from "../SkeletonRow";
 import { getTransactionColor, getTransactionSign, getAccountIcon } from "@/src/lib/transactionUtils";
@@ -135,27 +135,27 @@ function SortableMobileCard({
       ref={setNodeRef}
       style={style}
       onClick={() => onViewDetail?.(transaction)}
-      className={`rounded-lg border bg-white p-2.5 sm:p-3 shadow-sm flex gap-2 ${onViewDetail ? "cursor-pointer active:bg-gray-50" : ""}`}
+      className={`rounded-xl border border-gray-100 bg-white p-3 shadow-sm flex items-center gap-1.5 ${onViewDetail ? "cursor-pointer active:bg-gray-50" : ""}`}
     >
-      {/* 드래그 핸들 */}
+      {/* 드래그 핸들: 보조 기능이라 시각적으로 옅게 처리 */}
       <button
         {...attributes}
         {...listeners}
         onClick={(e) => e.stopPropagation()}
-        className="shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-400 self-center"
+        className="shrink-0 cursor-grab active:cursor-grabbing text-gray-200 hover:text-gray-400 self-stretch flex items-center px-0.5 -ml-1"
         style={{ touchAction: 'pan-y' }}
         title="드래그하여 순서 변경"
         aria-label="순서 변경"
       >
-        <GripVertical className="w-5 h-5" />
+        <GripVertical className="w-4 h-4" />
       </button>
 
       <div className="flex flex-1 items-start justify-between gap-2 min-w-0">
         <div className="min-w-0 pt-0.5 flex-1">
           <div className="flex items-center gap-2">
             <span className="shrink-0 rounded bg-sky-100 text-sky-700 px-1.5 py-0.5 text-[11px] font-medium">
-              {transaction.subcategory?.name 
-                ? `${transaction.category.name} > ${transaction.subcategory.name}` 
+              {transaction.subcategory?.name
+                ? `${transaction.category.name} > ${transaction.subcategory.name}`
                 : transaction.category.name}
             </span>
             <p className="font-semibold text-[14px] text-gray-800 truncate">{transaction.description}</p>
@@ -197,7 +197,7 @@ function SortableMobileCard({
             const colorClass = getTransactionColor(transaction as any, currentAccountId);
             return (
               <div className="flex items-center justify-end gap-1.5">
-                <span className={`text-[13px] font-bold ${colorClass}`}>
+                <span className={`text-[14px] font-bold ${colorClass}`}>
                   {sign}{amountAbs}원
                 </span>
                 <span className="text-gray-300 text-[11px]">|</span>
@@ -208,24 +208,28 @@ function SortableMobileCard({
             );
           })()}
 
-          <div className="mt-1.5 flex justify-end gap-1.5">
+          <div className="mt-1.5 flex justify-end gap-1">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit(transaction);
               }}
-              className="rounded-md bg-gray-100 px-2.5 py-1 text-[11px] font-medium hover:bg-gray-200"
+              className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              title="수정"
+              aria-label="수정"
             >
-              수정
+              <Pencil className="w-4 h-4" />
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(transaction.id);
               }}
-              className="rounded-md bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-100"
+              className="p-2 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600"
+              title="삭제"
+              aria-label="삭제"
             >
-              삭제
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
