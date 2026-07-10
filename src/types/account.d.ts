@@ -35,7 +35,11 @@ interface ApiResponse<T> {
   data: T;
 }
 
+type AdjustMode = "ABSOLUTE" | "DELTA";
+
 interface AccountAdjustReq {
-  actualBalance: number;
+  mode: AdjustMode;
+  actualBalance?: number;
+  amount?: number; // DELTA 모드: 양수=추가, 음수=차감
   reason?: string;
 }
