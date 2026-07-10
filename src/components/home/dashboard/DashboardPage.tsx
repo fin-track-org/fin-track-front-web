@@ -222,8 +222,8 @@ export default function DashboardPage() {
         onNext={handleNextMonth}
       />
 
-      {/* 1-1. 오늘/이번 주 사용 가능한 금액 */}
-      <AvailableToSpendCard />
+      {/* 1-1. 오늘/이번 주 사용 가능한 금액 (자산관리 모드 전용 — 계좌 잔액 기반 계산) */}
+      {userSetting?.ledgerMode === "ASSET_MANAGEMENT" && <AvailableToSpendCard />}
 
       {/* 2. 결제수단별 잔액 카드 */}
       {userSetting?.ledgerMode === "ASSET_MANAGEMENT" && balanceData && (
