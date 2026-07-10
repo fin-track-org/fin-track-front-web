@@ -65,13 +65,14 @@ function BudgetAddForm({
   isSubmitting
 }: {
   categories: Category[];
-  onSave: (data: { categoryId: string; subCategoryId?: string; targetAmount: number }) => void;
+  onSave: (data: { categoryId: string; subCategoryId?: string; targetAmount: number; isFixed: boolean }) => void;
   onCancel: () => void;
   isSubmitting: boolean;
 }) {
   const [categoryId, setCategoryId] = useState("");
   const [subCategoryId, setSubCategoryId] = useState("");
   const [amount, setAmount] = useState<number | null>(null);
+  const [isFixed, setIsFixed] = useState(false);
 
   // 예산은 주로 지출에 설정하므로 EXPENSE만 필터링 (필요 시 수정 가능)
   const expenseCategories = categories.filter(c => c.type === "EXPENSE");
@@ -144,11 +145,25 @@ function BudgetAddForm({
           <NumberInput value={amount} onChange={setAmount} placeholder="예: 300,000" />
         </div>
 
+        {/* 고정비 여부 */}
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isFixed}
+            onChange={(e) => setIsFixed(e.target.checked)}
+            className="mt-0.5 w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+          />
+          <span className="text-xs text-gray-500 leading-relaxed">
+            <span className="font-semibold text-gray-700">고정비로 설정</span> — 월세, 통신비처럼 매달 한 번에 나가는 지출이에요.
+            지출 여부와 무관하게 예산 전액을 오늘/이번 주 사용 가능한 금액에서 미리 제외해요.
+          </span>
+        </label>
+
         {/* 액션 버튼 */}
         <div className="flex justify-end gap-2 pt-4 border-t border-gray-200/60">
-          <button 
+          <button
             type="button"
-            onClick={onCancel} 
+            onClick={onCancel}
             className="px-5 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors shadow-sm"
           >
             취소
@@ -156,7 +171,7 @@ function BudgetAddForm({
           <button
             type="button"
             disabled={!categoryId || !amount || amount <= 0 || isSubmitting}
-            onClick={() => onSave({ categoryId, subCategoryId: subCategoryId || undefined, targetAmount: amount! })}
+            onClick={() => onSave({ categoryId, subCategoryId: subCategoryId || undefined, targetAmount: amount!, isFixed })}
             className="flex items-center gap-1.5 px-6 py-2.5 text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-50 rounded-xl transition-colors shadow-sm"
           >
             <Check className="w-4 h-4" />예산 추가
@@ -174,16 +189,17 @@ function BudgetGroupRow({
   onDelete,
 }: {
   group: BudgetTemplateGroupRes;
-  onUpdate: (id: string, amount: number) => void;
+  onUpdate: (id: string, amount: number, isFixed: boolean) => void;
   onDelete: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState<number | null>(null);
+  const [editIsFixed, setEditIsFixed] = useState(false);
 
   const handleUpdateSave = (id: string) => {
     if (!editAmount || editAmount <= 0) return;
-    onUpdate(id, editAmount);
+    onUpdate(id, editAmount, editIsFixed);
     setEditingId(null);
   };
 
@@ -215,22 +231,36 @@ function BudgetGroupRow({
               <li className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 border-b border-gray-200/50">
                 <span className="text-sm font-medium text-gray-600 px-2">대분류 전체</span>
                 {editingId === group.id ? (
-                  <div className="flex items-center gap-2 self-end sm:self-auto w-full sm:w-auto">
-                    <div className="flex-1 sm:flex-initial">
-                      <NumberInput 
-                        autoFocus
-                        value={editAmount} 
-                        onChange={setEditAmount}
-                        className="w-full sm:w-[150px] text-sm text-right border border-sky-400 rounded-xl px-3 py-2 outline-none focus:ring-4 focus:ring-sky-100 bg-white pr-8 transition-all shadow-sm"
-                      />
+                  <div className="flex flex-col items-end gap-2 self-end sm:self-auto w-full sm:w-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <div className="flex-1 sm:flex-initial">
+                        <NumberInput
+                          autoFocus
+                          value={editAmount}
+                          onChange={setEditAmount}
+                          className="w-full sm:w-[150px] text-sm text-right border border-sky-400 rounded-xl px-3 py-2 outline-none focus:ring-4 focus:ring-sky-100 bg-white pr-8 transition-all shadow-sm"
+                        />
+                      </div>
+                      <button onClick={() => handleUpdateSave(group.id!)} className="p-2 text-white bg-sky-500 hover:bg-sky-600 rounded-xl transition-colors shadow-sm flex-shrink-0"><Check className="w-4 h-4" /></button>
+                      <button onClick={() => setEditingId(null)} className="p-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors shadow-sm flex-shrink-0"><X className="w-4 h-4" /></button>
                     </div>
-                    <button onClick={() => handleUpdateSave(group.id!)} className="p-2 text-white bg-sky-500 hover:bg-sky-600 rounded-xl transition-colors shadow-sm flex-shrink-0"><Check className="w-4 h-4" /></button>
-                    <button onClick={() => setEditingId(null)} className="p-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors shadow-sm flex-shrink-0"><X className="w-4 h-4" /></button>
+                    <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editIsFixed}
+                        onChange={(e) => setEditIsFixed(e.target.checked)}
+                        className="w-3.5 h-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+                      />
+                      고정비
+                    </label>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 self-end sm:self-auto">
+                    {group.isFixed && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700">고정비</span>
+                    )}
                     <span className="text-[15px] font-bold text-gray-800 mr-1">{formatAmount(group.targetAmount!)}</span>
-                    <button onClick={() => { setEditingId(group.id); setEditAmount(group.targetAmount); }} className="p-2 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-colors"><Pencil className="w-4 h-4" /></button>
+                    <button onClick={() => { setEditingId(group.id); setEditAmount(group.targetAmount); setEditIsFixed(group.isFixed); }} className="p-2 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-colors"><Pencil className="w-4 h-4" /></button>
                     <button onClick={() => { if (window.confirm(`"${group.categoryName}" 예산을 삭제하시겠습니까?`)) onDelete(group.id!); }} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 )}
@@ -241,22 +271,36 @@ function BudgetGroupRow({
               <li key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 border-b border-gray-100 last:border-0">
                 <span className="text-sm font-medium text-gray-600 px-2">{item.subCategoryName}</span>
                 {editingId === item.id ? (
-                  <div className="flex items-center gap-2 self-end sm:self-auto w-full sm:w-auto">
-                    <div className="flex-1 sm:flex-initial">
-                      <NumberInput 
-                        autoFocus
-                        value={editAmount} 
-                        onChange={setEditAmount}
-                        className="w-full sm:w-[150px] text-sm text-right border border-sky-400 rounded-xl px-3 py-2 outline-none focus:ring-4 focus:ring-sky-100 bg-white pr-8 transition-all shadow-sm"
-                      />
+                  <div className="flex flex-col items-end gap-2 self-end sm:self-auto w-full sm:w-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <div className="flex-1 sm:flex-initial">
+                        <NumberInput
+                          autoFocus
+                          value={editAmount}
+                          onChange={setEditAmount}
+                          className="w-full sm:w-[150px] text-sm text-right border border-sky-400 rounded-xl px-3 py-2 outline-none focus:ring-4 focus:ring-sky-100 bg-white pr-8 transition-all shadow-sm"
+                        />
+                      </div>
+                      <button onClick={() => handleUpdateSave(item.id)} className="p-2 text-white bg-sky-500 hover:bg-sky-600 rounded-xl transition-colors shadow-sm flex-shrink-0"><Check className="w-4 h-4" /></button>
+                      <button onClick={() => setEditingId(null)} className="p-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors shadow-sm flex-shrink-0"><X className="w-4 h-4" /></button>
                     </div>
-                    <button onClick={() => handleUpdateSave(item.id)} className="p-2 text-white bg-sky-500 hover:bg-sky-600 rounded-xl transition-colors shadow-sm flex-shrink-0"><Check className="w-4 h-4" /></button>
-                    <button onClick={() => setEditingId(null)} className="p-2 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors shadow-sm flex-shrink-0"><X className="w-4 h-4" /></button>
+                    <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editIsFixed}
+                        onChange={(e) => setEditIsFixed(e.target.checked)}
+                        className="w-3.5 h-3.5 rounded border-gray-300 text-sky-600 focus:ring-sky-400"
+                      />
+                      고정비
+                    </label>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 self-end sm:self-auto">
+                    {item.isFixed && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700">고정비</span>
+                    )}
                     <span className="text-[15px] font-bold text-gray-800 mr-1">{formatAmount(item.targetAmount)}</span>
-                    <button onClick={() => { setEditingId(item.id); setEditAmount(item.targetAmount); }} className="p-2 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-colors"><Pencil className="w-4 h-4" /></button>
+                    <button onClick={() => { setEditingId(item.id); setEditAmount(item.targetAmount); setEditIsFixed(item.isFixed); }} className="p-2 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition-colors"><Pencil className="w-4 h-4" /></button>
                     <button onClick={() => { if (window.confirm(`"${item.subCategoryName}" 예산을 삭제하시겠습니까?`)) onDelete(item.id); }} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 )}
@@ -289,8 +333,8 @@ export default function BudgetTab() {
   });
 
   const { mutate: mutateCreate, isPending: isCreating } = useMutation({
-    mutationFn: ({ categoryId, subCategoryId, targetAmount }: { categoryId: string; subCategoryId?: string; targetAmount: number }) =>
-      createBudgetTemplate({ categoryId, targetAmount, subCategoryId }),
+    mutationFn: ({ categoryId, subCategoryId, targetAmount, isFixed }: { categoryId: string; subCategoryId?: string; targetAmount: number; isFixed: boolean }) =>
+      createBudgetTemplate({ categoryId, targetAmount, subCategoryId, isFixed }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["budgetTemplates"] });
       setShowAddForm(false);
@@ -298,7 +342,7 @@ export default function BudgetTab() {
   });
 
   const { mutate: mutateUpdate } = useMutation({
-    mutationFn: ({ id, amount }: { id: string; amount: number }) => updateBudgetTemplate(id, { targetAmount: amount }),
+    mutationFn: ({ id, amount, isFixed }: { id: string; amount: number; isFixed: boolean }) => updateBudgetTemplate(id, { targetAmount: amount, isFixed }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["budgetTemplates"] });
     },
@@ -376,7 +420,7 @@ export default function BudgetTab() {
                 <BudgetGroupRow
                   key={group.categoryId}
                   group={group}
-                  onUpdate={(id, amount) => mutateUpdate({ id, amount })}
+                  onUpdate={(id, amount, isFixed) => mutateUpdate({ id, amount, isFixed })}
                   onDelete={(id) => mutateDelete(id)}
                 />
               ))}

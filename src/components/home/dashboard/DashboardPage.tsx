@@ -10,6 +10,7 @@ import AccountChart from "./section/AccountChart";
 import BudgetBar from "./section/BudgetBar";
 import RecentTransactions from "./section/RecentTransactions";
 import BalanceCard from "./section/BalanceCard";
+import AvailableToSpendCard from "./section/AvailableToSpendCard";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DashboardSkeleton from "../../skeleton/DashboardSkeleton";
 import { useRouter } from "next/navigation";
@@ -220,6 +221,9 @@ export default function DashboardPage() {
         onPrev={handlePreviousMonth}
         onNext={handleNextMonth}
       />
+
+      {/* 1-1. 오늘/이번 주 사용 가능한 금액 (자산관리 모드 전용 — 계좌 잔액 기반 계산) */}
+      {userSetting?.ledgerMode === "ASSET_MANAGEMENT" && <AvailableToSpendCard />}
 
       {/* 2. 결제수단별 잔액 카드 */}
       {userSetting?.ledgerMode === "ASSET_MANAGEMENT" && balanceData && (
