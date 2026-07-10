@@ -18,7 +18,10 @@ export default function AdjustBalanceModal({
   onSuccess,
 }: AdjustBalanceModalProps) {
   const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [mode, setMode] = useState<AdjustMode>("ABSOLUTE");
   const [actualBalance, setActualBalance] = useState("");
+  const [deltaAmount, setDeltaAmount] = useState("");
+  const [direction, setDirection] = useState<"ADD" | "SUBTRACT">("ADD");
   const [reason, setReason] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -61,24 +64,43 @@ export default function AdjustBalanceModal({
       setError("결제수단을 선택해주세요.");
       return;
     }
-    if (!actualBalance) {
-      setError("실제 잔액을 입력해주세요.");
-      return;
+
+    let body: AccountAdjustReq;
+    if (mode === "ABSOLUTE") {
+      if (!actualBalance) {
+        setError("실제 잔액을 입력해주세요.");
+        return;
+      }
+      body = {
+        mode: "ABSOLUTE",
+        actualBalance: Number(actualBalance),
+        reason: reason || "잔액 조정",
+      };
+    } else {
+      if (!deltaAmount || Number(deltaAmount) <= 0) {
+        setError("조정할 금액을 입력해주세요.");
+        return;
+      }
+      body = {
+        mode: "DELTA",
+        amount: direction === "ADD" ? Number(deltaAmount) : -Number(deltaAmount),
+        reason: reason || "잔액 조정",
+      };
     }
 
     setIsLoading(true);
     setError("");
 
     try {
-      await adjustAccountBalance(selectedAccountId, {
-        actualBalance: Number(actualBalance),
-        reason: reason || "잔액 조정",
-      });
+      await adjustAccountBalance(selectedAccountId, body);
       onSuccess();
       onClose();
       // 초기화
       setSelectedAccountId("");
+      setMode("ABSOLUTE");
       setActualBalance("");
+      setDeltaAmount("");
+      setDirection("ADD");
       setReason("");
     } catch (err: any) {
       setError(err.message || "잔액 조정에 실패했습니다.");
@@ -88,6 +110,12 @@ export default function AdjustBalanceModal({
   };
 
   const selectedMethod = paymentMethods.find((m) => m.accountId === selectedAccountId);
+  const signedDeltaAmount =
+    direction === "ADD" ? Number(deltaAmount || 0) : -Number(deltaAmount || 0);
+  const isSubmitDisabled =
+    isLoading ||
+    !selectedAccountId ||
+    (mode === "ABSOLUTE" ? !actualBalance : !deltaAmount);
 
   return (
     <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center">
@@ -125,6 +153,36 @@ export default function AdjustBalanceModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
+              조정 방식
+            </label>
+            <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setMode("ABSOLUTE")}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  mode === "ABSOLUTE"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500"
+                }`}
+              >
+                실제 잔액 입력
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("DELTA")}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  mode === "DELTA"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500"
+                }`}
+              >
+                금액 추가·차감
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               결제수단 선택
             </label>
             <select
@@ -149,29 +207,83 @@ export default function AdjustBalanceModal({
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              실제 잔액
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                value={actualBalance}
-                onChange={(e) => setActualBalance(e.target.value)}
-                placeholder="실제 지갑이나 통장의 잔액을 입력하세요"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                required
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
-                원
-              </span>
+          {mode === "ABSOLUTE" ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                실제 잔액
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={actualBalance}
+                  onChange={(e) => setActualBalance(e.target.value)}
+                  placeholder="실제 지갑이나 통장의 잔액을 입력하세요"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                  required
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
+                  원
+                </span>
+              </div>
+              {selectedMethod && actualBalance && (
+                <p className={`mt-2 text-sm font-medium ${Number(actualBalance) - selectedMethod.balance > 0 ? 'text-green-600' : Number(actualBalance) - selectedMethod.balance < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+                  차액: {(Number(actualBalance) - selectedMethod.balance).toLocaleString()}원
+                </p>
+              )}
             </div>
-            {selectedMethod && actualBalance && (
-              <p className={`mt-2 text-sm font-medium ${Number(actualBalance) - selectedMethod.balance > 0 ? 'text-green-600' : Number(actualBalance) - selectedMethod.balance < 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                차액: {(Number(actualBalance) - selectedMethod.balance).toLocaleString()}원
-              </p>
-            )}
-          </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                조정할 금액
+              </label>
+              <div className="flex gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setDirection("ADD")}
+                  className={`flex-1 py-2.5 rounded-xl border font-medium transition-colors ${
+                    direction === "ADD"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-gray-200 text-gray-500"
+                  }`}
+                >
+                  추가 (+)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDirection("SUBTRACT")}
+                  className={`flex-1 py-2.5 rounded-xl border font-medium transition-colors ${
+                    direction === "SUBTRACT"
+                      ? "border-red-500 bg-red-50 text-red-600"
+                      : "border-gray-200 text-gray-500"
+                  }`}
+                >
+                  차감 (-)
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  value={deltaAmount}
+                  onChange={(e) => setDeltaAmount(e.target.value)}
+                  placeholder="추가하거나 차감할 금액을 입력하세요"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                  required
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
+                  원
+                </span>
+              </div>
+              {selectedMethod && deltaAmount && (
+                <p className="mt-2 text-sm font-medium text-gray-500">
+                  조정 후 예상 잔액:{" "}
+                  <span className="text-gray-900">
+                    {(selectedMethod.balance + signedDeltaAmount).toLocaleString()}원
+                  </span>
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -196,7 +308,7 @@ export default function AdjustBalanceModal({
           <div className="pt-2">
             <button
               type="submit"
-              disabled={isLoading || !selectedAccountId || !actualBalance}
+              disabled={isSubmitDisabled}
               className="w-full py-4 bg-primary text-white rounded-xl font-bold text-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? "조정 중..." : "잔액 조정하기"}
