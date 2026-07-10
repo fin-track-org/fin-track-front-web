@@ -91,3 +91,21 @@ interface DashboardBalanceApiResponse {
   };
 }
 /* ---------------------------------------- */
+/* 오늘/이번 주 사용 가능한 금액 api 타입 */
+interface AvailableToSpend {
+  livingBudgetTotal: number;
+  spentInLiving: number;
+  remainingThisMonth: number;
+  todayAvailable: number;
+  weekAvailable: number;
+  remainingDaysInMonth: number;
+  remainingDaysInWeek: number;
+  hasBudget: boolean;
+}
+
+interface DashboardAvailableApiResponse {
+  statusCode: number;
+  message: string;
+  data: AvailableToSpend;
+}
+/* ---------------------------------------- */

@@ -6,6 +6,7 @@ interface BudgetTemplateRes {
   subCategoryName: string | null;
   targetAmount: number;
   isActive: boolean;
+  isFixed: boolean;
 }
 
 interface BudgetTemplateItemRes {
@@ -15,6 +16,7 @@ interface BudgetTemplateItemRes {
   subCategoryId: string;
   subCategoryName: string;
   targetAmount: number;
+  isFixed: boolean;
 }
 
 interface BudgetTemplateGroupRes {
@@ -22,6 +24,7 @@ interface BudgetTemplateGroupRes {
   categoryName: string;
   id: string | null;
   targetAmount: number | null;
+  isFixed: boolean;
   items: BudgetTemplateItemRes[];
 }
 
@@ -29,10 +32,12 @@ interface BudgetTemplateCreateReq {
   categoryId: string;
   subCategoryId?: string | null;
   targetAmount: number;
+  isFixed: boolean;
 }
 
 interface BudgetTemplateUpdateReq {
   targetAmount: number;
+  isFixed: boolean;
 }
 
 interface BudgetTemplateUpsertItem {
@@ -40,6 +45,7 @@ interface BudgetTemplateUpsertItem {
   categoryId: string;
   subCategoryId?: string | null;
   targetAmount: number;
+  isFixed: boolean;
 }
 
 interface BudgetTemplateBulkUpsertReq {
