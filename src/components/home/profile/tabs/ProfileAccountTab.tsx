@@ -102,7 +102,7 @@ export default function ProfileAccountTab() {
       const { error } = await supabase.auth.linkIdentity({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/home/profile`,
+          redirectTo: `${window.location.origin}/auth/callback?action=link`,
         },
       });
       if (error) throw error;
