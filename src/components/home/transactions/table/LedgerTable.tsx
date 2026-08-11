@@ -24,6 +24,8 @@ import { GripVertical, Pencil, Trash2 } from "lucide-react";
 import LedgerRow from "./LedgerRow";
 import SkeletonRow from "../SkeletonRow";
 import { getTransactionColor, getTransactionSign, getAccountIcon } from "@/src/lib/transactionUtils";
+import { ReceiptCard, ReceiptRow, DateTape } from "@/src/components/ledger/ReceiptList";
+import { StatePanel } from "@/src/components/ledger/StatePanel";
 
 function formatDateFriendly(dateStr: string) {
   const d = new Date(dateStr);
@@ -128,14 +130,15 @@ function SortableMobileCard({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : undefined,
+    backgroundColor: isDragging ? "var(--color-ll-cream)" : undefined,
   };
 
   return (
-    <div
+    <ReceiptRow
       ref={setNodeRef}
       style={style}
-      onClick={() => onViewDetail?.(transaction)}
-      className={`rounded-xl border border-gray-100 bg-white p-3 shadow-sm flex items-center gap-1.5 ${onViewDetail ? "cursor-pointer active:bg-gray-50" : ""}`}
+      onClick={onViewDetail ? () => onViewDetail(transaction) : undefined}
+      className="items-center gap-1.5 px-3 py-2.5"
     >
       {/* 드래그 핸들: 보조 기능이라 시각적으로 옅게 처리 */}
       <button
@@ -234,7 +237,7 @@ function SortableMobileCard({
           </div>
         </div>
       </div>
-    </div>
+    </ReceiptRow>
   );
 }
 
@@ -375,19 +378,18 @@ export default function LedgerTable({
         )}
 
         {!loading && !error && localTransactions.length === 0 && (
-          <div className="py-12 text-center text-gray-400 bg-white border border-gray-100 rounded-xl shadow-sm">
-            <p className="mb-1">거래 내역이 없습니다</p>
-            <p className="text-sm">새 거래를 추가해보세요 ✨</p>
-          </div>
+          <StatePanel
+            tone="neutral"
+            title="첫 금액을 남기면 이번 달 흐름을 보여드릴게요."
+            description="빠른 기록으로 지금 바로 남겨보세요."
+          />
         )}
 
         {!loading &&
           !error &&
           groupedByDate.map(([date, items]) => (
             <div key={date} className="pt-1">
-              <p className="text-xs font-semibold text-gray-500 mb-1 px-1 tracking-tight">
-                {formatDateFriendly(date)}
-              </p>
+              <DateTape label={formatDateFriendly(date)} className="mb-1.5" />
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -398,7 +400,7 @@ export default function LedgerTable({
                   items={items.map((t) => t.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="space-y-1.5">
+                  <ReceiptCard>
                     {items.map((t) => (
                       <SortableMobileCard
                         key={t.id}
@@ -409,7 +411,7 @@ export default function LedgerTable({
                         currentAccountId={currentAccountId}
                       />
                     ))}
-                  </div>
+                  </ReceiptCard>
                 </SortableContext>
               </DndContext>
             </div>
@@ -498,8 +500,8 @@ export default function LedgerTable({
                 <tr>
                   <td colSpan={10}>
                     <div className="py-12 text-center text-gray-400">
-                      <p className="mb-1">거래 내역이 없습니다</p>
-                      <p className="text-sm">새 거래를 추가해보세요 ✨</p>
+                      <p className="mb-1 font-medium text-gray-600">첫 금액을 남기면 이번 달 흐름을 보여드릴게요.</p>
+                      <p className="text-sm">빠른 기록으로 지금 바로 남겨보세요 ✨</p>
                     </div>
                   </td>
                 </tr>

@@ -29,6 +29,7 @@ import { useUserSettings } from "@/src/hook/useUserSettings";
 import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
 import LedgerTopBanner from "./LedgerTopBanner";
 import LedgerBottomBanner from "./LedgerBottomBanner";
+import SequentialCategorizer from "./SequentialCategorizer";
 import { useQuestStore } from "@/src/store/useQuestStore";
 import { completeQuest, claimQuestReward } from "@/src/lib/api/questApi";
 
@@ -99,13 +100,14 @@ export default function TransactionPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
-  // 활성 탭 (거래 내역 / 임시 보관함)
+  // 활성 탭 (거래 내역 / 나중에 분류)
   const [activeTab, setActiveTab] = useState<"transactions" | "drafts">("transactions");
 
-  const [isDraftMode, setIsDraftMode] = useState(false);
-  
+  // "나중에 분류" 연속 처리 플로우 (홈의 책상 위 메모와 동일한 컴포넌트를 공유한다)
+  const [isSequentialOpen, setIsSequentialOpen] = useState(false);
+  const [sequentialStartIndex, setSequentialStartIndex] = useState(0);
 
-  // 자동 탭 전환 효과 제거 (유저가 직접 임시 보관함을 누르도록 유도)
+  // 자동 탭 전환 효과 제거 (유저가 직접 나중에 분류 탭을 누르도록 유도)
 
   // 날짜 범위 필터
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -692,20 +694,11 @@ export default function TransactionPage() {
     setIsModalOpen(true);
   };
 
-  // 임시 내역 분류 모달 열기
-  const handleOpenDraftModal = (draft: DraftTransaction) => {
-    setEditingTransaction(draft as unknown as Transaction);
-    setIsDraftMode(true);
-    setModalDefaultValues({
-      date: draft.date,
-      type: draft.type ?? "EXPENSE",
-      amount: Math.abs(draft.amount),
-      categoryId: draft.category?.id ?? "",
-      subCategoryId: draft.subcategory?.id ?? "",
-      accountId: draft.account?.id ?? "",
-      description: draft.description ?? "",
-    });
-    setIsModalOpen(true);
+  // "나중에 분류" 연속 처리 플로우 열기 (특정 항목부터 시작)
+  const handleOpenSequentialFlow = (draft: DraftTransaction) => {
+    const idx = drafts.findIndex((d) => d.id === draft.id);
+    setSequentialStartIndex(idx >= 0 ? idx : 0);
+    setIsSequentialOpen(true);
   };
 
   // 모달 닫기(새 props 방식)
@@ -714,7 +707,6 @@ export default function TransactionPage() {
     if (!open) {
       setEditingTransaction(null);
       setModalDefaultValues(undefined);
-      setIsDraftMode(false);
     }
   }, []);
 
@@ -748,7 +740,6 @@ export default function TransactionPage() {
       subcategoryId: payload.subCategoryId ?? null,
       description: payload.description ?? null,
       accountId: payload.accountId ?? null,
-      ...(isDraftMode && { isDraft: false }),
     });
 
     try {
@@ -849,60 +840,7 @@ export default function TransactionPage() {
     }
 
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    if (isDraftMode) {
-      queryClient.invalidateQueries({ queryKey: ["drafts"] });
-    }
     // 모달 닫기 + 수정 해제
-    setIsModalOpen(false);
-    setEditingTransaction(null);
-  };
-
-  /* 임시저장 (날짜, 금액, 메모만 업데이트) */
-  const handleSaveDraft = async (
-    payload: Partial<CreateTransactionPayload>,
-  ): Promise<void> => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) throw new Error("로그인이 필요합니다.");
-
-    if (!editingTransaction?.id) {
-      throw new Error("수정할 임시 내역이 없습니다.");
-    }
-
-    const apiUrl = `${SPRING_BOOT_URL}/api/v1/transactions/${editingTransaction.id}`;
-
-    const bodyForDraft = {
-      date: payload.date,
-      amount: payload.amount,
-      type: payload.type === "INCOME" ? "INCOME" : "EXPENSE",
-      categoryId: payload.categoryId ?? null,
-      subcategoryId: payload.subCategoryId ?? null,
-      accountId: payload.accountId ?? null,
-      description: payload.description ?? null,
-      isDraft: true, // 임시 상태 유지
-    };
-
-    const res = await fetch(apiUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(bodyForDraft),
-    });
-
-    if (!res.ok) {
-      let msg = "임시저장 실패";
-      try {
-        const errJson = await res.json();
-        msg = errJson?.message || msg;
-      } catch { }
-      throw new Error(msg);
-    }
-
-    queryClient.invalidateQueries({ queryKey: ["drafts"] });
     setIsModalOpen(false);
     setEditingTransaction(null);
   };
@@ -1019,10 +957,10 @@ export default function TransactionPage() {
                           useQuestStore.getState().nextStep();
                         }
                       }}
-                      className="relative flex items-center gap-1 md:gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold transition-colors bg-white border border-amber-200 text-amber-600 hover:bg-amber-50"
+                      className="relative flex items-center gap-1 md:gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold transition-colors bg-white border border-ll-tomato/40 text-ll-tomato hover:bg-ll-tomato/10"
                     >
-                      <span className="text-xs md:text-base">📬</span> 임시 보관함
-                      <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] md:min-w-[18px] md:h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] md:text-[11px] font-bold">
+                      <span className="text-xs md:text-base">📝</span> 나중에 분류
+                      <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] md:min-w-[18px] md:h-[18px] px-1 rounded-full bg-ll-tomato text-white text-[10px] md:text-[11px] font-bold">
                         {drafts.length}
                       </span>
                     </button>
@@ -1031,7 +969,6 @@ export default function TransactionPage() {
                   <button
                     onClick={() => {
                       setEditingTransaction(null);
-                      setIsDraftMode(false);
                       setModalDefaultValues({
                         date: new Date().toISOString().split("T")[0],
                         type: "EXPENSE",
@@ -1048,8 +985,8 @@ export default function TransactionPage() {
               </>
             ) : (
               <>
-                {/* 임시 보관함 모드 툴바 */}
-                <div className="flex items-center gap-2 md:gap-3">
+                {/* 나중에 분류 탭 툴바 */}
+                <div className="flex items-center gap-2 md:gap-3 w-full">
                   <button
                     onClick={() => setActiveTab("transactions")}
                     className="p-1.5 md:p-2 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors focus:outline-none"
@@ -1057,9 +994,21 @@ export default function TransactionPage() {
                   >
                     <ArrowLeft className="w-5 h-5" />
                   </button>
-                  <span className="text-xl">📬</span>
-                  <h1 className="text-lg font-bold text-gray-900">임시 보관함</h1>
-                  <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[11px] md:text-xs font-bold">{drafts.length}건</span>
+                  <span className="text-xl">📝</span>
+                  <h1 className="text-lg font-bold text-gray-900">나중에 분류</h1>
+                  <span className="px-2 py-0.5 rounded-full bg-ll-tomato/15 text-ll-tomato text-[11px] md:text-xs font-bold">{drafts.length}건</span>
+
+                  {drafts.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setSequentialStartIndex(0);
+                        setIsSequentialOpen(true);
+                      }}
+                      className="ml-auto min-h-[36px] rounded-full bg-ll-ink px-3.5 py-1.5 text-xs font-bold text-ll-paper hover:bg-ll-ink/90 md:text-sm"
+                    >
+                      하나씩 정리
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -1179,7 +1128,7 @@ export default function TransactionPage() {
             <DraftInbox
               drafts={drafts}
               isLoading={isDraftsLoading}
-              onOpenDraft={handleOpenDraftModal}
+              onOpenDraft={handleOpenSequentialFlow}
               onDeleteDraft={handleDelete}
             />
           )}
@@ -1195,7 +1144,7 @@ export default function TransactionPage() {
             </div>
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">튜토리얼 완료!</h2>
             <p className="text-gray-600 mb-6 leading-relaxed">
-              임시 보관함에 들어왔습니다!<br/>
+              나중에 분류에 들어왔습니다!<br/>
               여기서 상세 내용을 마저 적으면<br/>
               <span className="font-semibold text-emerald-600">실제 거래 내역으로 등록</span>됩니다.
             </p>
@@ -1241,12 +1190,21 @@ export default function TransactionPage() {
             categories={rawCategories}
             accounts={accounts}
             onSubmit={handleSubmitTransaction}
-            onSaveDraft={isDraftMode ? handleSaveDraft : undefined}
             defaultValues={modalDefaultValues}
-            mode={isDraftMode ? "confirm-draft" : editingTransaction ? "edit" : "create"}
+            mode={editingTransaction ? "edit" : "create"}
           />
         </>
       )}
+
+      {/* "나중에 분류" 연속 처리 플로우 (나중에 분류 탭 + 개별 항목 클릭이 공유) */}
+      <SequentialCategorizer
+        open={isSequentialOpen}
+        onOpenChange={setIsSequentialOpen}
+        drafts={drafts}
+        startIndex={sequentialStartIndex}
+        categories={rawCategories}
+        accounts={accounts}
+      />
 
       {/* 거래 상세보기 모달 (모바일 카드 탭) */}
       <TransactionDetailModal

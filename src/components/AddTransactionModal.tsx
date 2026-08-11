@@ -27,6 +27,9 @@ import { createSubCategory, getSubCategories } from "../lib/api/categoryApi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTransactionTemplates } from "../lib/api/transaction/templateApi";
 import { useUserSettings } from "@/src/hook/useUserSettings";
+import { AuthError } from "../lib/api/authError";
+import { AmountInput } from "@/src/components/ledger/AmountInput";
+import { TransactionTypeSegment, type SegmentType } from "@/src/components/ledger/TransactionTypeSegment";
 
 /* const CARD_PROVIDERS = [
   { id: "SAMSUNG", name: "삼성" },
@@ -50,11 +53,31 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     defaultValues,
     mode,
     isTutorialMode,
+    queueProgress,
+    onSkipRemaining,
+    autoCloseOnSubmit = true,
+    transitionKey,
+    suggestionHint,
   } = props;
 
   const queryClient = useQueryClient();
   const { userSetting } = useUserSettings();
   const isSimpleMode = userSetting?.ledgerMode === "SIMPLE";
+
+  // 큐(연속 분류) 모드나 빠른 기록 모드에서는 브랜드 상태 카피를 그대로 노출한다.
+  const useBrandedErrorCopy = mode === "quick" || !!queueProgress;
+  const resolveErrorMessage = (e: any, fallback: string): string => {
+    if (e instanceof AuthError) return e.message;
+    if (useBrandedErrorCopy) {
+      return "저장하지 못했어요. 입력 내용은 그대로 보관하고 있어요.";
+    }
+    return e?.message || fallback;
+  };
+
+  // 모달 접근성: 열릴 때 내부로 포커스 이동, 닫히면 트리거로 복귀, Esc로 닫기
+  const dialogContentRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
+  const dialogTitleId = "add-transaction-modal-title";
 
   // ----------------------------
   // 초기값
@@ -305,6 +328,35 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     }
   }, [open]);
 
+  // 접근성: 모달이 열릴 때 내부 첫 입력 요소로 포커스를 옮기고,
+  // 닫히면 모달을 연 트리거로 포커스를 되돌린다.
+  useEffect(() => {
+    if (open) {
+      previouslyFocusedElementRef.current = document.activeElement as HTMLElement | null;
+      const focusTimer = setTimeout(() => {
+        const target = dialogContentRef.current?.querySelector<HTMLElement>(
+          "input, select, textarea, button",
+        );
+        target?.focus();
+      }, 0);
+      return () => clearTimeout(focusTimer);
+    }
+
+    previouslyFocusedElementRef.current?.focus?.();
+  }, [open]);
+
+  // 접근성: Esc 키로 닫기 (취소와 동일하게 동작)
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onOpenChange(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, onOpenChange]);
+
   // open될 때 type 기본값 리셋/반영
   useEffect(() => {
     if (!open) {
@@ -487,12 +539,13 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       setIsSaving(true);
       await onSaveDraft(payload);
 
-      onOpenChange(false);
-
-      setAmountText("");
-      setDescription("");
+      if (autoCloseOnSubmit) {
+        onOpenChange(false);
+        setAmountText("");
+        setDescription("");
+      }
     } catch (e: any) {
-      setError(e?.message || "임시저장에 실패했습니다.");
+      setError(resolveErrorMessage(e, "임시저장에 실패했습니다."));
     } finally {
       setIsSaving(false);
     }
@@ -536,13 +589,14 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       setIsSaving(true);
       await onSubmit(payload);
 
-      onOpenChange(false);
-
-      // 빠른 입력용 리셋(원하면 유지해도 됨)
-      setAmountText("");
-      setDescription("");
+      if (autoCloseOnSubmit) {
+        onOpenChange(false);
+        // 빠른 입력용 리셋(원하면 유지해도 됨)
+        setAmountText("");
+        setDescription("");
+      }
     } catch (e: any) {
-      setError(e?.message || "저장에 실패했습니다.");
+      setError(resolveErrorMessage(e, "저장에 실패했습니다."));
     } finally {
       setIsSaving(false);
     }
@@ -585,17 +639,54 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
             onClick={() => onOpenChange(false)}
           />
 
-          <div className="relative w-full sm:max-w-xl mx-auto bg-white rounded-t-[1.75rem] sm:rounded-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.12)] p-5 sm:p-6 pb-2 sm:pb-6 flex flex-col animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in-0 duration-300 max-h-[92dvh] sm:max-h-[90vh]">
-            
-            <div className="flex-1 overflow-y-auto space-y-6 pb-[calc(1rem+env(safe-area-inset-bottom))] px-1 custom-scrollbar">
+          <div
+            ref={dialogContentRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={dialogTitleId}
+            className="relative w-full sm:max-w-xl mx-auto bg-white rounded-t-[1.75rem] sm:rounded-2xl shadow-[0_-8px_30px_rgba(0,0,0,0.12)] p-5 sm:p-6 pb-2 sm:pb-6 flex flex-col animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:fade-in-0 duration-300 max-h-[92dvh] sm:max-h-[90vh]"
+          >
+
+            <div
+              key={transitionKey}
+              className={`flex-1 overflow-y-auto space-y-6 pb-[calc(1rem+env(safe-area-inset-bottom))] px-1 custom-scrollbar ${
+                transitionKey !== undefined ? "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200" : ""
+              }`}
+            >
               {/* 모바일 손잡이(핸들) */}
               <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-5 sm:hidden" />
-              
+
               {/* 헤더 */}
             <div className="flex items-center justify-between pb-1">
-              <h2 className="text-xl font-bold text-gray-800">
-                {mode === "edit" ? "거래 수정" : mode === "confirm-draft" ? "임시 내역 분류" : mode === "quick" ? "빠른 거래 추가" : "거래 추가"}
-              </h2>
+              <div className="min-w-0">
+                <h2 id={dialogTitleId} className="text-xl font-bold text-gray-800 break-keep">
+                  {queueProgress
+                    ? `나중에 분류 · ${queueProgress.current}/${queueProgress.total}`
+                    : mode === "edit"
+                      ? "거래 수정"
+                      : mode === "confirm-draft"
+                        ? "임시 내역 분류"
+                        : mode === "quick"
+                          ? "빠른 기록"
+                          : "거래 추가"}
+                </h2>
+                {queueProgress && (
+                  <div className="mt-2 flex items-center gap-1" aria-hidden="true">
+                    {Array.from({ length: queueProgress.total }).map((_, i) => (
+                      <span
+                        key={i}
+                        className={`h-1.5 w-5 rounded-full ${
+                          i < queueProgress.current - 1
+                            ? "bg-ll-tomato"
+                            : i === queueProgress.current - 1
+                              ? "bg-ll-tomato/60"
+                              : "bg-ll-cream"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => onOpenChange(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -656,31 +747,17 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               {/* 1) 거래유형 (항상 표시, Segmented Control) */}
               <div className="space-y-2">
                 {isQuickExpanded && <Label className="ml-1">거래유형</Label>}
-                <div className="flex p-1 bg-gray-100/80 rounded-xl w-full">
-                  <button
-                    type="button"
-                    onClick={() => setType("EXPENSE")}
-                    className={`flex-1 py-3 sm:py-2 text-base sm:text-sm font-semibold rounded-lg transition-all ${type === "EXPENSE" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
-                  >
-                    지출
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setType("INCOME")}
-                    className={`flex-1 py-3 sm:py-2 text-base sm:text-sm font-semibold rounded-lg transition-all ${type === "INCOME" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
-                  >
-                    수입
-                  </button>
-                  {!isSimpleMode && mode !== "quick" && mode !== "confirm-draft" && (
-                    <button
-                      type="button"
-                      onClick={() => setType("TRANSFER")}
-                      className={`flex-1 py-3 sm:py-2 text-base sm:text-sm font-semibold rounded-lg transition-all ${type === "TRANSFER" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
-                    >
-                      이체/충전
-                    </button>
-                  )}
-                </div>
+                <TransactionTypeSegment
+                  value={type as SegmentType}
+                  onChange={(v) => setType(v)}
+                  options={
+                    !isSimpleMode && mode !== "quick" && mode !== "confirm-draft"
+                      ? ["EXPENSE", "INCOME", "TRANSFER"]
+                      : ["EXPENSE", "INCOME"]
+                  }
+                  labels={mode === "quick" ? { EXPENSE: "쓴 돈", INCOME: "들어온 돈" } : { TRANSFER: "이체/충전" }}
+                  aria-label="거래유형"
+                />
               </div>
 
               {/* 2) 금액 (빠른 등록 시 거대한 입력창) */}
@@ -699,65 +776,34 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                     </Label>
                   </div>
                 )}
-                <div className="flex justify-between items-center ml-1">
-                  <Label htmlFor="amount" className={!isQuickExpanded ? "sr-only" : "text-sm font-semibold text-gray-700"}>금액</Label>
-                  {mode === "quick" && (
+                {mode === "quick" && (
+                  <div className="flex justify-end">
                     <button
                       type="button"
                       onClick={() => setIsQuickExpanded(!isQuickExpanded)}
                       disabled={isTutorialMode}
-                      className={`text-xs transition-colors ml-auto font-medium ${
-                        isTutorialMode 
-                          ? "text-gray-400 cursor-not-allowed" 
+                      className={`text-xs transition-colors font-medium ${
+                        isTutorialMode
+                          ? "text-gray-400 cursor-not-allowed"
                           : "text-sky-600 hover:text-sky-700 hover:underline"
                       }`}
                       title={isTutorialMode ? "튜토리얼 중에는 비활성화됩니다" : ""}
                     >
                       {isTutorialMode ? "튜토리얼 중 비활성화" : (isQuickExpanded ? "빠른 등록으로 전환" : "상세 폼 열기")}
                     </button>
-                  )}
-                </div>
-                
-                <div className="relative">
-                  <Input
-                    id="amount"
-                    inputMode="numeric"
-                    pattern="\d*"
-                    placeholder={!isQuickExpanded ? "얼마인가요?" : "예: 18,000"}
-                    value={amountText}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/[^0-9]/g, "");
-                      setAmountText(digits ? Number(digits).toLocaleString() : "");
-                    }}
-                    className={`transition-all duration-300 ease-out ${
-                      !isQuickExpanded 
-                        ? "h-24 text-4xl sm:text-5xl text-center font-extrabold border-transparent shadow-none bg-transparent px-0 placeholder:text-gray-300 focus-visible:ring-0 focus-visible:border-transparent text-gray-800" 
-                        : "h-14 sm:h-12 text-xl font-bold focus-visible:border-sky-500/50 focus-visible:ring-sky-500/30 focus-visible:ring-[3px] rounded-xl"
-                    }`}
-                  />
-                  {!isQuickExpanded && amountText && (
-                    <span className="absolute right-4 bottom-4 text-2xl font-bold text-gray-800 pointer-events-none hidden sm:block">원</span>
-                  )}
-                </div>
-                
-                <div className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
-                  !isQuickExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                }`}>
-                  <div className="overflow-hidden">
-                    <div className="flex justify-center flex-wrap gap-2 pt-2">
-                      <button type="button" onClick={() => setAmountText(prev => Number((toNumberOrNaN(prev) || 0) + 10000).toLocaleString())} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-full text-sm font-semibold transition-colors">+1만</button>
-                      <button type="button" onClick={() => setAmountText(prev => Number((toNumberOrNaN(prev) || 0) + 50000).toLocaleString())} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-full text-sm font-semibold transition-colors">+5만</button>
-                      <button type="button" onClick={() => setAmountText(prev => Number((toNumberOrNaN(prev) || 0) + 100000).toLocaleString())} className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-full text-sm font-semibold transition-colors">+10만</button>
-                      <button type="button" onClick={() => setAmountText("")} className="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-500 rounded-full text-sm font-semibold transition-colors ml-1">정정</button>
-                    </div>
                   </div>
-                </div>
-
-                {!isAmountValid && amountText.length > 0 && (
-                  <p className={`text-xs text-red-600 ${!isQuickExpanded ? 'text-center' : ''}`}>
-                    금액은 0보다 커야 합니다.
-                  </p>
                 )}
+
+                <AmountInput
+                  id="amount"
+                  hideLabel={!isQuickExpanded}
+                  size={!isQuickExpanded ? "hero" : "field"}
+                  placeholder={!isQuickExpanded ? "얼마인가요?" : "예: 18,000"}
+                  value={amountText ? amountAbs : null}
+                  onChange={(v) => setAmountText(v != null ? v.toLocaleString() : "")}
+                  quickAmounts={!isQuickExpanded ? [10000, 50000, 100000] : []}
+                  error={!isAmountValid && amountText.length > 0 ? "금액은 0보다 커야 합니다." : undefined}
+                />
               </div>
 
               {/* 2) 카테고리 + 세부항목 (애니메이션 래퍼) */}
@@ -771,6 +817,11 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                 <div className="overflow-hidden space-y-5">
                   <div className="space-y-4 pt-1">
                     <div className="space-y-2.5">
+                      {suggestionHint && (
+                        <p className="ml-1 -mt-1 mb-1 text-xs font-medium text-ll-pencil">
+                          💡 {suggestionHint}
+                        </p>
+                      )}
                       <Label className="ml-1 text-sm font-semibold text-gray-700">카테고리</Label>
                       <div className="flex flex-wrap gap-2">
                         {categoryOptions.map((c) => {
@@ -942,7 +993,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               </div>
 
               {error && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {error}
                 </div>
               )}
@@ -951,45 +1002,80 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
             </div>
 
             <div className="sticky bottom-0 bg-gradient-to-t from-white via-white to-white/90 pt-4 pb-[env(safe-area-inset-bottom)] mt-auto z-10">
-              <div className="flex gap-2.5 sm:gap-2 justify-end w-full">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => onOpenChange(false)}
-                  disabled={isSaving}
-                  className="h-14 sm:h-11 text-base sm:text-sm font-bold flex-1 sm:flex-none rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700"
-                >
-                  취소
-                </Button>
-
-                {mode === "quick" && !isQuickExpanded ? (
-                  <Button type="button" onClick={handleSaveDraft} disabled={!canSaveDraft} className="h-14 sm:h-11 text-base sm:text-sm font-bold flex-1 sm:flex-none rounded-xl bg-sky-600 hover:bg-sky-700">
-                    {isSaving ? "저장 중..." : "임시 저장"}
+              {queueProgress ? (
+                // "나중에 분류" 연속 처리 전용 푸터: 나머지는 다음에 / (임시저장) / 저장하고 다음
+                <div className="flex flex-wrap items-center justify-between gap-2.5 w-full">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => (onSkipRemaining ? onSkipRemaining() : onOpenChange(false))}
+                    disabled={isSaving}
+                    className="h-11 text-sm font-bold rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  >
+                    나머지는 다음에
                   </Button>
-                ) : (
-                  <>
-                    {(mode === "confirm-draft" || mode === "quick") && onSaveDraft && (
-                      <Button
+                  <div className="flex items-center gap-3 ml-auto">
+                    {onSaveDraft && (
+                      <button
                         type="button"
                         onClick={handleSaveDraft}
                         disabled={!canSaveDraft}
-                        className="h-14 sm:h-11 text-base sm:text-sm font-bold flex-1 sm:flex-none rounded-xl bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200 hover:border-amber-300"
+                        className="min-h-[44px] px-2 text-xs font-semibold text-gray-500 underline underline-offset-2 hover:text-gray-700 disabled:opacity-40"
                       >
                         {isSaving ? "저장 중..." : "임시저장"}
-                      </Button>
+                      </button>
                     )}
-                    <Button type="button" onClick={handleSubmit} disabled={!canSubmit} className="h-14 sm:h-11 text-base sm:text-sm font-bold flex-[2] sm:flex-none rounded-xl bg-sky-600 hover:bg-sky-700">
-                      {isSaving
-                        ? mode === "edit"
-                          ? "수정 중..."
-                          : "등록 중..."
-                        : mode === "edit"
-                          ? "수정"
-                          : "등록"}
+                    <Button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={!canSubmit}
+                      className="h-11 text-sm font-bold rounded-xl bg-ll-tomato hover:bg-ll-tomato/90"
+                    >
+                      {isSaving ? "저장 중..." : "저장하고 다음 →"}
                     </Button>
-                  </>
-                )}
-              </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-2.5 sm:gap-2 justify-end w-full">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => onOpenChange(false)}
+                    disabled={isSaving}
+                    className="h-14 sm:h-11 text-base sm:text-sm font-bold flex-1 sm:flex-none rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  >
+                    취소
+                  </Button>
+
+                  {mode === "quick" && !isQuickExpanded ? (
+                    <Button type="button" onClick={handleSaveDraft} disabled={!canSaveDraft} className="h-14 sm:h-11 text-base sm:text-sm font-bold flex-1 sm:flex-none rounded-xl bg-ll-tomato hover:bg-ll-tomato/90">
+                      {isSaving ? "기록하는 중..." : "일단 기록해두기 →"}
+                    </Button>
+                  ) : (
+                    <>
+                      {(mode === "confirm-draft" || mode === "quick") && onSaveDraft && (
+                        <Button
+                          type="button"
+                          onClick={handleSaveDraft}
+                          disabled={!canSaveDraft}
+                          className="h-14 sm:h-11 text-base sm:text-sm font-bold flex-1 sm:flex-none rounded-xl bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200 hover:border-amber-300"
+                        >
+                          {isSaving ? "저장 중..." : "임시저장"}
+                        </Button>
+                      )}
+                      <Button type="button" onClick={handleSubmit} disabled={!canSubmit} className="h-14 sm:h-11 text-base sm:text-sm font-bold flex-[2] sm:flex-none rounded-xl bg-sky-600 hover:bg-sky-700">
+                        {isSaving
+                          ? mode === "edit"
+                            ? "수정 중..."
+                            : "등록 중..."
+                          : mode === "edit"
+                            ? "수정"
+                            : "등록"}
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1017,7 +1103,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
             </div>
 
             {subCatError && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {subCatError}
               </div>
             )}

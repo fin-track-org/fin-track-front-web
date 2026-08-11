@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import MonthSelector from "./section/MonthSelector";
 import AttendanceBanner from "./section/AttendanceBanner";
 import QuestProgressWidget from "./section/QuestProgressWidget";
+import UnclassifiedNotes from "./section/UnclassifiedNotes";
 import MonthlyCalendar from "./section/MonthlyCalendar";
 import CategoryChart from "./section/CategoryChart";
 import AccountChart from "./section/AccountChart";
@@ -214,6 +215,9 @@ export default function DashboardPage() {
 
       {/* 0-1. 퀘스트 위젯 */}
       <QuestProgressWidget />
+
+      {/* 0-2. 책상 위 메모 (미분류 거래 → 나중에 분류 진입점) */}
+      <UnclassifiedNotes />
 
       {/* 1. 월 선택 버튼 */}
       <MonthSelector

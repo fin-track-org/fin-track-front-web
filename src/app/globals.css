@@ -161,6 +161,19 @@ button {
   --animate-slide-down-bottom-sheet: slideDownBottomSheet 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-fade-in-overlay: fadeInOverlay 0.2s ease-out forwards;
   --animate-fade-out-overlay: fadeOutOverlay 0.2s ease-out forwards;
+
+  /* =========================
+     "게으른 가계부" 디자인 시스템 v1 브랜드 토큰
+     (DESIGN_SYSTEM.mobile-fix.md 기준 — 빠른 기록 → 나중에 분류 흐름 전용)
+     ========================= */
+  --color-ll-ink: #20283a;
+  --color-ll-paper: #fffaf0;
+  --color-ll-cream: #f3ebd9;
+  --color-ll-butter: #f5ca52;
+  --color-ll-tomato: #ef6a4d;
+  --color-ll-mint: #a8d7bf;
+  --color-ll-periwinkle: #8297d1;
+  --color-ll-pencil: #6c6b62;
 }
 
 @keyframes slideUpBottomSheet {

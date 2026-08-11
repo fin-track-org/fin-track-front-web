@@ -1,5 +1,7 @@
 import React from "react";
 import { Trash2 } from "lucide-react";
+import { StatePanel } from "@/src/components/ledger/StatePanel";
+import { PawStamp } from "@/src/components/ledger/PawStamp";
 
 export default function DraftInbox({ drafts, isLoading, onOpenDraft, onDeleteDraft }: {
   drafts: any[];
@@ -8,14 +10,17 @@ export default function DraftInbox({ drafts, isLoading, onOpenDraft, onDeleteDra
   onDeleteDraft: (id: string) => void;
 }) {
   if (isLoading) {
-    return <div className="py-12 text-center text-sm text-gray-500">임시 보관함 불러오는 중...</div>;
+    return <StatePanel loading title="다음 건 준비하는 중..." />;
   }
 
   if (drafts.length === 0) {
     return (
-      <div className="py-12 text-center">
-        <p className="text-gray-400 text-sm">임시 보관함이 비어 있습니다.</p>
-        <p className="text-gray-300 text-xs mt-1">빠른 추가로 등록한 내역이 여기에 쌓입니다.</p>
+      <div className="flex flex-col items-center gap-4 py-12 text-center">
+        <PawStamp size="sm" />
+        <div>
+          <p className="text-sm font-bold text-ll-ink break-keep">책상 위 영수증을 모두 정리했어요.</p>
+          <p className="mt-1 text-xs text-ll-pencil break-keep">일단 기록으로 등록한 내역이 여기에 쌓여요.</p>
+        </div>
       </div>
     );
   }
@@ -25,14 +30,15 @@ export default function DraftInbox({ drafts, isLoading, onOpenDraft, onDeleteDra
       {drafts.map((draft) => (
         <div
           key={draft.id}
-          className="w-full flex items-center justify-between px-5 py-4 bg-white border border-amber-100 rounded-xl shadow-sm hover:border-amber-300 transition-colors"
+          className="w-full flex items-center justify-between px-5 py-4 bg-white border border-ll-tomato/20 rounded-xl shadow-sm hover:border-ll-tomato/50 transition-colors"
         >
-          <div 
-            className="flex-1 flex items-center justify-between cursor-pointer group pr-4"
+          <button
+            type="button"
+            className="min-h-[44px] flex-1 flex items-center justify-between cursor-pointer group pr-4 text-left"
             onClick={() => onOpenDraft(draft)}
           >
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium text-gray-800">
+              <span className="text-sm font-medium text-gray-800 break-keep">
                 {draft.description || "(설명 없음)"}
               </span>
               <span className="text-xs text-gray-400">{draft.date}</span>
@@ -46,11 +52,11 @@ export default function DraftInbox({ drafts, isLoading, onOpenDraft, onDeleteDra
                 {draft.type !== "INCOME" ? "-" : "+"}
                 {Math.abs(draft.amount).toLocaleString()}원
               </span>
-              <span className="text-xs text-amber-400 group-hover:text-amber-600 transition-colors whitespace-nowrap hidden sm:inline">
+              <span className="text-xs text-ll-tomato group-hover:underline transition-colors whitespace-nowrap hidden sm:inline">
                 탭하여 분류하기 →
               </span>
             </div>
-          </div>
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();

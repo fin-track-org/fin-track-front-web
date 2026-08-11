@@ -77,13 +77,47 @@ export default function GlobalQuickAdd() {
 
   const { mutateAsync: submitQuickAsync } = useMutation({
     mutationFn: quickAddTransaction,
+    // 낙관적 업데이트: 서버 응답을 기다리지 않고 "나중에 분류" 목록에 바로 반영한다.
+    // (design-package/screens-v1/HANDOFF.md "빠른 기록은 낙관적으로 목록에 반영하며 실패 시 입력값 유지")
+    onMutate: async (payload) => {
+      await queryClient.cancelQueries({ queryKey: ["drafts"] });
+      const previousDrafts = queryClient.getQueryData<DraftTransaction[]>(["drafts"]);
+
+      const optimisticDraft: DraftTransaction = {
+        id: `optimistic-${Date.now()}`,
+        date: payload.date,
+        amount:
+          payload.type === "EXPENSE"
+            ? -Math.abs(payload.amount)
+            : Math.abs(payload.amount),
+        type: payload.type === "INCOME" ? "INCOME" : "EXPENSE",
+        category: null,
+        subcategory: null,
+        description: payload.description,
+        sortOrder: 0,
+        account: null,
+      };
+
+      queryClient.setQueryData<DraftTransaction[]>(["drafts"], (old) => [
+        optimisticDraft,
+        ...(old ?? []),
+      ]);
+
+      return { previousDrafts };
+    },
+    onError: (error, _payload, context) => {
+      // 실패 시 목록을 원래대로 되돌린다. 입력값 자체는 모달이 닫히지 않아 그대로 유지된다.
+      if (context?.previousDrafts) {
+        queryClient.setQueryData(["drafts"], context.previousDrafts);
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["drafts"] });
       queryClient.invalidateQueries({ queryKey: ["recentTransactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboardBalances"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setIsModalOpen(false);
-      toast.success("임시 등록이 완료되었습니다!");
+      toast.success("잘 적어뒀어요. 분류는 나중에 해도 돼요.");
 
       if (activeQuestCode === "FAST_DRAFT" && stepIndex === 2) {
         nextStep(); // 폼 저장 시 즉시 스텝을 3으로 증가시켜 모달 닫힘에 의한 stopQuest 방지

@@ -39,4 +39,19 @@ interface AddTransactionModalProps {
   defaultValues?: Partial<CreateTransactionPayload>;
   mode: "create" | "edit" | "confirm-draft" | "quick";
   isTutorialMode?: boolean;
+
+  /**
+   * "나중에 분류" 연속 처리(SequentialCategorizer) 전용 옵션.
+   * 지정하지 않으면 기존 단건 create/edit/confirm-draft/quick 동작과 완전히 동일하다.
+   */
+  /** 지정 시 헤더가 "나중에 분류 · i/N"로 바뀌고, 진행 상황 표시와 전용 푸터가 노출된다. */
+  queueProgress?: { current: number; total: number };
+  /** 큐 모드에서 "나머지는 다음에" 버튼을 노출하고 클릭 시 호출한다. */
+  onSkipRemaining?: () => void;
+  /** false면 onSubmit 성공 후에도 모달을 자동으로 닫거나 입력값을 리셋하지 않는다. (기본 true) */
+  autoCloseOnSubmit?: boolean;
+  /** 큐 항목이 바뀔 때마다 다른 값을 넘기면 180~240ms 전환 애니메이션이 재생된다 (reduced-motion에서 자동 제거). */
+  transitionKey?: string | number;
+  /** 카테고리 추천 근거를 사람이 읽는 한 문장으로 보여준다. 근거가 없으면 넘기지 않는다. */
+  suggestionHint?: string;
 }
