@@ -51,8 +51,10 @@ export default function UnclassifiedNotes() {
   };
 
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:p-6">
-      <div className="mb-3 flex items-center justify-between">
+    // 카드로 감싸지 않고 종이 배경 위에 포스트잇을 그대로 흩뿌려 놓는다.
+    // (DESIGN_SYSTEM.md "카드 반복 대신 구분선, 여백, 종이 형태를 혼합한다" / 하이파이 시안의 "책상 위 메모" 참고)
+    <section>
+      <div className="mb-3 flex items-center justify-between px-1">
         <h2 className="text-base font-bold text-gray-900 md:text-lg">책상 위 메모</h2>
         <button
           type="button"
