@@ -18,12 +18,17 @@ interface AmountInputProps {
   disabled?: boolean;
 }
 
-/** 자릿수에 따라 폰트 크기를 단계적으로 축소해 레이아웃 넘침을 막는다. */
+/**
+ * 자릿수에 따라 폰트 크기를 단계적으로 축소해 레이아웃 넘침을 막는다.
+ * 6자리 이하(~99만원대, 실제 대부분의 거래 금액)일 때가 기존 빠른 등록 입력창과
+ * 같은 최대 크기(모바일 text-4xl / sm 이상 text-5xl)가 되도록 맞췄다 — 리팩터 과정에서
+ * 한 단계 더 커져 있던 것을 원래 크기로 되돌림.
+ */
 function heroFontClass(digitLength: number) {
-  if (digitLength <= 6) return "text-5xl sm:text-6xl";
-  if (digitLength <= 9) return "text-4xl sm:text-5xl";
-  if (digitLength <= 12) return "text-3xl sm:text-4xl";
-  return "text-2xl sm:text-3xl";
+  if (digitLength <= 6) return "text-4xl sm:text-5xl";
+  if (digitLength <= 9) return "text-3xl sm:text-4xl";
+  if (digitLength <= 12) return "text-2xl sm:text-3xl";
+  return "text-xl sm:text-2xl";
 }
 
 /**

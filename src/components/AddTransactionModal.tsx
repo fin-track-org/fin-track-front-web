@@ -42,19 +42,26 @@ import { TransactionTypeSegment, type SegmentType } from "@/src/components/ledge
   { id: "NH", name: "NH" },
 ] as const; */
 
-/** 카테고리 자동 선택 안내 문구. 추천 근거에 따라 다르게 표시한다(사용자 요청). */
+/**
+ * 카테고리 자동 선택 안내 문구. 추천 근거별로 구분한다
+ * (design-package/../DECISION_001, QA_REVIEW_004 후속 작업지시).
+ */
 function getAutoSelectBannerText(
   basis?: "memo-history" | "recent-choice" | "frequency" | "none",
 ): string {
   if (basis === "frequency") return "최근 자주 쓴 분류로 자동 선택했어요";
-  // memo-history(서버 이력) / recent-choice(로컬 기억)는 둘 다 "과거 기록" 기반이라 같은 문구를 쓴다.
-  return "지난 기록을 참고해 자동 선택했어요";
+  if (basis === "recent-choice") return "최근에 고른 분류로 자동 선택했어요";
+  return "지난 기록을 참고해 자동 선택했어요"; // memo-history
 }
 
-/** 칩/선택 옆에 붙는 작은 "자동 선택" 배지. */
+/**
+ * 칩/선택 옆에 붙는 작은 "자동 선택" 배지.
+ * 강한 팝업 대신 150~200ms 정도의 가벼운 fade만 사용하고(motion-reduce에서는 생략),
+ * transform 없이 opacity만 바꿔 레이아웃 이동을 최소화한다(QA_REVIEW_004).
+ */
 function AutoSelectBadge({ label = "자동 선택" }: { label?: string }) {
   return (
-    <span className="ml-1.5 inline-flex items-center rounded-full bg-ll-mint px-1.5 py-0.5 text-[10px] font-bold text-ll-ink align-middle">
+    <span className="ml-1.5 inline-flex items-center rounded-full bg-ll-mint px-1.5 py-0.5 text-[10px] font-bold text-ll-ink align-middle motion-safe:animate-in motion-safe:fade-in motion-safe:duration-[175ms]">
       ✦ {label}
     </span>
   );
@@ -904,7 +911,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                   <div className="space-y-4 pt-1">
                     <div className="space-y-2.5">
                       {recommendationState.category === "auto" && (
-                        <p className="ml-1 -mt-1 mb-1 text-xs font-medium text-ll-pencil">
+                        <p className="ml-1 -mt-1 mb-1 text-xs font-medium text-ll-pencil motion-safe:animate-in motion-safe:fade-in motion-safe:duration-[175ms]">
                           ✦ {getAutoSelectBannerText(suggestionBasis)}
                         </p>
                       )}
@@ -961,8 +968,9 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                                   : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
                               }`}
                             >
+                              {/* 세부항목 칩에는 배지를 반복하지 않는다 — 대분류 배지·상단 안내로 충분하고,
+                                  모바일에서 칩이 길어지는 걸 막는다(QA_REVIEW_004 "세부항목 배지 제거"). */}
                               {sc.name}
-                              {isSelected && recommendationState.subCategory === "auto" && <AutoSelectBadge />}
                             </button>
                           );
                         })}
@@ -1027,7 +1035,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                         </Select>
                       )}
                       {recommendationState.account === "auto" && (
-                        <p className="ml-1 text-[11px] font-medium text-ll-pencil">✦ 최근 기록 기준</p>
+                        <p className="ml-1 text-[11px] font-medium text-ll-pencil motion-safe:animate-in motion-safe:fade-in motion-safe:duration-[175ms]">✦ 최근 기록 기준</p>
                       )}
                     </div>
                     
