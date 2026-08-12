@@ -19,6 +19,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // SMTP 미구성으로 이메일 인증 메일이 불안정해, 소셜 로그인을 먼저 유도하기 위해
+  // 이메일 로그인은 토글 뒤에 다시 숨긴다(사용자 명시 지시 — 브리프 §5의 "토글 없이 표시"에서 의도적으로 벗어남).
+  const [showEmailLogin, setShowEmailLogin] = useState(false);
+
   const [emailLoading, setEmailLoading] = useState(false);
   const [kakaoLoading, setKakaoLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -137,60 +141,76 @@ export default function LoginPage() {
         disabled={emailLoading}
       />
 
+      {/* 소셜/이메일 로그인 공통 에러 영역 — 이메일 폼이 접혀 있어도(토글 전) 카카오·Google
+          실패나 OAuth 콜백 reason 안내가 항상 보이도록 토글 바깥에 둔다. */}
+      {error && <StatePanel tone="warn" title={error} className="mt-4" />}
+
       <div className="my-6 flex items-center" aria-hidden="true">
         <div className="h-px flex-grow bg-ll-ink/10" />
         <span className="mx-4 text-xs font-medium text-ll-pencil">또는</span>
         <div className="h-px flex-grow bg-ll-ink/10" />
       </div>
 
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div>
-          <Label htmlFor="email" className="mb-1.5 block text-xs font-semibold text-ll-pencil">
-            이메일
-          </Label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={formLocked}
-            placeholder="you@example.com"
-            className="block w-full rounded-xl border border-ll-ink/15 bg-white px-4 py-3 text-base text-ll-ink placeholder-ll-pencil/40 outline-none transition-colors focus-visible:border-ll-tomato focus-visible:ring-2 focus-visible:ring-ll-tomato/30 disabled:opacity-60"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="password" className="mb-1.5 block text-xs font-semibold text-ll-pencil">
-            비밀번호
-          </Label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={formLocked}
-            placeholder="비밀번호"
-            className="block w-full rounded-xl border border-ll-ink/15 bg-white px-4 py-3 text-base text-ll-ink placeholder-ll-pencil/40 outline-none transition-colors focus-visible:border-ll-tomato focus-visible:ring-2 focus-visible:ring-ll-tomato/30 disabled:opacity-60"
-          />
-        </div>
-
-        {error && <StatePanel tone="warn" title={error} />}
-
+      {!showEmailLogin ? (
         <button
-          type="submit"
+          type="button"
+          onClick={() => setShowEmailLogin(true)}
           disabled={formLocked}
-          aria-busy={emailLoading}
-          className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-ll-ink text-base font-bold text-ll-paper transition-colors hover:bg-ll-ink/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-ll-ink/15 bg-white text-sm font-semibold text-ll-pencil transition-colors hover:bg-ll-cream hover:text-ll-ink disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {emailLoading ? "로그인하는 중..." : "이메일로 로그인"}
+          이메일로 로그인
         </button>
-      </form>
+      ) : (
+        <form
+          className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200 space-y-4"
+          onSubmit={handleSubmit}
+        >
+          <div>
+            <Label htmlFor="email" className="mb-1.5 block text-xs font-semibold text-ll-pencil">
+              이메일
+            </Label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={formLocked}
+              placeholder="you@example.com"
+              className="block w-full rounded-xl border border-ll-ink/15 bg-white px-4 py-3 text-base text-ll-ink placeholder-ll-pencil/40 outline-none transition-colors focus-visible:border-ll-tomato focus-visible:ring-2 focus-visible:ring-ll-tomato/30 disabled:opacity-60"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="password" className="mb-1.5 block text-xs font-semibold text-ll-pencil">
+              비밀번호
+            </Label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={formLocked}
+              placeholder="비밀번호"
+              className="block w-full rounded-xl border border-ll-ink/15 bg-white px-4 py-3 text-base text-ll-ink placeholder-ll-pencil/40 outline-none transition-colors focus-visible:border-ll-tomato focus-visible:ring-2 focus-visible:ring-ll-tomato/30 disabled:opacity-60"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={formLocked}
+            aria-busy={emailLoading}
+            className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-ll-ink text-base font-bold text-ll-paper transition-colors hover:bg-ll-ink/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {emailLoading ? "로그인하는 중..." : "이메일로 로그인"}
+          </button>
+        </form>
+      )}
 
       <p className="mt-8 text-center text-sm text-ll-pencil">
         아직 계정이 없으신가요?{" "}
