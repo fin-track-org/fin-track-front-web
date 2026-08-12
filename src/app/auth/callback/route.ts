@@ -13,6 +13,10 @@ export async function GET(request: Request) {
     const protocol = request.headers.get('x-forwarded-proto') ?? 'http';
     const actualOrigin = `${protocol}://${host}`;
 
+    // /login으로 돌아갈 때 함께 전달할, 안전한 상태 코드만 담는다.
+    // provider 오류 원문·토큰·code·사용자 정보는 절대 담지 않는다(IMPLEMENTATION_BRIEF_002 §8).
+    let loginReason: 'oauth_cancelled' | 'session_failed' | null = null;
+
     if (code) {
         const supabase = await createClient();
 
@@ -87,11 +91,16 @@ export async function GET(request: Request) {
             if (action === 'link') {
                 return NextResponse.redirect(`${actualOrigin}/home/profile`);
             }
+            loginReason = 'session_failed';
         }
     } else if (action === 'link') {
         // code가 없는 경우 (카카오 인증 취소 또는 에러) → 프로필로 복귀
         return NextResponse.redirect(`${actualOrigin}/home/profile`);
+    } else {
+        // code가 없고 일반 로그인 흐름인 경우: 대부분 사용자가 OAuth 창을 스스로 취소한 경우다.
+        loginReason = 'oauth_cancelled';
     }
 
-    return NextResponse.redirect(`${actualOrigin}/login`);
+    const loginUrl = loginReason ? `${actualOrigin}/login?reason=${loginReason}` : `${actualOrigin}/login`;
+    return NextResponse.redirect(loginUrl);
 }
