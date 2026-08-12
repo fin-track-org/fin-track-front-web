@@ -107,8 +107,15 @@ export default function GlobalQuickAdd() {
     },
     onError: (error, _payload, context) => {
       // 실패 시 목록을 원래대로 되돌린다. 입력값 자체는 모달이 닫히지 않아 그대로 유지된다.
-      if (context?.previousDrafts) {
+      // `previousDrafts`는 빈 배열([])이면 truthy이므로 존재 여부는 undefined 비교로만 판단한다
+      // (DESIGN_QA_01.md P2-1: 캐시가 아예 없던 첫 방문 상태에서는 낙관적 항목이 안 지워지던 문제 수정)
+      if (!context) return;
+      if (context.previousDrafts !== undefined) {
         queryClient.setQueryData(["drafts"], context.previousDrafts);
+      } else {
+        // 애초에 캐시된 값이 없었다면(첫 조회 전) 방금 낙관적으로 넣은 항목만 지우고
+        // 다음에 실제로 필요할 때 서버에서 새로 받아오도록 쿼리 자체를 제거한다.
+        queryClient.removeQueries({ queryKey: ["drafts"], exact: true });
       }
     },
     onSuccess: () => {

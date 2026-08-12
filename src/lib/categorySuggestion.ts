@@ -34,6 +34,8 @@ interface RememberedChoice {
   categoryId: string;
   subCategoryId?: string;
   accountId?: string;
+  /** 거래 유형. DESIGN_QA_02.md P1-2R 이전에 저장된 값은 이 필드가 없어 undefined일 수 있다. */
+  type?: TransactionType;
   updatedAt: number;
 }
 
@@ -56,16 +58,21 @@ function writeStore(store: Record<string, RememberedChoice>) {
   }
 }
 
-/** 분류 완료 시 호출 — 다음에 같은 메모가 오면 우선순위 2로 사용된다. */
+/**
+ * 분류 완료 시 호출 — 다음에 같은 메모 + 같은 거래 유형이 오면 우선순위 2로 사용된다.
+ * 거래 유형을 함께 저장해야 "월급"처럼 같은 메모가 수입/지출 모두에 쓰이는 경우
+ * 서로 다른 유형에 잘못 추천되지 않는다(DESIGN_QA_02.md P1-2R).
+ */
 export function rememberCategoryChoice(
   description: string,
+  type: TransactionType,
   choice: { categoryId: string; subCategoryId?: string; accountId?: string },
 ): void {
   const key = normalizeMemo(description);
   if (!key) return;
 
   const store = readStore();
-  store[key] = { ...choice, updatedAt: Date.now() };
+  store[key] = { ...choice, type, updatedAt: Date.now() };
 
   // 저장소가 너무 커지지 않도록 오래된 항목부터 정리한다.
   const entries = Object.entries(store);
@@ -79,26 +86,48 @@ export function rememberCategoryChoice(
   writeStore(store);
 }
 
-function getRememberedChoice(description: string): RememberedChoice | undefined {
+/**
+ * 같은 메모 + 같은 거래 유형으로 기억된 선택만 반환한다.
+ * `type`이 없는 과거 데이터(P1-2R 수정 이전에 저장됨)는 유형을 신뢰할 수 없으므로
+ * 마이그레이션 없이 그냥 무시한다.
+ */
+function getRememberedChoice(description: string, type: TransactionType): RememberedChoice | undefined {
   const key = normalizeMemo(description);
   if (!key) return undefined;
-  return readStore()[key];
+  const found = readStore()[key];
+  if (!found || found.type !== type) return undefined;
+  return found;
+}
+
+/** 이체/저축/잔액조정 등 사용자가 직접 고를 수 없는 시스템 카테고리 코드인지 검사한다. */
+const SYSTEM_CATEGORY_CODE_PREFIXES = ["TRANSFER_", "SAVINGS_", "BALANCE_ADJUST_"];
+export function isSystemCategoryCode(code?: string | null): boolean {
+  if (!code) return false;
+  return SYSTEM_CATEGORY_CODE_PREFIXES.some((prefix) => code.startsWith(prefix));
 }
 
 /**
- * 우선순위 1: 서버에서 같은 메모(정확 일치, 공백/대소문자 무시)로
- * 최근에 정식 등록된 거래를 찾아 그 분류를 추천한다.
+ * 우선순위 1: 서버에서 같은 메모(정확 일치, 공백/대소문자 무시)이면서
+ * **같은 거래 유형**으로 최근에 정식 등록된 거래를 찾아 그 분류를 추천한다.
+ * 이체/저축/잔액조정 같은 시스템 카테고리는 일반 분류에 추천하지 않는다.
  * 호출부에서 `fetchTransactions({ keyword, size, sortDirection: "DESC" })` 결과를 넘겨준다.
+ *
+ * (DESIGN_QA_01.md P1-2: 거래 유형/시스템 카테고리를 구분하지 않던 문제 수정)
  */
 export function findMemoMatch(
   description: string,
+  type: TransactionType,
   candidates: Transaction[],
 ): Transaction | undefined {
   const target = normalizeMemo(description);
   if (!target) return undefined;
 
   return candidates.find(
-    (t) => !!t.category && normalizeMemo(t.description) === target,
+    (t) =>
+      t.type === type &&
+      !!t.category &&
+      !isSystemCategoryCode(t.category.code) &&
+      normalizeMemo(t.description) === target,
   );
 }
 
@@ -115,9 +144,7 @@ export function findFrequentCategory(
   for (const t of recentTransactions) {
     if (t.type !== type || !t.category) continue;
     // 이체/저축/잔액조정 등 시스템 카테고리는 추천 대상에서 제외한다.
-    if (t.category.code?.startsWith("TRANSFER_") || t.category.code?.startsWith("SAVINGS_") || t.category.code?.startsWith("BALANCE_ADJUST_")) {
-      continue;
-    }
+    if (isSystemCategoryCode(t.category.code)) continue;
     counts.set(t.category.id, (counts.get(t.category.id) ?? 0) + 1);
   }
 
@@ -144,8 +171,8 @@ export function buildCategorySuggestion({
   memoMatches,
   recentTransactions,
 }: BuildSuggestionInput): CategorySuggestion {
-  // 1) 같은 메모의 최근 이력
-  const memoMatch = findMemoMatch(description, memoMatches);
+  // 1) 같은 메모 + 같은 거래 유형의 최근 이력
+  const memoMatch = findMemoMatch(description, type, memoMatches);
   if (memoMatch?.category) {
     return {
       categoryId: memoMatch.category.id,
@@ -156,8 +183,8 @@ export function buildCategorySuggestion({
     };
   }
 
-  // 2) 클라이언트에 기억된 최근 선택
-  const remembered = getRememberedChoice(description);
+  // 2) 클라이언트에 기억된 최근 선택 (같은 거래 유형일 때만)
+  const remembered = getRememberedChoice(description, type);
   if (remembered) {
     return {
       categoryId: remembered.categoryId,
@@ -180,4 +207,41 @@ export function buildCategorySuggestion({
 
   // 4) 근거 없음 — 추천 표시 없이 기본 목록만 제공
   return { basis: "none" };
+}
+
+/**
+ * 추천된 categoryId/accountId가 지금 화면에 실제로 선택 가능한지 검증하고,
+ * 아니면 제거한다. 검증 기준(DESIGN_QA_02.md P1-2R로 강화됨):
+ *  - 카테고리가 현재 로드된 목록에 실제로 존재하는가
+ *  - 그 카테고리의 유형이 **지금 작성 중인 거래 유형과 같은가**
+ *  - 이체/저축/잔액조정 같은 시스템 카테고리가 아닌가
+ * 대분류가 무효화되면 그에 딸린 소분류 추천과 안내 문구도 함께 버린다.
+ */
+export function sanitizeSuggestion(
+  suggestion: CategorySuggestion,
+  type: TransactionType,
+  categories: Array<{ id: string; type: string; code?: string | null }>,
+  accounts: Array<{ id: string }>,
+): CategorySuggestion {
+  const matchedCategory = suggestion.categoryId
+    ? categories.find((c) => c.id === suggestion.categoryId)
+    : undefined;
+  const categoryValid =
+    !!matchedCategory && matchedCategory.type === type && !isSystemCategoryCode(matchedCategory.code);
+  const accountValid = !!suggestion.accountId && accounts.some((a) => a.id === suggestion.accountId);
+  const categoryDropped = !!suggestion.categoryId && !categoryValid;
+
+  if (!categoryValid && !accountValid) {
+    // 추천으로 쓸 만한 값이 하나도 안 남았으면 힌트 문구도 같이 지운다.
+    return { basis: categoryDropped ? "none" : suggestion.basis };
+  }
+
+  return {
+    categoryId: categoryValid ? suggestion.categoryId : undefined,
+    subCategoryId: categoryValid ? suggestion.subCategoryId : undefined,
+    accountId: accountValid ? suggestion.accountId : undefined,
+    basis: suggestion.basis,
+    // 대분류 추천이 버려졌는데 그 근거를 설명하는 힌트를 남겨두면 사용자가 헷갈리므로 함께 지운다.
+    hint: categoryDropped ? undefined : suggestion.hint,
+  };
 }

@@ -42,6 +42,24 @@ import { TransactionTypeSegment, type SegmentType } from "@/src/components/ledge
   { id: "NH", name: "NH" },
 ] as const; */
 
+/** 카테고리 자동 선택 안내 문구. 추천 근거에 따라 다르게 표시한다(사용자 요청). */
+function getAutoSelectBannerText(
+  basis?: "memo-history" | "recent-choice" | "frequency" | "none",
+): string {
+  if (basis === "frequency") return "최근 자주 쓴 분류로 자동 선택했어요";
+  // memo-history(서버 이력) / recent-choice(로컬 기억)는 둘 다 "과거 기록" 기반이라 같은 문구를 쓴다.
+  return "지난 기록을 참고해 자동 선택했어요";
+}
+
+/** 칩/선택 옆에 붙는 작은 "자동 선택" 배지. */
+function AutoSelectBadge({ label = "자동 선택" }: { label?: string }) {
+  return (
+    <span className="ml-1.5 inline-flex items-center rounded-full bg-ll-mint px-1.5 py-0.5 text-[10px] font-bold text-ll-ink align-middle">
+      ✦ {label}
+    </span>
+  );
+}
+
 export default function AddTransactionModal(props: AddTransactionModalProps) {
   const {
     open,
@@ -57,7 +75,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     onSkipRemaining,
     autoCloseOnSubmit = true,
     transitionKey,
-    suggestionHint,
+    suggestedValues,
+    suggestionBasis,
   } = props;
 
   const queryClient = useQueryClient();
@@ -102,6 +121,24 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   const [accountId, setAccountId] = useState<string>(
     defaultValues?.accountId ?? "",
   );
+
+  // 카테고리/세부항목/결제수단이 "추천으로 자동 채워졌는지(auto)", "사용자가 직접 골랐는지(user)",
+  // "아직 아무 일도 없었는지(none)"를 필드별로 추적한다.
+  //  - auto: 추천 배지("자동 선택" 등)를 노출하고, 다음 추천이 이 필드를 다시 덮어써도 된다.
+  //  - user: 사용자가 이미 손댔으므로 배지를 숨기고, 이후 어떤 추천도 이 필드에 적용하지 않는다.
+  //    (같은 값을 다시 골라도 배지는 복구하지 않는다 — 사용자 요청사항)
+  //  - none: 추천 대상이 아니었거나 draft가 바뀌어 아직 아무것도 적용되지 않은 초기 상태.
+  // defaultValues가 바뀌어 폼이 리셋될 때 전부 "none"으로 초기화된다.
+  type RecommendationFieldState = "auto" | "user" | "none";
+  const [recommendationState, setRecommendationState] = useState<{
+    category: RecommendationFieldState;
+    subCategory: RecommendationFieldState;
+    account: RecommendationFieldState;
+  }>({ category: "none", subCategory: "none", account: "none" });
+
+  const markFieldAsUser = (field: "category" | "subCategory" | "account") => {
+    setRecommendationState((prev) => ({ ...prev, [field]: "user" }));
+  };
 
   const [description, setDescription] = useState<string>(
     defaultValues?.description ?? "",
@@ -439,7 +476,41 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     );
     setError("");
     setSubCatError("");
+    // 새 항목(defaultValues)으로 폼이 리셋됐으니, 사용자가 이 항목에서
+    // 아직 아무것도 고르지 않은 상태로 되돌린다.
+    setRecommendationState({ category: "none", subCategory: "none", account: "none" });
   }, [open, defaultValues]);
+
+  // 늦게 도착하는 추천값(suggestedValues) 적용: 폼을 통째로 리셋하지 않고
+  // 지금 비어 있고 사용자가 아직 건드리지 않은("user"가 아닌) 필드에만 채워 넣고,
+  // 그 필드를 "auto"로 표시해 자동 선택 배지가 뜨도록 한다.
+  // (DESIGN_QA_01.md P1-1, 사용자 요청: 자동 선택 필드 시각화)
+  useEffect(() => {
+    if (!open || !suggestedValues) return;
+
+    if (suggestedValues.categoryId && recommendationState.category !== "user" && !category) {
+      setCategory(suggestedValues.categoryId);
+      setRecommendationState((prev) => ({ ...prev, category: "auto" }));
+    }
+    // 소분류 추천은 "지금 적용된 대분류가 추천 대분류와 같을 때만" 적용한다.
+    // category가 suggestedValues와 다르면(사용자가 직접 다른 대분류를 골랐거나 아직
+    // 추천 대분류가 반영되기 전이면) 엉뚱한 대분류에 남의 소분류가 섞이는 걸 막는다
+    // (DESIGN_QA_02.md P1-1R). category를 deps에 넣어 대분류가 늦게 채워진 뒤에도
+    // 이 effect가 다시 평가되도록 한다.
+    if (
+      suggestedValues.subCategoryId &&
+      recommendationState.subCategory !== "user" &&
+      !subCategory &&
+      category === suggestedValues.categoryId
+    ) {
+      setSubCategory(suggestedValues.subCategoryId);
+      setRecommendationState((prev) => ({ ...prev, subCategory: "auto" }));
+    }
+    if (suggestedValues.accountId && recommendationState.account !== "user" && !accountId) {
+      setAccountId(suggestedValues.accountId);
+      setRecommendationState((prev) => ({ ...prev, account: "auto" }));
+    }
+  }, [open, suggestedValues, category, subCategory, accountId, recommendationState]);
 
   // 간편모드 & 저축/투자 체크 시 도착 계좌(저축/투자 계좌) 자동 선택 및 고정
   useEffect(() => {
@@ -491,6 +562,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       });
 
       // 추가된 항목 즉시 선택
+      markFieldAsUser("subCategory");
       setSubCategory(created.id);
 
       // 닫기 + 입력 리셋
@@ -603,6 +675,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   }
 
   const handleAccountIdChange = (val: string) => {
+    markFieldAsUser("account");
     setAccountId(val);
     if (type === "TRANSFER" && toAccountId) {
       const selected = accounts.find((a) => a.id === val);
@@ -671,19 +744,32 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                           : "거래 추가"}
                 </h2>
                 {queueProgress && (
-                  <div className="mt-2 flex items-center gap-1" aria-hidden="true">
-                    {Array.from({ length: queueProgress.total }).map((_, i) => (
-                      <span
-                        key={i}
-                        className={`h-1.5 w-5 rounded-full ${
-                          i < queueProgress.current - 1
-                            ? "bg-ll-tomato"
-                            : i === queueProgress.current - 1
-                              ? "bg-ll-tomato/60"
-                              : "bg-ll-cream"
-                        }`}
-                      />
-                    ))}
+                  // 10건까지는 점/막대로, 그 이상은 단일 progress bar로 축약한다.
+                  // (DESIGN_QA_01.md P2-4: 항목이 많으면 모바일에서 가로로 넘치던 문제 수정)
+                  <div className="mt-2" aria-hidden="true">
+                    {queueProgress.total <= 10 ? (
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: queueProgress.total }).map((_, i) => (
+                          <span
+                            key={i}
+                            className={`h-1.5 w-5 rounded-full ${
+                              i < queueProgress.current - 1
+                                ? "bg-ll-tomato"
+                                : i === queueProgress.current - 1
+                                  ? "bg-ll-tomato/60"
+                                  : "bg-ll-cream"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-ll-cream">
+                        <div
+                          className="h-full rounded-full bg-ll-tomato transition-all duration-200"
+                          style={{ width: `${(queueProgress.current / queueProgress.total) * 100}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -817,9 +903,9 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                 <div className="overflow-hidden space-y-5">
                   <div className="space-y-4 pt-1">
                     <div className="space-y-2.5">
-                      {suggestionHint && (
+                      {recommendationState.category === "auto" && (
                         <p className="ml-1 -mt-1 mb-1 text-xs font-medium text-ll-pencil">
-                          💡 {suggestionHint}
+                          ✦ {getAutoSelectBannerText(suggestionBasis)}
                         </p>
                       )}
                       <Label className="ml-1 text-sm font-semibold text-gray-700">카테고리</Label>
@@ -831,18 +917,25 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                               key={c.id}
                               type="button"
                               onClick={() => {
+                                // 대분류를 직접 바꾸면(선택/해제 모두) 세부항목은 항상 비우고,
+                                // 이후 늦게 도착하는 추천 소분류도 더 이상 자동 적용하지 않는다.
+                                // 다른 대분류를 골랐는데 추천 대분류의 소분류가 섞여 들어가는 걸 막기 위함
+                                // (DESIGN_QA_02.md P1-1R). 자동 선택 배지도 이 순간 함께 사라진다.
+                                markFieldAsUser("category");
+                                markFieldAsUser("subCategory");
                                 setCategory(isSelected ? "" : c.id);
-                                if (isSelected) setSubCategory(""); // 카테고리 취소 시 세부항목도 초기화
+                                setSubCategory("");
                               }}
                               className={`px-3 py-1.5 rounded-[10px] text-[13px] font-bold transition-all duration-200 ease-in-out whitespace-nowrap ${
                                 category && !isSelected
                                   ? "bg-white text-gray-400 border border-gray-100 opacity-50 scale-[0.98] hover:opacity-80"
-                                  : isSelected 
-                                    ? "bg-gray-800 text-white shadow-md scale-100 border border-gray-800" 
+                                  : isSelected
+                                    ? "bg-gray-800 text-white shadow-md scale-100 border border-gray-800"
                                     : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200 scale-100"
                               }`}
                             >
                               {c.name}
+                              {isSelected && recommendationState.category === "auto" && <AutoSelectBadge />}
                             </button>
                           );
                         })}
@@ -858,14 +951,18 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                             <button
                               key={sc.id}
                               type="button"
-                              onClick={() => setSubCategory(isSelected ? "" : sc.id)}
+                              onClick={() => {
+                                markFieldAsUser("subCategory");
+                                setSubCategory(isSelected ? "" : sc.id);
+                              }}
                               className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border ${
-                                isSelected 
-                                  ? "bg-sky-50 text-sky-700 border-sky-300 shadow-sm" 
+                                isSelected
+                                  ? "bg-sky-50 text-sky-700 border-sky-300 shadow-sm"
                                   : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
                               }`}
                             >
                               {sc.name}
+                              {isSelected && recommendationState.subCategory === "auto" && <AutoSelectBadge />}
                             </button>
                           );
                         })}
@@ -928,6 +1025,9 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                             ))}
                           </SelectContent>
                         </Select>
+                      )}
+                      {recommendationState.account === "auto" && (
+                        <p className="ml-1 text-[11px] font-medium text-ll-pencil">✦ 최근 기록 기준</p>
                       )}
                     </div>
                     

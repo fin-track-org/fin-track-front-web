@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AddTransactionModal from "@/src/components/AddTransactionModal";
 import { PawStamp } from "@/src/components/ledger/PawStamp";
 import { useDraftClassification } from "@/src/hook/useDraftClassification";
@@ -33,12 +33,17 @@ export default function SequentialCategorizer({
   accounts,
   onAllDone,
 }: SequentialCategorizerProps) {
-  const { confirmDraft, updateDraftInPlace, invalidateAfterClassify } = useDraftClassification();
+  const { confirmDraft, updateDraftInPlace, invalidateItemLevel, invalidateDashboards } =
+    useDraftClassification();
   const { toast } = useToast();
 
   const [queue, setQueue] = useState<DraftTransaction[]>([]);
   const [index, setIndex] = useState(0);
   const [finished, setFinished] = useState(false);
+
+  // 이번 세션에서 하나라도 성공적으로 분류했는지 — 대시보드 무효화를 몰아서
+  // 한 번만 하기 위한 플래그다(DESIGN_QA_01.md P2-3).
+  const hasClassifiedRef = useRef(false);
 
   // 모달이 열릴 때만 큐를 스냅샷한다. (열려 있는 동안 목록이 바뀌어도 진행 중인 순서를 유지)
   useEffect(() => {
@@ -46,6 +51,7 @@ export default function SequentialCategorizer({
       setQueue(drafts);
       setIndex(Math.min(startIndex, Math.max(drafts.length - 1, 0)));
       setFinished(drafts.length === 0);
+      hasClassifiedRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -56,22 +62,46 @@ export default function SequentialCategorizer({
     current?.description ?? "",
     current?.type ?? "EXPENSE",
     open && !!current && !finished,
+    categories,
+    accounts,
   );
 
+  // 큐 항목(defaultValues)은 draft 자체의 값에서만 계산한다. suggestion을 여기에 섞으면
+  // 늦게 도착한 추천이 폼 전체를 다시 리셋시켜 사용자가 이미 고른 값을 덮어써버린다
+  // (DESIGN_QA_01.md P1-1). 추천은 별도 `suggestedValues`로 내려 보내
+  // "비어 있고 아직 손대지 않은 필드에만" 채워지도록 한다.
   const defaultValues: Partial<CreateTransactionPayload> | undefined = useMemo(() => {
     if (!current) return undefined;
     return {
       date: current.date,
       type: current.type ?? "EXPENSE",
       amount: Math.abs(current.amount),
-      categoryId: current.category?.id ?? suggestion.categoryId ?? "",
-      subCategoryId: current.subcategory?.id ?? suggestion.subCategoryId ?? "",
-      accountId: current.account?.id ?? suggestion.accountId ?? "",
+      categoryId: current.category?.id ?? "",
+      subCategoryId: current.subcategory?.id ?? "",
+      accountId: current.account?.id ?? "",
       description: current.description ?? "",
     };
-  }, [current, suggestion]);
+  }, [current]);
+
+  const suggestedValues = useMemo(() => {
+    if (!suggestion.categoryId && !suggestion.accountId) return undefined;
+    return {
+      categoryId: suggestion.categoryId,
+      subCategoryId: suggestion.subCategoryId,
+      accountId: suggestion.accountId,
+    };
+  }, [suggestion]);
 
   if (!open) return null;
+
+  // 진행된 항목이 있으면 대시보드/통계 무효화를 몰아서 한 번만 실행하고 닫는다.
+  const finalizeAndClose = () => {
+    if (hasClassifiedRef.current) {
+      invalidateDashboards();
+      hasClassifiedRef.current = false;
+    }
+    onOpenChange(false);
+  };
 
   if (finished) {
     return (
@@ -109,10 +139,19 @@ export default function SequentialCategorizer({
   if (!current) return null;
 
   const handleSubmit = async (payload: CreateTransactionPayload) => {
-    await confirmDraft(current.id, payload);
-    invalidateAfterClassify();
+    const result = await confirmDraft(current.id, payload);
+    invalidateItemLevel();
+    hasClassifiedRef.current = true;
+
+    if (result.warning) {
+      // 이체는 이미 등록됐고, 남은 임시 내역 정리만 안내하는 경고이므로 큐는 계속 진행한다.
+      // 놓치기 쉬운 안내라 기본(3초)보다 오래 띄운다(DESIGN_QA_02.md §3 권장).
+      toast.info(result.warning, 8000);
+    }
 
     if (index + 1 >= queue.length) {
+      invalidateDashboards();
+      hasClassifiedRef.current = false;
       setFinished(true);
       onAllDone?.();
     } else {
@@ -123,12 +162,12 @@ export default function SequentialCategorizer({
   const handleSaveDraft = async (payload: Partial<CreateTransactionPayload>) => {
     if (!payload.date || payload.amount == null) return;
     await updateDraftInPlace(current.id, payload);
-    invalidateAfterClassify();
+    invalidateItemLevel();
     toast.info("임시 내역을 저장했어요.");
   };
 
   const handleSkipRemaining = () => {
-    onOpenChange(false);
+    finalizeAndClose();
     toast.info("나머지는 다음에 해도 괜찮아요.");
   };
 
@@ -136,19 +175,20 @@ export default function SequentialCategorizer({
     <AddTransactionModal
       open={open}
       onOpenChange={(v) => {
-        if (!v) onOpenChange(false);
+        if (!v) finalizeAndClose();
       }}
       categories={categories}
       accounts={accounts}
       mode="confirm-draft"
       defaultValues={defaultValues}
+      suggestedValues={suggestedValues}
       onSubmit={handleSubmit}
       onSaveDraft={handleSaveDraft}
       autoCloseOnSubmit={false}
       queueProgress={{ current: index + 1, total: queue.length }}
       onSkipRemaining={handleSkipRemaining}
       transitionKey={current.id}
-      suggestionHint={suggestion.hint}
+      suggestionBasis={suggestion.basis}
     />
   );
 }
