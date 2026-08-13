@@ -8,14 +8,17 @@ export async function GET(request: Request) {
     const code = searchParams.get('code');
     const next = searchParams.get('next') ?? '/home';
     const action = searchParams.get('action');
+    // provider가 code 없이 오류만 돌려준 경우(설정 문제, 접근 거부 등)를 감지하는 용도.
+    // 존재 여부만 보고 원문 값(error/error_code/error_description)은 그대로 버린다.
+    const hasOAuthErrorSignal = searchParams.has('error') || searchParams.has('error_code');
 
     const host = request.headers.get('host');
     const protocol = request.headers.get('x-forwarded-proto') ?? 'http';
     const actualOrigin = `${protocol}://${host}`;
 
     // /login으로 돌아갈 때 함께 전달할, 안전한 상태 코드만 담는다.
-    // provider 오류 원문·토큰·code·사용자 정보는 절대 담지 않는다(IMPLEMENTATION_BRIEF_002 §8).
-    let loginReason: 'oauth_cancelled' | 'session_failed' | null = null;
+    // provider 오류 원문·토큰·code·사용자 정보는 절대 담지 않는다(IMPLEMENTATION_BRIEF_002 §8, QA_REVIEW_006 P1).
+    let loginReason: 'oauth_cancelled' | 'oauth_failed' | 'session_failed' | null = null;
 
     if (code) {
         const supabase = await createClient();
@@ -96,8 +99,11 @@ export async function GET(request: Request) {
     } else if (action === 'link') {
         // code가 없는 경우 (카카오 인증 취소 또는 에러) → 프로필로 복귀
         return NextResponse.redirect(`${actualOrigin}/home/profile`);
+    } else if (hasOAuthErrorSignal) {
+        // provider가 code 없이 오류 신호를 반환한 경우(취소가 아니라 실제 실패) — 원문은 버리고 고정 코드만 전달.
+        loginReason = 'oauth_failed';
     } else {
-        // code가 없고 일반 로그인 흐름인 경우: 대부분 사용자가 OAuth 창을 스스로 취소한 경우다.
+        // 오류 신호도 없이 code만 없는 경우에만 사용자 스스로 취소한 것으로 본다.
         loginReason = 'oauth_cancelled';
     }
 

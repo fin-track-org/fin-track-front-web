@@ -50,11 +50,13 @@ export function PasswordMatchHint({ password, confirmPassword }: PasswordMatchHi
 
   const matches = password === confirmPassword;
 
+  // role="alert"는 이미 assertive live region을 암시하므로, aria-live="polite"를 함께 주지 않는다
+  // (QA_REVIEW_006 P2 — 일부 보조기술에서 중복 낭독 가능성).
   return (
     <p
       className={`mt-1.5 text-xs ${matches ? "font-medium text-ll-ink" : "text-ll-tomato"}`}
       role={matches ? undefined : "alert"}
-      aria-live="polite"
+      aria-live={matches ? "polite" : undefined}
     >
       {matches ? "✓ 비밀번호가 일치해요" : "· 비밀번호가 서로 달라요"}
     </p>

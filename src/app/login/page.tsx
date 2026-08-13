@@ -31,20 +31,30 @@ export default function LoginPage() {
   const supabase = createClient();
 
   // 이미 로그인되어 있으면 홈으로 보내고, 아니면 폼을 노출한다.
+  // getUser() 자체가 예외를 던지는 경우(네트워크 오류 등)에도 폼이 영구 로딩 상태로
+  // 멈추지 않도록 반드시 initializing을 해제한다(QA_REVIEW_006 P2).
   useEffect(() => {
     let active = true;
+    let redirecting = false;
 
     (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!active) return;
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!active) return;
 
-      if (user) {
-        router.replace("/home");
-        return; // 이동이 끝날 때까지 폼을 보여주지 않는다.
+        if (user) {
+          redirecting = true;
+          router.replace("/home");
+          return; // 이동이 끝날 때까지 폼을 보여주지 않는다.
+        }
+      } catch (err) {
+        console.error("[login] initial session check failed:", err);
+        // 세션 확인 자체가 실패해도 로그인 폼은 반드시 보여준다.
+      } finally {
+        if (active && !redirecting) setInitializing(false);
       }
-      setInitializing(false);
     })();
 
     return () => {

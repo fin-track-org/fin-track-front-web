@@ -55,12 +55,16 @@ export function getLoginErrorMessageForReason(reason: LoginErrorReason): string 
   return LOGIN_ERROR_COPY[reason];
 }
 
+const OAUTH_FAILED_MESSAGE = "소셜 로그인을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.";
+
 /**
  * OAuth 콜백(`/auth/callback`)이 안전하게 전달하는 `reason` 쿼리 값을 해석한다.
  * `oauth_cancelled`는 사용자가 스스로 취소한 경우라 에러 문구를 띄우지 않는다(null 반환).
+ * `oauth_failed`는 provider가 code 없이 오류만 반환한 실제 실패다(QA_REVIEW_006 P1).
  */
 export function getOAuthCallbackReasonMessage(reason: string | null): string | null {
   if (reason === "session_failed") return LOGIN_ERROR_COPY.session_expired;
+  if (reason === "oauth_failed") return OAUTH_FAILED_MESSAGE;
   if (reason === "oauth_cancelled") return null;
   return null;
 }
