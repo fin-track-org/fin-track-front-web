@@ -25,11 +25,31 @@ export default function GlobalQuickAdd() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // ----------------------------
+  // 통합 모달 상태
+  // ----------------------------
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "quick">("create");
+
   const { activeQuestCode, stepIndex, nextStep, stopQuest } = useQuestStore();
   const { toast } = useToast();
 
   useEffect(() => {
-    const handleOpen = () => setIsMenuOpen(prev => !prev);
+    // 책상형 모바일 홈의 "빠르게 기록하기"(IMPLEMENTATION_BRIEF_010 §5)는 스피드 다이얼
+    // 메뉴를 거치지 않고 quick 모드 모달을 바로 열어야 한다. 기존 호출자(MobileBottomNav의
+    // "+" 버튼)는 payload 없는 단순 Event로 메뉴만 toggle하므로, CustomEvent의
+    // `detail.mode === "quick"`일 때만 새 동작으로 분기하고 그 외에는 기존 toggle을 그대로
+    // 유지해 하위 호환을 보존한다.
+    const handleOpen = (e: Event) => {
+      const detail = (e as CustomEvent<{ mode?: "quick" }>).detail;
+      if (detail?.mode === "quick") {
+        setIsMenuOpen(false);
+        setModalMode("quick");
+        setIsModalOpen(true);
+        return;
+      }
+      setIsMenuOpen((prev) => !prev);
+    };
     window.addEventListener("open-quick-add", handleOpen);
     return () => window.removeEventListener("open-quick-add", handleOpen);
   }, []);
@@ -41,12 +61,6 @@ export default function GlobalQuickAdd() {
     setIsMenuOpen(false);
     setIsModalOpen(false);
   }, [pathname]);
-
-  // ----------------------------
-  // 통합 모달 상태
-  // ----------------------------
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"create" | "quick">("create");
 
   // 일반 상세 추가를 위한 데이터 조회
   const { data: rawCategories = [] } = useQuery({

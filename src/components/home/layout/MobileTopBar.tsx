@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import logoImg from "@/public/images/logo.jpg";
 import NotificationBell from "@/src/components/home/NotificationBell";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMe } from "@/src/lib/api/userApi";
@@ -53,13 +51,17 @@ export default function MobileTopBar() {
 
   return (
     <>
-      <header className="lg:hidden h-14 flex items-center justify-between gap-2 px-4 border-b border-gray-200 bg-white sticky top-0 z-30">
+      <header
+        className="lg:hidden flex min-h-14 items-center justify-between gap-2 border-b border-ll-ink/10 bg-ll-paper px-4 sticky top-0 z-30"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <div className="flex items-center gap-2.5">
-          <Link href="/home" className="flex items-center">
-            <Image src={logoImg} alt="게으른 가계부 로고" className="h-8 w-auto rounded-md" />
+          <Link href="/home" className="flex items-center font-black tracking-tight text-ll-ink">
+            게으른 가계부
           </Link>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1">
+          <NotificationBell />
           <button onClick={() => setIsMenuOpen(true)} className="flex items-center justify-center transition-transform active:scale-95">
             {data?.avatarUrl ? (
               <img src={data.avatarUrl} alt="profile" className="w-8 h-8 rounded-full object-cover shadow-sm ring-1 ring-gray-200" />
@@ -79,10 +81,8 @@ export default function MobileTopBar() {
         
         {/* Drawer */}
         <div className={`absolute top-0 right-0 bottom-0 w-72 bg-white shadow-2xl transform transition-transform duration-300 flex flex-col ${isMenuOpen ? "translate-x-0" : "translate-x-full"}`}>
-          {/* Header */}
-          <div className="flex items-center justify-end p-4">
-            <NotificationBell />
-          </div>
+          {/* 알림은 이제 상단 앱 바에 상시 노출되므로(IMPLEMENTATION_BRIEF_010 §5) 여기서는
+              중복 렌더링하지 않는다. */}
 
           {/* Profile Section */}
           <div className="p-6 flex flex-col items-center border-b border-gray-100 bg-gray-50/50">
