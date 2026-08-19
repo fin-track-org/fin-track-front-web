@@ -32,6 +32,9 @@ import LedgerBottomBanner from "./LedgerBottomBanner";
 import SequentialCategorizer from "./SequentialCategorizer";
 import { useQuestStore } from "@/src/store/useQuestStore";
 import { completeQuest, claimQuestReward } from "@/src/lib/api/questApi";
+import { useIsMobileViewport } from "@/src/hook/useIsMobileViewport";
+import MobileTransactionView from "./mobile/MobileTransactionView";
+import { calculateForwardBalances, calculateReverseBalances, filterBalanceBySavings } from "@/src/lib/ledgerBalance";
 
 // .env.local에서 Spring Boot URL을 읽어옵니다.
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
@@ -47,6 +50,8 @@ export default function TransactionPage() {
 
   // 무한 스크롤 로더
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  // 모바일 편하게 보기(DESC) 전용 무한 스크롤 로더
+  const loadMoreDescRef = useRef<HTMLDivElement | null>(null);
 
   // 날짜 및 뷰 모드
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -137,8 +142,11 @@ export default function TransactionPage() {
     }
   }, [viewMode, customStart, customEnd, isViewModeLoaded]);
 
-  const { userSetting } = useUserSettings();
+  const { userSetting, changeLedgerTheme } = useUserSettings();
   const isExcelView = userSetting?.ledgerTheme === "EXCEL";
+
+  // lg(1024px) 미만 여부 — 기존 모바일 홈과 동일한 breakpoint(IMPLEMENTATION_BRIEF_011 §3).
+  const isMobile = useIsMobileViewport();
 
   // 새 거래용 defaultValues
   const [modalDefaultValues, setModalDefaultValues] = useState<
@@ -404,52 +412,81 @@ export default function TransactionPage() {
     return accounts.filter(a => a.type !== "SAVINGS_INVESTMENT");
   }, [accounts, showSavingsAccount]);
 
+  // 저축·투자 계좌 id 집합 — ledgerBalance.ts의 순수 함수들이 이걸로 잔액 포함 여부를 판단한다.
+  const savingsAccountIds = useMemo(
+    () => new Set(accounts.filter(a => a.type === "SAVINGS_INVESTMENT").map(a => a.id)),
+    [accounts],
+  );
+
+  // 선택 중인 계좌가 저축·투자 계좌인데 포함 스위치를 끄면 전체로 초기화한다(§6).
+  useEffect(() => {
+    if (!showSavingsAccount && selectedAccountId && savingsAccountIds.has(selectedAccountId)) {
+      setSelectedAccountId("");
+    }
+  }, [showSavingsAccount, selectedAccountId, savingsAccountIds]);
+
   /* 잔액 조회 (장부 뷰) */
-  const { data: openingBalance, isLoading: isOpeningLoading } = useQuery({
+  const { data: openingBalance, isLoading: isOpeningLoading, isError: isOpeningError, refetch: refetchOpening } = useQuery({
     queryKey: ["openingBalance", startDate, selectedAccountId],
     queryFn: () => getOpeningBalance(startDate, selectedAccountId),
   });
 
-  const { data: closingBalance, isLoading: isClosingLoading } = useQuery({
+  const { data: closingBalance, isLoading: isClosingLoading, isError: isClosingError, refetch: refetchClosing } = useQuery({
     queryKey: ["closingBalance", endDate, selectedAccountId],
     queryFn: () => getClosingBalance(endDate, selectedAccountId),
   });
 
-  // 필터링된 시작 잔액
-  const filteredOpeningBalance = useMemo(() => {
-    if (!openingBalance || typeof openingBalance === "number") return openingBalance;
-    if (showSavingsAccount) return openingBalance;
-
-    const filteredAccountsBalances = openingBalance.accounts.filter(a => {
-      const acc = accounts.find(account => account.id === a.accountId);
-      return acc?.type !== "SAVINGS_INVESTMENT";
-    });
-
-    const newTotal = filteredAccountsBalances.reduce((sum, a) => sum + a.amount, 0);
-
-    return {
-      totalAmount: newTotal,
-      accounts: filteredAccountsBalances
-    };
-  }, [openingBalance, showSavingsAccount, accounts]);
+  // 필터링된 시작 잔액(저축·투자 제외 반영) — ledgerBalance.ts로 뺀 순수 함수 재사용.
+  const filteredOpeningBalance = useMemo(
+    () => filterBalanceBySavings(openingBalance, showSavingsAccount, savingsAccountIds),
+    [openingBalance, showSavingsAccount, savingsAccountIds],
+  );
 
   // 필터링된 기말 잔액
-  const filteredClosingBalance = useMemo(() => {
-    if (!closingBalance || typeof closingBalance === "number") return closingBalance;
-    if (showSavingsAccount) return closingBalance;
+  const filteredClosingBalance = useMemo(
+    () => filterBalanceBySavings(closingBalance, showSavingsAccount, savingsAccountIds),
+    [closingBalance, showSavingsAccount, savingsAccountIds],
+  );
 
-    const filteredAccountsBalances = closingBalance.accounts.filter(a => {
-      const acc = accounts.find(account => account.id === a.accountId);
-      return acc?.type !== "SAVINGS_INVESTMENT";
-    });
+  /* 잔액 선반(모바일 전용) — selectedAccountId로 이미 범위가 좁혀진 openingBalance/closingBalance와
+   * 달리, 선반은 항상 "전체 결제수단" 기준의 개별 계좌 breakdown이 필요하다. selectedAccountId가
+   * 비어있을 때는 위 openingBalance/closingBalance가 이미 전체 breakdown이라 그대로 재사용하고,
+   * 특정 계좌가 선택된 경우에만 별도로 "전체" 잔액을 조회한다(불필요한 중복 호출 방지). */
+  const needsShelfAllAccountsQuery = isMobile === true && selectedAccountId !== "";
 
-    const newTotal = filteredAccountsBalances.reduce((sum, a) => sum + a.amount, 0);
+  const { data: shelfOpeningAll, isLoading: isShelfOpeningAllLoading, isError: isShelfOpeningAllError, refetch: refetchShelfOpeningAll } = useQuery({
+    queryKey: ["openingBalance", startDate, ""],
+    queryFn: () => getOpeningBalance(startDate, ""),
+    enabled: needsShelfAllAccountsQuery,
+  });
+  const { data: shelfClosingAll, isLoading: isShelfClosingAllLoading, isError: isShelfClosingAllError, refetch: refetchShelfClosingAll } = useQuery({
+    queryKey: ["closingBalance", endDate, ""],
+    queryFn: () => getClosingBalance(endDate, ""),
+    enabled: needsShelfAllAccountsQuery,
+  });
 
-    return {
-      totalAmount: newTotal,
-      accounts: filteredAccountsBalances
-    };
-  }, [closingBalance, showSavingsAccount, accounts]);
+  const shelfOpeningBalanceRaw = selectedAccountId === "" ? openingBalance : shelfOpeningAll;
+  const shelfClosingBalanceRaw = selectedAccountId === "" ? closingBalance : shelfClosingAll;
+  const isShelfLoading = selectedAccountId === "" ? (isOpeningLoading || isClosingLoading) : (isShelfOpeningAllLoading || isShelfClosingAllLoading);
+  const isShelfError = selectedAccountId === "" ? (isOpeningError || isClosingError) : (isShelfOpeningAllError || isShelfClosingAllError);
+  const retryShelf = () => {
+    if (selectedAccountId === "") {
+      refetchOpening();
+      refetchClosing();
+    } else {
+      refetchShelfOpeningAll();
+      refetchShelfClosingAll();
+    }
+  };
+
+  const shelfOpeningBalance = useMemo(
+    () => filterBalanceBySavings(typeof shelfOpeningBalanceRaw === "number" ? undefined : shelfOpeningBalanceRaw, showSavingsAccount, savingsAccountIds),
+    [shelfOpeningBalanceRaw, showSavingsAccount, savingsAccountIds],
+  );
+  const shelfClosingBalance = useMemo(
+    () => filterBalanceBySavings(typeof shelfClosingBalanceRaw === "number" ? undefined : shelfClosingBalanceRaw, showSavingsAccount, savingsAccountIds),
+    [shelfClosingBalanceRaw, showSavingsAccount, savingsAccountIds],
+  );
 
   /* 결제수단별 잔액 조회 */
   const {
@@ -466,6 +503,15 @@ export default function TransactionPage() {
     cursorSortOrder: number | null;
   };
 
+  // 모바일 "편하게 보기"(최신순)만 DESC를 쓰고, 데스크톱과 엑셀 장부(모바일 포함)는 기존
+  // ASC를 그대로 쓴다(IMPLEMENTATION_BRIEF_011 §7 "API 요청부터 DESC로 받아야 한다").
+  // 두 query 모두 key에 정렬 방향을 포함해 다른 방향의 캐시가 섞이지 않게 한다
+  // (§7 "동일 query key 사용 금지"). 다만 첫 세그먼트는 그대로 "transactions"로 유지한다 —
+  // `GlobalQuickAdd`/`SearchPage`/`useDraftClassification` 등 여러 곳이
+  // `invalidateQueries({queryKey:["transactions"]})`로 접두사 매칭 무효화를 걸어두고 있어서,
+  // 첫 세그먼트를 바꾸면(예: "transactions-asc") 그 무효화가 이 query를 더 이상 찾지 못한다.
+  const isMobileEasyView = isMobile === true && !isExcelView;
+
   const {
     data,
     fetchNextPage,
@@ -475,7 +521,8 @@ export default function TransactionPage() {
     isError: isTransactionsError,
     error: transactionsError,
   } = useInfiniteQuery({
-    queryKey: ["transactions", searchTerm, selectedCategoryIds, selectedCategoryCodes, selectedAccountId, startDate, endDate],
+    queryKey: ["transactions", "ASC", searchTerm, selectedCategoryIds, selectedCategoryCodes, selectedAccountId, startDate, endDate],
+    enabled: !isMobileEasyView,
     initialPageParam: {
       cursorDate: null,
       cursorSortOrder: null,
@@ -505,74 +552,71 @@ export default function TransactionPage() {
     },
   });
 
-  // LedgerTable에 넘길 실제 거래 배열 추출
-  const rawTransactions = data?.pages.flatMap((page) => page.content) ?? [];
+  const {
+    data: descData,
+    fetchNextPage: fetchNextDescPage,
+    hasNextPage: hasNextDescPage,
+    isFetchingNextPage: isFetchingNextDescPage,
+    isLoading: isDescTransactionsLoading,
+    isError: isDescTransactionsError,
+    error: descTransactionsError,
+    refetch: refetchDescTransactions,
+  } = useInfiniteQuery({
+    queryKey: ["transactions", "DESC", searchTerm, selectedCategoryIds, selectedCategoryCodes, selectedAccountId, startDate, endDate],
+    enabled: isMobileEasyView,
+    initialPageParam: {
+      cursorDate: null,
+      cursorSortOrder: null,
+    } as TransactionCursor,
+    queryFn: ({ pageParam }: { pageParam: TransactionCursor }) =>
+      fetchTransactions({
+        keyword: searchTerm.trim() || undefined,
+        categoryIds:
+          selectedCategoryIds.length > 0 ? selectedCategoryIds : undefined,
+        categoryCodes:
+          selectedCategoryCodes.length > 0 ? selectedCategoryCodes : undefined,
+        accountId: selectedAccountId || undefined,
+        startDate,
+        endDate,
+        size: 20,
+        sortDirection: "DESC",
+        cursorDate: pageParam.cursorDate ?? undefined,
+        cursorSortOrder: pageParam.cursorSortOrder ?? undefined,
+      }),
+    getNextPageParam: (lastPage): TransactionCursor | undefined => {
+      if (!lastPage.hasNext) return undefined;
+      return {
+        cursorDate: lastPage.nextCursorDate,
+        cursorSortOrder: lastPage.nextCursorSortOrder,
+      };
+    },
+  });
 
-  // 잔액 누적 계산 로직 (수입/지출/잔액/계좌잔액)
+  // LedgerTable(ASC/엑셀)에 넘길 실제 거래 배열 추출
+  const rawTransactions = useMemo(() => data?.pages.flatMap((page) => page.content) ?? [], [data]);
+  // 모바일 편하게 보기(DESC)에 넘길 실제 거래 배열 추출
+  const rawTransactionsDesc = useMemo(() => descData?.pages.flatMap((page) => page.content) ?? [], [descData]);
+
+  const balanceCalcOptions = useMemo(
+    () => ({ selectedAccountId, showSavingsAccount, savingsAccountIds }),
+    [selectedAccountId, showSavingsAccount, savingsAccountIds],
+  );
+
+  // 잔액 누적 계산(ASC 정방향) — ledgerBalance.ts로 뺀 순수 함수. 동작은 이전과 동일하다.
   const transactions = useMemo(() => {
     if (!openingBalance || rawTransactions.length === 0) return rawTransactions;
 
-    // 백엔드 업데이트를 대비하여 객체 형태(BalanceRes)로 처리하되, 
-    // 아직 숫자로 올 경우를 대비한 안전 장치 추가
-    let currentTotal = typeof filteredOpeningBalance === "number" ? filteredOpeningBalance : (filteredOpeningBalance?.totalAmount || 0);
-    const accMap = new Map<string, number>();
-    
-    if (typeof openingBalance !== "number" && openingBalance.accounts) {
-      openingBalance.accounts.forEach((a: any) => accMap.set(a.accountId, a.amount));
-    }
+    const openingTotal = filteredOpeningBalance?.totalAmount ?? 0;
+    return calculateForwardBalances(openingTotal, openingBalance.accounts ?? [], rawTransactions, balanceCalcOptions);
+  }, [rawTransactions, openingBalance, filteredOpeningBalance, balanceCalcOptions]);
 
-    return rawTransactions.map((t) => {
-      const isTransfer = !!t.transferDetail || (t.type as string) === "TRANSFER";
-      const signedAmount = t.type === "EXPENSE" ? -t.amount : t.amount;
-      let runningAccountBalance = 0;
-      let runningLinkedAccountBalance: number | undefined = undefined;
+  // 잔액 역산(DESC 역방향) — 모바일 편하게 보기 전용. 종료 잔액에서 최신 거래부터 되돌린다.
+  const mobileEasyTransactions = useMemo(() => {
+    if (!closingBalance || rawTransactionsDesc.length === 0) return rawTransactionsDesc;
 
-      if (isTransfer) {
-        if (selectedAccountId) {
-          // 특정 계좌 조회 중이면 해당 계좌의 잔액만 업데이트
-          const newAccBal = (accMap.get(t.account.id) || 0) + signedAmount;
-          accMap.set(t.account.id, newAccBal);
-          runningAccountBalance = newAccBal;
-        } else {
-          // 전체 계좌 조회 중이면 출금/입금 양쪽 모두 업데이트 시도
-          const newAccBal = (accMap.get(t.account.id) || 0) + signedAmount;
-          accMap.set(t.account.id, newAccBal);
-          runningAccountBalance = newAccBal;
-
-          if (t.transferDetail && t.type === "EXPENSE") {
-            const linkedId = t.transferDetail.toAccount.id;
-            const linkedBal = (accMap.get(linkedId) || 0) + t.amount;
-            accMap.set(linkedId, linkedBal);
-            runningLinkedAccountBalance = linkedBal;
-          }
-        }
-      } else {
-        // 일반 거래
-        const newAccBal = (accMap.get(t.account.id) || 0) + signedAmount;
-        accMap.set(t.account.id, newAccBal);
-        runningAccountBalance = newAccBal;
-      }
-
-      // 총 잔액 업데이트 (전체 계좌 보기 시 이체 내역은 총 잔액 변동 없음)
-      if (isTransfer && !selectedAccountId) {
-        // 총 잔액 유지
-      } else {
-        const acc = accounts.find(a => a.id === t.account.id);
-        const isSavings = acc?.type === "SAVINGS_INVESTMENT";
-        
-        if (showSavingsAccount || !isSavings) {
-          currentTotal += signedAmount;
-        }
-      }
-
-      return {
-        ...t,
-        runningTotalBalance: currentTotal,
-        runningAccountBalance: runningAccountBalance,
-        runningLinkedAccountBalance: runningLinkedAccountBalance,
-      };
-    });
-  }, [rawTransactions, openingBalance, selectedAccountId]);
+    const closingTotal = filteredClosingBalance?.totalAmount ?? 0;
+    return calculateReverseBalances(closingTotal, closingBalance.accounts ?? [], rawTransactionsDesc, balanceCalcOptions);
+  }, [rawTransactionsDesc, closingBalance, filteredClosingBalance, balanceCalcOptions]);
 
   /* 임시 보관함 조회 */
   const {
@@ -613,6 +657,30 @@ export default function TransactionPage() {
       observer.disconnect();
     };
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, isTransactionsLoading]);
+
+  /* 무한 스크롤 — 모바일 편하게 보기(DESC) 전용. 위 ASC observer와 별개의 sentinel을 본다. */
+  useEffect(() => {
+    const target = loadMoreDescRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (
+          first.isIntersecting &&
+          hasNextDescPage &&
+          !isFetchingNextDescPage &&
+          !isDescTransactionsLoading
+        ) {
+          fetchNextDescPage();
+        }
+      },
+      { root: null, rootMargin: "200px", threshold: 0 },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [fetchNextDescPage, hasNextDescPage, isFetchingNextDescPage, isDescTransactionsLoading]);
 
   // ------------------- 순서 변경 -----------------------
   const handleReorder = async (transactionIds: string[]) => {
@@ -912,7 +980,67 @@ export default function TransactionPage() {
     rawCategories.length === 0 &&
     transactions.length === 0;
 
-  if (isInitialLoading) {
+  // 모바일/데스크톱 계산에 쓰는 파생값 — isMobile 분기와 무관하게 항상 계산한다(Hooks 규칙).
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+  // 오늘이 조회 기간에 포함되면 "현재", 완전히 지난 기간이면 "종료"(DECISION_012 "잔액 문구").
+  const showCurrentLabel = todayStr >= startDate && todayStr <= endDate;
+
+  const activeFilterCount =
+    selectedCategoryIds.length +
+    selectedCategoryCodes.length +
+    (searchTerm.trim() ? 1 : 0) +
+    (selectedType !== "ALL" ? 1 : 0);
+  const hasActiveFilters = activeFilterCount > 0;
+  const resetAllFilters = () => {
+    setSearchTerm("");
+    setSelectedType("ALL");
+    setSelectedCategoryIds([]);
+    setSelectedCategoryCodes([]);
+  };
+
+  // 모바일 상단 활성 필터 칩(QA_REVIEW_024 §4) — 최대 3개까지만 노출하고, 각 칩은 그
+  // 필터만 개별 해제한다. count 배지는 `activeFilterCount` 전체 값을 그대로 쓴다.
+  const activeFilterChips = useMemo(() => {
+    const chips: { key: string; label: string; onRemove: () => void }[] = [];
+    if (searchTerm.trim()) {
+      chips.push({ key: "search", label: `"${searchTerm.trim()}"`, onRemove: () => setSearchTerm("") });
+    }
+    if (selectedType !== "ALL") {
+      chips.push({
+        key: "type",
+        label: selectedType === "INCOME" ? "수입만" : "지출만",
+        onRemove: () => setSelectedType("ALL"),
+      });
+    }
+    if (selectedCategoryIds.length > 0) {
+      chips.push({
+        key: "categories",
+        label: `카테고리 ${selectedCategoryIds.length}개`,
+        onRemove: () => setSelectedCategoryIds([]),
+      });
+    }
+    if (selectedCategoryCodes.length > 0) {
+      chips.push({
+        key: "codes",
+        label: `이체·저축 등 ${selectedCategoryCodes.length}개`,
+        onRemove: () => setSelectedCategoryCodes([]),
+      });
+    }
+    return chips.slice(0, 3);
+  }, [searchTerm, selectedType, selectedCategoryIds, selectedCategoryCodes]);
+
+  const openingBalanceDateLabel = useMemo(() => {
+    const [, m, d] = startDate.split("-");
+    return `${parseInt(m, 10)}월 ${parseInt(d, 10)}일`;
+  }, [startDate]);
+
+  // isMobile 판별 전에는 모바일/데스크톱 어느 트리도 마운트하지 않는다 — 잘못된 쪽으로
+  // 확정 짓고 렌더하면 QA_REVIEW_020 P1-1과 같은 문제(반대쪽 화면이 잠깐 보이는 것)가
+  // 재발한다. `TransactionPageSkeleton`은 query 없이 마크업만 그리므로 그대로 재사용한다.
+  if (isMobile === null || isInitialLoading) {
     return <TransactionPageSkeleton />;
   }
   return (
@@ -923,30 +1051,38 @@ export default function TransactionPage() {
           <section className="flex flex-col xl:flex-row gap-2 xl:items-center xl:justify-between bg-white p-2 md:p-4 shadow-sm -mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-y border-x-0 lg:border border-gray-200">
             {activeTab === "transactions" ? (
               <>
-                {/* 좌측: 날짜 선택 */}
-                <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full xl:w-auto justify-between">
-                  <TransactionDateSelector
-                    viewMode={viewMode}
-                    onChangeViewMode={(mode) => {
-                      setViewMode(mode);
-                      if (mode === "custom") setShowDatePicker(true);
-                      else setShowDatePicker(false);
-                    }}
-                    dateDisplayString={dateDisplayString}
-                    onPrev={handlePrevious}
-                    onNext={handleNext}
-                    onToday={handleToday}
-                  />
-                </div>
+                {/* 좌측: 날짜 선택 — 모바일에서는 MobileLedgerToolbar가 이 역할을 대신한다
+                    (IMPLEMENTATION_BRIEF_011 §5). isMobile은 이미 확정된 뒤라(위에서
+                    null이면 return) 안전하게 조건부로 감출 수 있다. */}
+                {!isMobile && (
+                  <div className="flex flex-wrap items-center gap-2 md:gap-4 w-full xl:w-auto justify-between">
+                    <TransactionDateSelector
+                      viewMode={viewMode}
+                      onChangeViewMode={(mode) => {
+                        setViewMode(mode);
+                        if (mode === "custom") setShowDatePicker(true);
+                        else setShowDatePicker(false);
+                      }}
+                      dateDisplayString={dateDisplayString}
+                      onPrev={handlePrevious}
+                      onNext={handleNext}
+                      onToday={handleToday}
+                    />
+                  </div>
+                )}
 
-                {/* 우측: 검색뷰 전환, 임시보관함 전환, 새 거래 추가 */}
+                {/* 우측: 검색뷰 전환, 임시보관함 전환, 새 거래 추가.
+                    "나중에 분류" 진입점(tutorial-draft-tab)은 모바일에서도 그대로 유지한다 —
+                    FAST_DRAFT 튜토리얼 4단계가 이 id를 그대로 찾는다. */}
                 <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto justify-end">
-                  <button
-                    onClick={() => setIsSearchModalOpen(true)}
-                    className="flex items-center gap-1 md:gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                  >
-                    <span className="text-xs md:text-base">🔍</span> 거래내역 검색
-                  </button>
+                  {!isMobile && (
+                    <button
+                      onClick={() => setIsSearchModalOpen(true)}
+                      className="flex items-center gap-1 md:gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-lg text-[11px] md:text-sm font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                    >
+                      <span className="text-xs md:text-base">🔍</span> 거래내역 검색
+                    </button>
+                  )}
 
                   {drafts.length > 0 && (
                     <button
@@ -1058,68 +1194,120 @@ export default function TransactionPage() {
                 )}
               </div>
 
-              <div className="flex flex-col shadow-md bg-white border border-gray-100 -mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-x-0 lg:border-x">
-                <div className="flex items-center justify-end px-4 py-2 border-b border-gray-100 bg-gray-50/50">
-                  <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
-                    <input 
-                      type="checkbox" 
-                      checked={showSavingsAccount} 
-                      onChange={(e) => handleToggleSavingsAccount(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
-                    />
-                    저축/투자 계좌 포함
-                  </label>
-                </div>
-                <div className="sticky top-0 z-40 bg-white">
-                  <LedgerTopBanner
-                    balanceData={typeof filteredOpeningBalance !== "number" ? filteredOpeningBalance : undefined}
-                    isLoading={isOpeningLoading}
-                    accounts={filteredAccounts}
-                    selectedAccountId={selectedAccountId}
-                    onSelectAccount={setSelectedAccountId}
-                    scrollRef={topBannerRef}
-                    onScroll={handleTopScroll}
-                  />
-                </div>
+              {!isMobile ? (
+                <>
+                  <div className="flex flex-col shadow-md bg-white border border-gray-100 -mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-x-0 lg:border-x">
+                    <div className="flex items-center justify-end px-4 py-2 border-b border-gray-100 bg-gray-50/50">
+                      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={showSavingsAccount}
+                          onChange={(e) => handleToggleSavingsAccount(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                        />
+                        저축/투자 계좌 포함
+                      </label>
+                    </div>
+                    <div className="sticky top-0 z-40 bg-white">
+                      <LedgerTopBanner
+                        balanceData={typeof filteredOpeningBalance !== "number" ? filteredOpeningBalance : undefined}
+                        isLoading={isOpeningLoading}
+                        accounts={filteredAccounts}
+                        selectedAccountId={selectedAccountId}
+                        onSelectAccount={setSelectedAccountId}
+                        scrollRef={topBannerRef}
+                        onScroll={handleTopScroll}
+                      />
+                    </div>
 
-                <LedgerTable
-                  transactions={transactions}
-                  loading={isTransactionsLoading && !isFetchingNextPage}
-                  error={pageError?.message || null}
+                    <LedgerTable
+                      transactions={transactions}
+                      loading={isTransactionsLoading && !isFetchingNextPage}
+                      error={pageError?.message || null}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onReorder={handleReorder}
+                      onViewDetail={setDetailTransaction}
+                      currentAccountId={selectedAccountId}
+                      isExcelView={isExcelView}
+                      openingBalanceAmount={typeof filteredOpeningBalance === "number" ? filteredOpeningBalance : (filteredOpeningBalance?.totalAmount ?? 0)}
+                    />
+
+                    <div className="sticky bottom-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                      <LedgerBottomBanner
+                        balanceData={typeof filteredClosingBalance !== "number" ? filteredClosingBalance : undefined}
+                        isLoading={isClosingLoading}
+                        accounts={filteredAccounts}
+                        selectedAccountId={selectedAccountId}
+                        onSelectAccount={setSelectedAccountId}
+                        scrollRef={bottomBannerRef}
+                        onScroll={handleBottomScroll}
+                      />
+                    </div>
+                  </div>
+
+                  <div ref={loadMoreRef} className="h-4" />
+
+                  {isFetchingNextPage && (
+                    <div className="pb-6 text-center text-sm text-gray-500">
+                      거래 내역 불러오는 중...
+                    </div>
+                  )}
+
+                  {!hasNextPage && transactions.length > 0 && (
+                    <div className="pb-6 text-center text-sm text-gray-400">
+                      모든 거래 내역을 불러왔습니다.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <MobileTransactionView
+                  onOpenSearchFilter={() => setIsSearchModalOpen(true)}
+                  activeFilterCount={activeFilterCount}
+                  activeFilterChips={activeFilterChips}
+                  isExcelView={isExcelView}
+                  onChangeIsExcelView={(isExcel) => changeLedgerTheme(isExcel ? "EXCEL" : "DEFAULT")}
+                  viewMode={viewMode}
+                  onChangeViewMode={(mode) => {
+                    setViewMode(mode);
+                    if (mode === "custom") setShowDatePicker(true);
+                    else setShowDatePicker(false);
+                  }}
+                  dateDisplayString={dateDisplayString}
+                  onPrev={handlePrevious}
+                  onNext={handleNext}
+                  filteredAccounts={filteredAccounts}
+                  shelfOpeningBalance={shelfOpeningBalance}
+                  shelfClosingBalance={shelfClosingBalance}
+                  isShelfLoading={isShelfLoading}
+                  isShelfError={isShelfError}
+                  onRetryShelf={retryShelf}
+                  selectedAccountId={selectedAccountId}
+                  onSelectAccount={setSelectedAccountId}
+                  showSavingsAccount={showSavingsAccount}
+                  onToggleSavings={handleToggleSavingsAccount}
+                  showCurrentLabel={showCurrentLabel}
+                  easyTransactions={mobileEasyTransactions}
+                  isEasyLoading={isDescTransactionsLoading && !isFetchingNextDescPage}
+                  isEasyError={isDescTransactionsError}
+                  easyErrorMessage={(descTransactionsError as Error | null)?.message}
+                  onRetryEasy={() => refetchDescTransactions()}
+                  hasActiveFilters={hasActiveFilters}
+                  onResetFilters={resetAllFilters}
+                  onViewDetail={setDetailTransaction}
+                  loadMoreRef={loadMoreDescRef}
+                  hasNextPage={!!hasNextDescPage}
+                  isFetchingNextPage={isFetchingNextDescPage}
+                  openingBalanceAmount={typeof filteredOpeningBalance === "number" ? filteredOpeningBalance : filteredOpeningBalance?.totalAmount}
+                  openingBalanceDate={openingBalanceDateLabel}
+                  excelTransactions={transactions}
+                  isExcelLoading={isTransactionsLoading && !isFetchingNextPage}
+                  excelErrorMessage={pageError?.message || null}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onReorder={handleReorder}
-                  onViewDetail={setDetailTransaction}
-                  currentAccountId={selectedAccountId}
-                  isExcelView={isExcelView}
-                  openingBalanceAmount={typeof filteredOpeningBalance === "number" ? filteredOpeningBalance : (filteredOpeningBalance?.totalAmount ?? 0)}
+                  excelOpeningBalanceAmount={typeof filteredOpeningBalance === "number" ? filteredOpeningBalance : (filteredOpeningBalance?.totalAmount ?? 0)}
                 />
-
-                <div className="sticky bottom-0 z-40 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                  <LedgerBottomBanner 
-                    balanceData={typeof filteredClosingBalance !== "number" ? filteredClosingBalance : undefined} 
-                    isLoading={isClosingLoading} 
-                    accounts={filteredAccounts} 
-                    selectedAccountId={selectedAccountId}
-                    onSelectAccount={setSelectedAccountId}
-                    scrollRef={bottomBannerRef}
-                    onScroll={handleBottomScroll}
-                  />
-                </div>
-              </div>
-
-              <div ref={loadMoreRef} className="h-4" />
-
-              {isFetchingNextPage && (
-                <div className="pb-6 text-center text-sm text-gray-500">
-                  거래 내역 불러오는 중...
-                </div>
-              )}
-
-              {!hasNextPage && transactions.length > 0 && (
-                <div className="pb-6 text-center text-sm text-gray-400">
-                  모든 거래 내역을 불러왔습니다.
-                </div>
               )}
             </>
           )}
@@ -1222,13 +1410,43 @@ export default function TransactionPage() {
         currentAccountId={selectedAccountId}
       />
 
-      {/* 검색 바텀 시트 */}
+      {/* 검색 바텀 시트 — 모바일은 같은 화면 state를 직접 갱신하고(QA_REVIEW_024 §4 권장안),
+          데스크톱은 기존처럼 별도 검색 결과 페이지로 이동한다(동작 변경 없음). 모바일은 기간
+          UI를 시트에서 아예 숨긴다(QA_REVIEW_025 §P2) — 상단 일/주/월/기간 도구가 기간의
+          유일한 진입점이라, 시트에도 남겨두면 "기간을 안 건드리고 다른 필터만 적용"과 "전체
+          기간으로 초기화"를 구분할 상태가 없어 사용자 지정 기간이 의도치 않게 계속 남는다. */}
       <SearchFilterBottomSheet
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
         accounts={accounts}
         rawCategories={rawCategories}
+        hideAccountSelect={isMobile === true}
+        hideDateRange={isMobile === true}
+        applyButtonLabel={isMobile === true ? "필터 적용" : "검색 결과 보기"}
+        initialFilters={
+          isMobile === true
+            ? {
+                searchTerm,
+                selectedType,
+                selectedCategoryIds,
+                selectedCategoryCodes,
+              }
+            : undefined
+        }
         onApply={(filters) => {
+          if (isMobile) {
+            // 모바일: 같은 화면의 ASC/DESC query가 바로 갱신되도록 기존 state를 직접 바꾼다.
+            // 결제수단은 잔액 선반이 기본 선택기이므로(시트의 select는 hideAccountSelect로
+            // 숨겼다) selectedAccountId는 건드리지 않는다. 기간도 시트에서 숨겼으므로(위
+            // hideDateRange) filters.startDate/endDate는 항상 빈 값이라 여기서 읽지 않는다 —
+            // 기간은 오직 상단 일/주/월/기간 도구(viewMode/customStart/customEnd)만 바꾼다.
+            setSearchTerm(filters.searchTerm);
+            setSelectedType(filters.selectedType);
+            setSelectedCategoryIds(filters.selectedCategoryIds);
+            setSelectedCategoryCodes(filters.selectedCategoryCodes);
+            return;
+          }
+
           const params = new URLSearchParams();
           if (filters.searchTerm) params.set("q", filters.searchTerm);
           if (filters.selectedAccountId) params.set("account", filters.selectedAccountId);
@@ -1241,7 +1459,7 @@ export default function TransactionPage() {
           }
           if (filters.startDate) params.set("start", filters.startDate);
           if (filters.endDate) params.set("end", filters.endDate);
-          
+
           window.location.href = `/home/transactions/search?${params.toString()}`;
         }}
       />

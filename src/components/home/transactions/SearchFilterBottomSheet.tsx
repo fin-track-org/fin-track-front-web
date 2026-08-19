@@ -1,7 +1,11 @@
 import { CalendarDays, ChevronDown, Search, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+/** Android 뒤로가기 history 처리에 쓰는 state 키. 앱 내 다른 dialog들의 키
+ * (`profileOpen`/`noticeOpen`/`deskSheetOpen`/`modal:"AddTransactionModal"`/
+ * `modal:"TransactionDetailModal"`)와 겹치지 않는 고유 값이어야 한다. */
+const HISTORY_STATE_KEY = "searchFilterOpen";
 
 interface SearchFilterBottomSheetProps {
   isOpen: boolean;
@@ -26,6 +30,18 @@ interface SearchFilterBottomSheetProps {
     startDate: string;
     endDate: string;
   }) => void;
+  /** 모바일에서는 잔액 선반이 결제수단 선택의 기본 진입점이라, 시트 안의 결제수단
+   * select를 그대로 두면 서로 다른 결과를 여는 두 선택기가 생긴다(QA_REVIEW_024 §4).
+   * true면 이 select를 렌더링하지 않는다. */
+  hideAccountSelect?: boolean;
+  /** 모바일은 상단 일/주/월/기간 도구가 기간의 유일한 진입점이다(QA_REVIEW_025 §P2) —
+   * 시트에도 기간 UI를 남겨두면 "빈 값 적용"과 "기간을 건드리지 않고 다른 필터만 적용"을
+   * 구분할 수 없어 사용자 지정 기간이 의도치 않게 계속 유지되는 상태 충돌이 생긴다.
+   * true면 이 시트에서 기간 UI 자체를 렌더링하지 않는다. */
+  hideDateRange?: boolean;
+  /** 적용 버튼 라벨. 데스크톱은 별도 검색 결과 페이지로 이동하므로 기본값을 쓰고,
+   * 모바일은 같은 화면에 바로 반영되므로 호출부에서 다른 문구를 넘긴다. */
+  applyButtonLabel?: string;
 }
 
 export default function SearchFilterBottomSheet({
@@ -35,6 +51,9 @@ export default function SearchFilterBottomSheet({
   rawCategories,
   initialFilters,
   onApply,
+  hideAccountSelect = false,
+  hideDateRange = false,
+  applyButtonLabel = "검색 결과 보기",
 }: SearchFilterBottomSheetProps) {
   const [searchTerm, setSearchTerm] = useState(initialFilters?.searchTerm || "");
   const [selectedAccountId, setSelectedAccountId] = useState(initialFilters?.selectedAccountId || "");
@@ -51,6 +70,80 @@ export default function SearchFilterBottomSheet({
 
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const triggerElementRef = useRef<HTMLElement | null>(null);
+  const titleId = "search-filter-sheet-title";
+
+  // 열릴 때 trigger를 기억해 뒀다가 focus를 시트 안으로 옮기고, 닫히면 trigger로 되돌린다.
+  useEffect(() => {
+    if (isOpen) {
+      triggerElementRef.current = document.activeElement as HTMLElement | null;
+      const raf = requestAnimationFrame(() => closeButtonRef.current?.focus());
+      return () => cancelAnimationFrame(raf);
+    }
+    triggerElementRef.current?.focus?.();
+    triggerElementRef.current = null;
+  }, [isOpen]);
+
+  // body scroll lock — 열려 있는 동안 배경 스크롤을 막는다.
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen]);
+
+  // Android 뒤로가기 — 실제 popstate 이벤트로만 닫는다. `history.back()`은 비동기라
+  // setTimeout으로 "완료를 기다리는" 방식은 다른 dialog가 그 사이 pushState한 history entry를
+  // 잘못 pop해버리는 경쟁 조건을 만든다(REPORT_023에서 확인된 버그) — 여기서는 그 패턴을
+  // 재현하지 않고, 실제 popstate만 신뢰한다.
+  useEffect(() => {
+    if (!isOpen) return;
+    window.history.pushState({ [HISTORY_STATE_KEY]: true }, "");
+    const handlePopState = (e: PopStateEvent) => {
+      const state = e.state as Record<string, unknown> | null;
+      if (!state?.[HISTORY_STATE_KEY]) onClose();
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      const state = window.history.state as Record<string, unknown> | null;
+      if (state?.[HISTORY_STATE_KEY]) window.history.back();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Escape로 닫기 + Tab/Shift+Tab focus trap.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const focusables = sheetRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusables || focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (isOpen) {
@@ -279,13 +372,22 @@ export default function SearchFilterBottomSheet({
 
   return createPortal(
     <div className={`fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm ${isClosing ? 'animate-fade-out-overlay' : 'animate-fade-in-overlay'}`} onClick={onClose}>
-      <div 
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
         className={`absolute bottom-0 left-0 right-0 sm:left-1/2 sm:-translate-x-1/2 bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl shadow-xl flex flex-col h-[85dvh] sm:h-auto sm:max-h-[80vh] overflow-hidden ${isClosing ? 'animate-slide-down-bottom-sheet' : 'animate-slide-up-bottom-sheet'}`}
       >
         <div className="flex items-center justify-between p-4 md:p-5 border-b border-gray-100 shrink-0">
-          <h2 className="text-lg font-bold text-gray-900">거래내역 검색 및 필터</h2>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors">
+          <h2 id={titleId} className="text-lg font-bold text-gray-900">거래내역 검색 및 필터</h2>
+          <button
+            ref={closeButtonRef}
+            onClick={onClose}
+            aria-label="닫기"
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+          >
             <X size={20} />
           </button>
         </div>
@@ -294,6 +396,7 @@ export default function SearchFilterBottomSheet({
           <div className="flex flex-col gap-5">
             {/* 기간 지정 + 검색 + 결제수단 필터 */}
             <div className="flex flex-col gap-3 md:flex-row">
+              {!hideDateRange && (
               <div className="relative">
                 <button
                   onClick={handleOpenDatePicker}
@@ -369,6 +472,7 @@ export default function SearchFilterBottomSheet({
                   </div>
                 )}
               </div>
+              )}
 
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -380,18 +484,20 @@ export default function SearchFilterBottomSheet({
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:bg-white transition-colors"
                 />
               </div>
-              <select
-                value={selectedAccountId}
-                onChange={(e) => setSelectedAccountId(e.target.value)}
-                className="py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:bg-white transition-colors md:w-56"
-              >
-                <option value="">결제수단 전체</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
+              {!hideAccountSelect && (
+                <select
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                  className="py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:bg-white transition-colors md:w-56"
+                >
+                  <option value="">결제수단 전체</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* 카테고리 필터 섹션 */}
@@ -559,7 +665,7 @@ export default function SearchFilterBottomSheet({
             onClick={handleApply}
             className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl transition-colors shadow-sm"
           >
-            검색 결과 보기
+            {applyButtonLabel}
           </button>
         </div>
       </div>
