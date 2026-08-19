@@ -74,29 +74,30 @@ interface MobileTransactionViewProps {
  * 더 누적하지 않는다").
  */
 export default function MobileTransactionView(props: MobileTransactionViewProps) {
-  // 모바일 엑셀 헤더의 동적 sticky offset(IMPLEMENTATION_BRIEF_013 §4) — "잔액 선반의 실제
+  // 모바일 엑셀 "복제 헤더"의 top 위치(IMPLEMENTATION_BRIEF_014 §5.2) — "잔액 선반의 실제
   // 하단 offset"을 측정한다. 앱 바 높이는 `MOBILE_TOOLBAR_APPBAR_HEIGHT_PX`로 이미 CSS가
   // 강제하는 고정값(추정이 아니라 실제 스타일 높이)이라 그대로 더하고, 선반 자체의 높이만
   // `ResizeObserver`로 실측한다 — 계좌 카드 줄바꿈, "전체 기간" 안내 배너, 로딩/오류 상태
   // 전환 등 어떤 이유로 선반 높이가 바뀌든 동일하게 반영된다.
   //
-  // QA_REVIEW_030 P1: 측정을 위해 선반을 새 wrapper `<div>`로 감쌌더니, `AccountBalanceShelf`
-  // 루트의 `position: sticky`가 그 wrapper를 containing block으로 삼게 되면서 선반 자신의
-  // 고정이 거의 즉시 풀리는 회귀가 있었다 — sticky 요소는 스크롤 컨테이너 기준으로 위치가
-  // 정해지지만 자신의 containing block 경계를 벗어날 수 없고, 선반 높이와 거의 같은 새
-  // wrapper는 그 여유 공간을 없애버린다. 이제 DOM 구조를 새로 만들지 않고, `forwardRef`로
-  // 노출한 선반의 실제 `<section>`(기존 sticky 요소 그대로) 자체를 직접 관찰한다.
+  // 이 측정 자체는 REPORT_030~031(QA_REVIEW_030 P1)에서 만든 방식 그대로다 — 잔액 선반을
+  // 새 wrapper `<div>`로 감싸면 `AccountBalanceShelf` 루트의 `position: sticky`가 그
+  // wrapper를 containing block으로 삼아 선반 자신의 고정이 거의 즉시 풀리는 회귀가 있었다.
+  // 그래서 DOM 구조를 새로 만들지 않고, `forwardRef`로 노출한 선반의 실제 `<section>`(기존
+  // sticky 요소 그대로) 자체를 직접 관찰한다. IMPLEMENTATION_BRIEF_014은 이 값의 "용도"만
+  // 바꿨다 — 더 이상 실제 `<thead>`를 sticky로 고정하는 데 쓰지 않고, `LedgerTable`이 따로
+  // 그리는 복제 헤더의 `top`으로만 쓴다(§4, §11 "forwardRef는... 유지할 수 있다").
   const shelfRef = useRef<HTMLElement>(null);
   const [measuredShelfHeight, setMeasuredShelfHeight] = useState<number | null>(null);
 
   useEffect(() => {
-    // 카드형 "편하게 보기"에서는 엑셀 헤더 자체가 없으므로 측정 로직을 아예 켜지 않는다
-    // (§4.2 "카드형 편하게 보기: 엑셀 헤더 측정·sticky 로직을 사용하지 않음") — state는
-    // 일부러 건드리지 않는다(마지막으로 측정된 값을 그대로 둬도 무해하다, 엑셀 뷰가 아닐 땐
-    // 아래에서 아무 데도 쓰이지 않는다 — effect 본문에서 곧장 setState를 호출하는 대신
-    // ResizeObserver 콜백 안에서만 갱신해 `react-hooks/set-state-in-effect`도 피한다).
+    // 카드형 "편하게 보기"에서는 엑셀 복제 헤더 자체가 없으므로 측정 로직을 아예 켜지 않는다
+    // (§9 "카드형 보기로 바꾸는 즉시 복제 헤더가 사라지고 observer/listener가 정리된다") —
+    // state는 일부러 건드리지 않는다(마지막으로 측정된 값을 그대로 둬도 무해하다, 엑셀 뷰가
+    // 아닐 땐 아래에서 아무 데도 쓰이지 않는다 — effect 본문에서 곧장 setState를 호출하는
+    // 대신 ResizeObserver 콜백 안에서만 갱신해 `react-hooks/set-state-in-effect`도 피한다).
     // 엑셀 장부로 전환할 때마다 새 observer를 만들고, 벗어나거나 언마운트되면 정리해
-    // 카드형↔엑셀 반복 전환에도 observer가 누적되지 않게 한다(§4.3, §4.5).
+    // 카드형↔엑셀 반복 전환에도 observer가 누적되지 않게 한다.
     if (!props.isExcelView) return;
     const el = shelfRef.current;
     if (!el) return;
@@ -110,10 +111,10 @@ export default function MobileTransactionView(props: MobileTransactionViewProps)
     return () => observer.disconnect();
   }, [props.isExcelView]);
 
-  // 측정 전(첫 ResizeObserver 콜백 전)에는 null — LedgerTable이 이 값을 그대로 받아 헤더를
-  // 임시로 비고정 상태로 둔다. `top: 0`으로 먼저 고정했다가 값이 갱신되며 튀는 깜빡임을
-  // 막는다(§4.3 "측정이 끝나기 전에는... 안전한 방식으로 sticky를 활성화한다").
-  const mobileStickyHeaderTop = measuredShelfHeight === null ? null : MOBILE_TOOLBAR_APPBAR_HEIGHT_PX + measuredShelfHeight;
+  // 측정 전(첫 ResizeObserver 콜백 전)에는 null — `LedgerTable`이 이 값을 그대로 받아 복제
+  // 헤더를 아예 렌더링하지 않는다. 잘못된 위치(예: top:0)로 먼저 보였다가 값이 갱신되며
+  // 튀는 깜빡임을 막는다.
+  const mobileFloatingHeaderTop = measuredShelfHeight === null ? null : MOBILE_TOOLBAR_APPBAR_HEIGHT_PX + measuredShelfHeight;
 
   return (
     <div className="-mx-1 lg:hidden">
@@ -171,7 +172,7 @@ export default function MobileTransactionView(props: MobileTransactionViewProps)
             openingBalanceAmount={props.excelOpeningBalanceAmount}
             showRunningBalances={props.showRunningBalances}
             allowReorder={!props.isSearchResultMode}
-            mobileStickyHeaderTop={mobileStickyHeaderTop}
+            mobileFloatingHeaderTop={mobileFloatingHeaderTop}
           />
         </div>
       ) : (
