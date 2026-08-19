@@ -10,10 +10,11 @@ interface MobileLedgerToolbarProps {
   onOpenSearchFilter: () => void;
   activeFilterCount: number;
   activeFilterChips: { key: string; label: string; onRemove: () => void }[];
-  hasActiveFilters: boolean;
   onResetFilters: () => void;
-  /** 검색어/카테고리/유형 조건이 하나 이상 적용된 상태(DECISION_013 "결과 모드"). 이 값이
-   * true일 때만 조회 범위 칩과 "조건 수정"/"검색·필터 종료" 버튼을 보여준다. */
+  /** 검색·필터 결과 모드 활성 여부(DECISION_013 "결과 모드", IMPLEMENTATION_BRIEF_013 §5.2) —
+   * 검색어/유형/카테고리 조건 개수와 더 이상 같지 않다. 조회 기간만 적용해도(조건이 하나도
+   * 없어도) true가 될 수 있다("기간-only 결과 모드"). 이 값이 true일 때만 결과 헤더(조회
+   * 범위 칩·조건 칩·"조건 수정"/"검색·필터 종료")를 보여주고, 일반 장부 기간 탭은 숨긴다. */
   isSearchResultMode: boolean;
   /** 결과 모드의 조회 범위 칩 문구(예: "전체 기간", "현재 기간 · 8/17~8/23", "8/1~8/15"). */
   searchRangeLabel: string;
@@ -42,7 +43,6 @@ export default function MobileLedgerToolbar({
   onOpenSearchFilter,
   activeFilterCount,
   activeFilterChips,
-  hasActiveFilters,
   onResetFilters,
   isSearchResultMode,
   searchRangeLabel,
@@ -76,21 +76,20 @@ export default function MobileLedgerToolbar({
         </button>
       </div>
 
-      {/* 검색·필터 결과 모드 헤더(DECISION_013 "결과 모드", IMPLEMENTATION_BRIEF_012 §8) —
-          시트가 같은 화면 state를 직접 갱신하므로 실제로 작동한다. 조회 범위 칩(제거 불가,
-          누르면 시트를 열어 범위를 수정) + 조건 칩(최대 3개, 개별 제거) + "조건 수정"/
+      {/* 검색·필터 결과 모드 헤더(DECISION_013 "결과 모드", IMPLEMENTATION_BRIEF_013 §5) —
+          시트가 같은 화면 state를 직접 갱신하므로 실제로 작동한다. 조건이 하나도 없는
+          "기간-only 결과 모드"에서도 이 헤더는 그대로 보여야 한다 — 조회 범위 칩(제거 불가,
+          누르면 시트를 열어 범위를 수정) + 조건 칩(있으면 최대 3개, 개별 제거) + "조건 수정"/
           "검색·필터 종료"를 보여준다. */}
-      {hasActiveFilters && (
+      {isSearchResultMode && (
         <div className="flex flex-wrap items-center gap-1.5 px-4 pt-2.5">
-          {isSearchResultMode && (
-            <button
-              type="button"
-              onClick={onOpenSearchFilter}
-              className="inline-flex items-center gap-1 rounded-full border border-ll-ink/30 bg-ll-butter px-2.5 py-1 text-[11px] font-bold text-ll-ink"
-            >
-              🗓 {searchRangeLabel}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onOpenSearchFilter}
+            className="inline-flex items-center gap-1 rounded-full border border-ll-ink/30 bg-ll-butter px-2.5 py-1 text-[11px] font-bold text-ll-ink"
+          >
+            🗓 {searchRangeLabel}
+          </button>
           {activeFilterChips.map((chip) => (
             <button
               key={chip.key}

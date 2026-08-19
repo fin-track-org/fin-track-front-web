@@ -20,7 +20,11 @@ interface MobileTransactionListProps {
   isError: boolean;
   errorMessage?: string | null;
   onRetry: () => void;
-  hasActiveFilters: boolean;
+  /** 검색·필터 결과 모드 활성 여부(IMPLEMENTATION_BRIEF_013 §5.2) — 검색어/유형/카테고리
+   * 조건이 없어도 조회 기간만 적용된 상태(기간-only 결과)를 포함한다. 빈 결과일 때 이
+   * 값으로 "필터 초기화" 액션 노출 여부를 정한다 — 검색어/유형/카테고리 개수만 보면
+   * 기간-only 결과의 빈 상태에서 액션이 사라지는 문제가 있었다. */
+  isSearchResultMode: boolean;
   onResetFilters: () => void;
   selectedAccountId: string;
   onViewDetail: (t: Transaction) => void;
@@ -49,7 +53,7 @@ export default function MobileTransactionList({
   isError,
   errorMessage,
   onRetry,
-  hasActiveFilters,
+  isSearchResultMode,
   onResetFilters,
   selectedAccountId,
   onViewDetail,
@@ -100,8 +104,8 @@ export default function MobileTransactionList({
         <StatePanel
           tone="neutral"
           title="현재 조건에 맞는 거래가 없어요"
-          description={hasActiveFilters ? "필터를 초기화하면 다른 거래를 볼 수 있어요." : "빠른 기록으로 지금 바로 남겨보세요."}
-          action={hasActiveFilters ? { label: "필터 초기화", onClick: onResetFilters } : undefined}
+          description={isSearchResultMode ? "필터를 초기화하면 다른 거래를 볼 수 있어요." : "빠른 기록으로 지금 바로 남겨보세요."}
+          action={isSearchResultMode ? { label: "필터 초기화", onClick: onResetFilters } : undefined}
         />
       </div>
     );

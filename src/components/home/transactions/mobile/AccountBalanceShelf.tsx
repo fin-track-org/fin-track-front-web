@@ -1,5 +1,6 @@
 "use client";
 
+import { forwardRef } from "react";
 import type { BalanceRes } from "@/src/lib/api/balanceApi";
 import { getAccountIcon } from "@/src/lib/transactionUtils";
 
@@ -33,8 +34,14 @@ interface AccountBalanceShelfProps {
  * 결제수단 선택 + 시작 잔액 + 현재/종료 잔액을 하나로 묶은 가로 선반(DECISION_012).
  * 잔액은 거래 목록 스크롤과 무관하게 고정된 조회 기간 값만 보여준다 — 이 컴포넌트는 그
  * props로만 값을 받고 스스로 스크롤 위치를 관찰하지 않는다(구현 금지 사항 1번).
+ *
+ * `forwardRef`로 루트 `<section>`(실제 `position: sticky` 요소) 자체에 접근할 수 있게 한다
+ * (QA_REVIEW_030 P1) — 모바일 엑셀 헤더의 동적 offset을 구하려고 이 섹션을 감싸는 새
+ * wrapper `<div>`를 두면, sticky 요소의 containing block이 그 wrapper로 좁아져 선반 자신의
+ * sticky 동작이 거의 즉시 끊기는 회귀가 생긴다 — DOM 구조를 새로 만들지 않고 기존 sticky
+ * 요소를 직접 관찰해야 이 문제가 없다.
  */
-export default function AccountBalanceShelf({
+const AccountBalanceShelf = forwardRef<HTMLElement, AccountBalanceShelfProps>(function AccountBalanceShelf({
   accounts,
   openingBalance,
   closingBalance,
@@ -49,7 +56,7 @@ export default function AccountBalanceShelf({
   stickyTopPx,
   hideOpeningBalance = false,
   balanceNotice,
-}: AccountBalanceShelfProps) {
+}, ref) {
   const currentLabel = showCurrentLabel ? "현재" : "종료";
 
   const findAmount = (balance: BalanceRes | undefined, accountId?: string) => {
@@ -69,6 +76,7 @@ export default function AccountBalanceShelf({
 
   return (
     <section
+      ref={ref}
       aria-label="결제수단별 잔액 및 장부 선택"
       className="sticky z-[7] border-y border-ll-ink/12 bg-ll-paper/97 py-2.5 backdrop-blur-sm"
       style={{ top: stickyTopPx }}
@@ -207,4 +215,6 @@ export default function AccountBalanceShelf({
       )}
     </section>
   );
-}
+});
+
+export default AccountBalanceShelf;

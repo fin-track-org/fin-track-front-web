@@ -102,15 +102,22 @@ export default function TransactionPage() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedCategoryCodes, setSelectedCategoryCodes] = useState<string[]>([]);
 
-  // 검색·필터 결과 모드(DECISION_013, IMPLEMENTATION_BRIEF_012 §3) — 검색어/유형/카테고리
-  // 조건이 하나 이상 적용된 상태를 뜻한다. 아래 balance/transaction query들이 이 값을
-  // 참조하므로 관련 filter state 바로 옆에서 먼저 계산해 둔다.
+  // 검색·필터 결과 모드(IMPLEMENTATION_BRIEF_013 §5.2) — 더 이상 hasActiveFilters에서
+  // 파생하지 않는다. 조회 기간만 적용해도(검색어·유형·카테고리가 전혀 없어도) 결과 모드에
+  // 진입할 수 있기 때문이다 — 이 브리프가 DECISION_013의 "조회 범위만 바꾸면 결과 모드로
+  // 진입하지 않는다"는 기존 규칙을 뒤집었다(브리프 §2 "이제 조회 기간 자체도 독립적인
+  // 검색·필터 조건이다"). 명시적 state로 관리하고, "필터 적용" 시에만 켜고
+  // "검색·필터 종료"(exitSearchResultMode)로만 끈다.
+  const [isSearchResultMode, setIsSearchResultMode] = useState(false);
+
+  // 앱 바 배지에 쓰는 전체 활성 "필터 개수" — 결과 모드에서는 적용된 조회 범위도 필터
+  // 1건으로 취급한다(§5.2 권장안) — 기간만 적용한 상태에서 배지가 0으로 보이면 안 된다.
   const activeFilterCount =
     selectedCategoryIds.length +
     selectedCategoryCodes.length +
     (searchTerm.trim() ? 1 : 0) +
-    (selectedType !== "ALL" ? 1 : 0);
-  const hasActiveFilters = activeFilterCount > 0;
+    (selectedType !== "ALL" ? 1 : 0) +
+    (isSearchResultMode ? 1 : 0);
 
   // 검색·필터 결과의 조회 범위(DECISION_013 "조회 범위 선택지") — 일반 장부 기간과는
   // 별개의 state다. 시트를 새로 열 때 기본값은 항상 "전체 기간".
@@ -170,11 +177,6 @@ export default function TransactionPage() {
 
   // lg(1024px) 미만 여부 — 기존 모바일 홈과 동일한 breakpoint(IMPLEMENTATION_BRIEF_011 §3).
   const isMobile = useIsMobileViewport();
-
-  // 데스크톱은 검색·필터 적용이 별도 페이지로 이동하므로 위 filter state들을 절대 건드리지
-  // 않는다(그래서 desktop에서는 hasActiveFilters가 항상 false다) — isMobile로 한 번 더
-  // 명시적으로 가둬 결과 모드 전용 UI/쿼리 분기가 데스크톱에 영향을 주지 않게 한다.
-  const isSearchResultMode = isMobile === true && hasActiveFilters;
 
   // 새 거래용 defaultValues
   const [modalDefaultValues, setModalDefaultValues] = useState<
@@ -1103,15 +1105,18 @@ export default function TransactionPage() {
   const showCurrentLabel =
     todayStr >= (effectiveRange.startDate ?? startDate) && todayStr <= (effectiveRange.endDate ?? endDate);
 
-  // 검색·필터 결과 모드 종료(DECISION_013 §9 "종료·복원") — 조건을 모두 비우고 조회 범위를
-  // 초기화한 뒤, 진입 전 snapshot이 있으면 일반 장부 상태를 그대로 되돌린다. 결제수단
-  // 선택도 결과 탐색용 임시 상태로 보고 함께 복원한다.
+  // 검색·필터 결과 모드 종료(IMPLEMENTATION_BRIEF_013 §5.4 "결과 모드는 명시적인 검색·필터
+  // 종료로 끝낸다") — 조건을 모두 비우고 조회 범위·결과 모드를 초기화한 뒤, 진입 전
+  // snapshot이 있으면 일반 장부 상태를 그대로 되돌린다. 결제수단 선택도 결과 탐색용 임시
+  // 상태로 보고 함께 복원한다. 개별 조건 칩 제거로는 더 이상 호출되지 않는다(아래 참고) —
+  // "검색·필터 종료" 버튼과 결과 목록 빈 상태의 "필터 초기화" 액션만 이 함수를 쓴다.
   const exitSearchResultMode = useCallback(() => {
     setSearchTerm("");
     setSelectedType("ALL");
     setSelectedCategoryIds([]);
     setSelectedCategoryCodes([]);
     setAppliedSearchRange({ mode: "all" });
+    setIsSearchResultMode(false);
     if (ledgerSnapshot) {
       setViewMode(ledgerSnapshot.viewMode);
       setCurrentDate(ledgerSnapshot.currentDate);
@@ -1122,45 +1127,50 @@ export default function TransactionPage() {
     setLedgerSnapshot(null);
   }, [ledgerSnapshot]);
 
+  // 화면 폭이 데스크톱으로 바뀌면(반응형 리사이즈 등) 결과 모드를 안전하게 종료한다 —
+  // `isSearchResultMode`가 이제 `isMobile`에서 파생되지 않는 독립 state라, 리사이즈로
+  // `isMobile`만 바뀌었을 때 저절로 꺼지지 않는다. 데스크톱 트리는 이 state를 전혀
+  // 참조하지 않지만, 검색 범위(effectiveRange)에 걸린 잔액·거래 query는 공유되므로 방치하면
+  // 데스크톱 화면에 검색 결과만 남는 회귀가 생길 수 있다(§6 "회귀 방지").
+  useEffect(() => {
+    if (isMobile === false && isSearchResultMode) {
+      exitSearchResultMode();
+    }
+  }, [isMobile, isSearchResultMode, exitSearchResultMode]);
+
   // 모바일 상단 활성 필터 칩(QA_REVIEW_024 §4, DECISION_013 §8) — 최대 3개까지만 노출하고,
-  // 각 칩은 그 필터만 개별 해제한다. 단, 그 칩을 지우면 남는 조건이 0개가 되는 경우(=마지막
-  // 조건 제거)라면 결과 모드 전체를 종료해 snapshot을 복원한다(§9 "마지막 검색·필터 조건이
-  // 제거되면 결과 모드를 종료"). count 배지는 `activeFilterCount` 전체 값을 그대로 쓴다.
+  // 각 칩은 그 필터만 개별 해제한다. IMPLEMENTATION_BRIEF_013 §5.4 이후로는 마지막 조건을
+  // 지워도 결과 모드를 자동 종료하지 않는다 — 적용된 조회 범위가 남아 있으면 그 범위만으로도
+  // 결과 모드가 유지돼야 하기 때문이다(기간-only 결과 모드와 "마지막 칩 제거 시 자동 종료"
+  // 로직이 충돌한다). count 배지는 `activeFilterCount` 전체 값을 그대로 쓴다.
   const activeFilterChips = useMemo(() => {
     const chips: { key: string; label: string; onRemove: () => void }[] = [];
-    const makeRemove = (clear: () => void, ownCount: number) => () => {
-      if (isSearchResultMode && activeFilterCount - ownCount <= 0) {
-        exitSearchResultMode();
-      } else {
-        clear();
-      }
-    };
     if (searchTerm.trim()) {
-      chips.push({ key: "search", label: `"${searchTerm.trim()}"`, onRemove: makeRemove(() => setSearchTerm(""), 1) });
+      chips.push({ key: "search", label: `"${searchTerm.trim()}"`, onRemove: () => setSearchTerm("") });
     }
     if (selectedType !== "ALL") {
       chips.push({
         key: "type",
         label: selectedType === "INCOME" ? "수입만" : "지출만",
-        onRemove: makeRemove(() => setSelectedType("ALL"), 1),
+        onRemove: () => setSelectedType("ALL"),
       });
     }
     if (selectedCategoryIds.length > 0) {
       chips.push({
         key: "categories",
         label: `카테고리 ${selectedCategoryIds.length}개`,
-        onRemove: makeRemove(() => setSelectedCategoryIds([]), selectedCategoryIds.length),
+        onRemove: () => setSelectedCategoryIds([]),
       });
     }
     if (selectedCategoryCodes.length > 0) {
       chips.push({
         key: "codes",
         label: `이체·저축 등 ${selectedCategoryCodes.length}개`,
-        onRemove: makeRemove(() => setSelectedCategoryCodes([]), selectedCategoryCodes.length),
+        onRemove: () => setSelectedCategoryCodes([]),
       });
     }
     return chips.slice(0, 3);
-  }, [searchTerm, selectedType, selectedCategoryIds, selectedCategoryCodes, isSearchResultMode, activeFilterCount, exitSearchResultMode]);
+  }, [searchTerm, selectedType, selectedCategoryIds, selectedCategoryCodes]);
 
   // 기간 시작 잔액 북마크 라벨 — 결과 모드에서는 effectiveRange(검색 범위)의 시작일을 쓴다.
   // "전체 기간"은 어차피 hideOpeningBookmark로 아예 감춰지므로 값 자체는 의미가 없다.
@@ -1429,7 +1439,6 @@ export default function TransactionPage() {
                   isEasyError={isDescTransactionsError}
                   easyErrorMessage={(descTransactionsError as Error | null)?.message}
                   onRetryEasy={() => refetchDescTransactions()}
-                  hasActiveFilters={hasActiveFilters}
                   onResetFilters={exitSearchResultMode}
                   onViewDetail={setDetailTransaction}
                   loadMoreRef={loadMoreDescRef}
@@ -1579,21 +1588,16 @@ export default function TransactionPage() {
             // 결제수단은 잔액 선반이 기본 선택기이므로(시트의 select는 hideAccountSelect로
             // 숨겼다) selectedAccountId는 건드리지 않는다(§7 "결제수단 선택은 검색 조건으로
             // 계산하지 않는다").
-            const willHaveActiveFilters =
-              filters.searchTerm.trim() !== "" ||
-              filters.selectedType !== "ALL" ||
-              filters.selectedCategoryIds.length > 0 ||
-              filters.selectedCategoryCodes.length > 0;
-
-            if (!willHaveActiveFilters) {
-              // 검색 조건이 전혀 없으면 범위만으로 결과 모드에 진입하지 않는다(§5). 이미
-              // 결과 모드였다면 마지막 조건이 사라진 것과 같으므로 완전히 종료한다.
-              if (isSearchResultMode) exitSearchResultMode();
-              return;
-            }
-
-            // 처음 진입할 때만 일반 장부 상태를 snapshot으로 저장한다(§9 "복귀 규칙").
+            //
+            // IMPLEMENTATION_BRIEF_013 §5.1 — 검색어·유형·카테고리 없이 조회 범위만 선택해도
+            // "필터 적용"을 누르면 결과 모드에 진입한다(§5.2 "필터 적용을 누르면 유효한
+            // mobileRange가 있는 한 결과 모드를 활성화한다"). 시트가 이 콜백을 호출한다는
+            // 것 자체가 유효성 검증(직접 선택의 날짜 검증 등)을 통과했다는 뜻이라, 여기서
+            // "조건이 하나도 없으면 진입하지 않는다"는 분기를 더 이상 두지 않는다.
             if (!isSearchResultMode) {
+              // 처음 진입할 때만 일반 장부 상태를 snapshot으로 저장한다(§9 "복귀 규칙" —
+              // 결과 모드에서 기간만 바꿔 다시 적용해도 이미 isSearchResultMode가 true라
+              // snapshot을 덮어쓰지 않는다, §5.3).
               setLedgerSnapshot({ viewMode, currentDate, customStart, customEnd, selectedAccountId });
             }
 
@@ -1602,6 +1606,7 @@ export default function TransactionPage() {
             setSelectedCategoryIds(filters.selectedCategoryIds);
             setSelectedCategoryCodes(filters.selectedCategoryCodes);
             if (mobileRange) setAppliedSearchRange(mobileRange);
+            setIsSearchResultMode(true);
             return;
           }
 

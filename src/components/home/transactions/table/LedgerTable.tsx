@@ -58,6 +58,12 @@ interface Props {
    * 바꾸면 화면에 없는 같은 날짜 거래가 서버에서 밀려날 위험이 있다). 기본값 true로
    * 일반 장부 엑셀은 영향 없음. */
   allowReorder?: boolean;
+  /** 모바일 엑셀 헤더의 동적 sticky 위치(px, IMPLEMENTATION_BRIEF_013 §4). 데스크톱 호출부는
+   * 이 prop 자체를 넘기지 않는다(`undefined`) — 그러면 기존 `sticky top-0 z-30` 동작이 완전히
+   * 그대로 유지된다. 모바일 호출부는 항상 값을 넘긴다: 아직 측정 전이면 `null`(헤더를 일시
+   * 비고정 상태로 둬 `top:0` 깜빡임을 막는다), 측정됐으면 실제 px 숫자(잔액 선반 실제 하단
+   * offset)를 넘긴다. */
+  mobileStickyHeaderTop?: number | null;
 }
 
 /* ────────────────────────── Sortable wrappers ────────────────────────── */
@@ -280,7 +286,13 @@ export default function LedgerTable({
   openingBalanceAmount = 0,
   showRunningBalances = true,
   allowReorder = true,
+  mobileStickyHeaderTop,
 }: Props) {
+  // `mobileStickyHeaderTop`이 넘어온 호출부(모바일)만 동적 offset 로직을 쓴다 — 데스크톱
+  // 호출부는 이 prop 자체를 넘기지 않으므로 `isMobileHeaderContext`가 항상 false라
+  // 기존 `sticky top-0 z-30` 스타일이 그대로 유지된다(IMPLEMENTATION_BRIEF_013 §4).
+  const isMobileHeaderContext = mobileStickyHeaderTop !== undefined;
+  const isMobileHeaderMeasured = isMobileHeaderContext && mobileStickyHeaderTop !== null;
   const [localTransactions, setLocalTransactions] =
     useState<Transaction[]>(transactions);
 
@@ -488,7 +500,22 @@ export default function LedgerTable({
       >
         <div className={`${isExcelView ? "block" : "hidden md:block"} bg-white overflow-x-auto border-x border-b border-gray-200`}>
           <table className={`w-full ${isExcelView ? "md:min-w-full min-w-max border-collapse border border-gray-300 text-xs md:text-sm" : "min-w-full"}`}>
-            <thead className={`sticky top-0 z-30 ${isExcelView ? "bg-[#f3f4f6] text-gray-700 shadow-sm" : "bg-gray-50 text-gray-500 text-sm shadow-sm"}`}>
+            <thead
+              className={[
+                // 데스크톱(mobileStickyHeaderTop 미전달)은 기존 동작 그대로: 항상 sticky top-0 z-30.
+                // 모바일은 측정 전에는 sticky를 아예 켜지 않고(top:0 깜빡임 방지), 측정 후에만
+                // sticky를 켜되 top은 실측값(inline style), z-index는 필터 도구(z-8)·잔액
+                // 선반(z-7)보다 낮은 z-[6]로 둔다(IMPLEMENTATION_BRIEF_013 §4.4 "필터 도구 >
+                // 잔액 선반 > 엑셀 열 헤더 > 거래 행").
+                !isMobileHeaderContext
+                  ? "sticky top-0 z-30"
+                  : isMobileHeaderMeasured
+                    ? "sticky z-[6]"
+                    : "",
+                isExcelView ? "bg-[#f3f4f6] text-gray-700 shadow-sm" : "bg-gray-50 text-gray-500 text-sm shadow-sm",
+              ].join(" ")}
+              style={isMobileHeaderMeasured ? { top: mobileStickyHeaderTop as number } : undefined}
+            >
               <tr>
                 <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2 w-6 md:w-8 text-center" : "px-3 py-3 w-8"} text-[10px] md:text-xs font-semibold uppercase hidden md:table-cell`}>#</th>
                 <th className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase hidden md:table-cell`}>날짜</th>
