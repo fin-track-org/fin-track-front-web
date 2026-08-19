@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Capacitor } from "@capacitor/core";
 import { createClient } from "@/src/lib/supabase/client";
 import { AuthShell } from "@/src/components/auth/AuthShell";
 import { AuthStatusPanel } from "@/src/components/auth/AuthStatusPanel";
@@ -10,6 +11,7 @@ import { SocialLoginButtons } from "@/src/components/auth/SocialLoginButtons";
 import { StatePanel } from "@/src/components/ledger/StatePanel";
 import { Label } from "@/src/components/ui/label";
 import { getLoginErrorMessage, getOAuthCallbackReasonMessage } from "@/src/lib/authErrorMessages";
+import { startNativeOAuth } from "@/src/lib/auth/nativeOAuth";
 
 export default function LoginPage() {
   // 초기 세션 확인이 끝나기 전에는 폼을 보여주지 않는다(브리프 §5 "이미 로그인된 사용자").
@@ -99,11 +101,18 @@ export default function LoginPage() {
     setKakaoLoading(true);
 
     try {
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: "kakao",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (authError) throw authError;
+      if (Capacitor.isNativePlatform()) {
+        // Capacitor 앱: 시스템 인증창으로 열고 앱 복귀는 CapacitorOAuthListener가 딥링크로 받는다.
+        await startNativeOAuth("kakao");
+        setKakaoLoading(false); // 브라우저가 열렸을 뿐 로그인이 끝난 게 아니므로 버튼을 다시 쓸 수 있게 한다.
+      } else {
+        const { error: authError } = await supabase.auth.signInWithOAuth({
+          provider: "kakao",
+          options: { redirectTo: `${window.location.origin}/auth/callback` },
+        });
+        if (authError) throw authError;
+        // 성공 시에는 라우팅이 끝날 때까지 버튼을 계속 잠가둔다(setKakaoLoading(false) 생략).
+      }
     } catch (err) {
       console.error("[login] kakao oauth start failed:", err);
       setError(getLoginErrorMessage(err));
@@ -116,11 +125,17 @@ export default function LoginPage() {
     setGoogleLoading(true);
 
     try {
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (authError) throw authError;
+      if (Capacitor.isNativePlatform()) {
+        await startNativeOAuth("google");
+        setGoogleLoading(false);
+      } else {
+        const { error: authError } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: `${window.location.origin}/auth/callback` },
+        });
+        if (authError) throw authError;
+        // 성공 시에는 라우팅이 끝날 때까지 버튼을 계속 잠가둔다(setGoogleLoading(false) 생략).
+      }
     } catch (err) {
       console.error("[login] google oauth start failed:", err);
       setError(getLoginErrorMessage(err));

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/src/lib/supabase/server';
+import { buildIdentitySyncPayload } from '@/src/lib/auth/identitySyncPayload';
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
@@ -41,31 +42,9 @@ export async function GET(request: Request) {
 
             // 💡 [핵심 버그 수정]: 'link' 액션 여부와 상관없이 무조건 현재 user.identities를 파싱합니다.
             // (동일 이메일로 가입해 Supabase가 자동 연동(Update)한 경우에도 DB를 최신 상태로 동기화하기 위함)
-            const identities = user.identities ?? [];
-            const linkedProviders = identities.map((id) => id.provider);
-
-            const availableAvatars: Record<string, string> = {};
-            let latestAvatarUrl: string | null = null;
-
-            // 모든 identity를 순회하며 아바타 추출
-            identities.forEach((id) => {
-                const url = id.identity_data?.avatar_url ?? id.identity_data?.picture;
-                if (url) {
-                    availableAvatars[id.provider] = url;
-                    latestAvatarUrl = url;
-                }
-            });
-
-            // PUT 요청 Payload 구성
-            const payload: any = {
-                linkedProviders,
-                availableAvatars
-            };
-            
-            // 마이페이지에서 명시적으로 연동(link)을 누른 경우에만, 프사를 새로 연동한 계정 프사로 덮어씌웁니다.
-            if (action === 'link') {
-                payload.avatarUrl = latestAvatarUrl;
-            }
+            // payload 계산은 Capacitor 앱 전용 콜백과 공유하는 순수 함수를 쓴다(DECISION_006 §4).
+            // 마이페이지에서 명시적으로 연동(link)을 누른 경우에만, 프사를 새로 연동한 계정 프사로 덮어씌운다.
+            const payload = buildIdentitySyncPayload(user, { includeAvatarUrl: action === 'link' });
 
             try {
                 // 백엔드에 최신 소셜 계정 상태 동기화
