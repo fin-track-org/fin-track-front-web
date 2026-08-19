@@ -21,6 +21,12 @@ interface AccountBalanceShelfProps {
   showCurrentLabel: boolean;
   /** 앱 바 바로 아래 sticky 위치(px). */
   stickyTopPx: number;
+  /** 검색·필터 조회 범위가 "전체 기간"일 때 true(DECISION_013). 의미 없는 "시작" 값을
+   * 감추고 카드에 "현재 잔액" 한 줄만 보여준다 — `openingBalance`는 이 모드에선 무시된다. */
+  hideOpeningBalance?: boolean;
+  /** "전체 기간"에서 보여줄 안내 문구(DECISION_013 "잔액은 검색 조건과 무관한 실제 계좌
+   * 잔액이에요"). `hideOpeningBalance`일 때만 렌더링한다. */
+  balanceNotice?: string;
 }
 
 /**
@@ -41,6 +47,8 @@ export default function AccountBalanceShelf({
   onToggleSavings,
   showCurrentLabel,
   stickyTopPx,
+  hideOpeningBalance = false,
+  balanceNotice,
 }: AccountBalanceShelfProps) {
   const currentLabel = showCurrentLabel ? "현재" : "종료";
 
@@ -52,6 +60,12 @@ export default function AccountBalanceShelf({
 
   const formatWon = (amount: number | undefined) =>
     amount === undefined ? "-" : `${amount < 0 ? "-" : ""}${Math.abs(amount).toLocaleString()}원`;
+
+  // 카드 아리아 라벨 — 전체 기간(hideOpeningBalance)에서는 "시작"을 언급하지 않는다.
+  const cardAriaLabel = (name: string, accId?: string) =>
+    hideOpeningBalance
+      ? `${name}, 현재 잔액 ${formatWon(findAmount(closingBalance, accId))}`
+      : `${name}, 시작 ${formatWon(findAmount(openingBalance, accId))}, ${currentLabel} ${formatWon(findAmount(closingBalance, accId))}`;
 
   return (
     <section
@@ -71,6 +85,12 @@ export default function AccountBalanceShelf({
           />
         </label>
       </div>
+
+      {hideOpeningBalance && balanceNotice && (
+        <p className="mx-4 mb-1.5 rounded-lg bg-ll-cream px-2.5 py-1.5 text-[10px] leading-snug text-ll-ink/70">
+          {balanceNotice}
+        </p>
+      )}
 
       {isError ? (
         <div className="mx-4 flex min-h-[44px] items-center justify-between gap-3 rounded-xl border border-ll-tomato/40 bg-ll-tomato/10 px-3 py-2 text-xs text-ll-ink">
@@ -97,7 +117,7 @@ export default function AccountBalanceShelf({
           <button
             type="button"
             aria-pressed={selectedAccountId === ""}
-            aria-label={`전체 자산, 시작 ${formatWon(findAmount(openingBalance))}, ${currentLabel} ${formatWon(findAmount(closingBalance))}`}
+            aria-label={cardAriaLabel("전체 자산")}
             onClick={() => onSelectAccount("")}
             className={[
               "min-h-[44px] shrink-0 rounded-2xl border-[1.5px] border-ll-ink/16 bg-ll-paper px-3 py-2.5 text-left shadow-[0_2px_5px_rgba(32,40,58,0.07)]",
@@ -110,20 +130,29 @@ export default function AccountBalanceShelf({
               전체 자산
               {selectedAccountId === "" && <span className="text-[9px] font-bold">선택됨</span>}
             </span>
-            <span className="grid grid-cols-2 gap-1.5">
+            {hideOpeningBalance ? (
               <span className="block text-[9px] text-ll-pencil">
-                시작
-                <b className="mt-0.5 block text-[11px] font-bold tabular-nums text-ll-ink">
-                  {formatWon(findAmount(openingBalance))}
-                </b>
-              </span>
-              <span className="block text-[9px] text-ll-pencil">
-                {currentLabel}
+                현재 잔액
                 <b className="mt-0.5 block text-[11px] font-bold tabular-nums text-ll-ink">
                   {formatWon(findAmount(closingBalance))}
                 </b>
               </span>
-            </span>
+            ) : (
+              <span className="grid grid-cols-2 gap-1.5">
+                <span className="block text-[9px] text-ll-pencil">
+                  시작
+                  <b className="mt-0.5 block text-[11px] font-bold tabular-nums text-ll-ink">
+                    {formatWon(findAmount(openingBalance))}
+                  </b>
+                </span>
+                <span className="block text-[9px] text-ll-pencil">
+                  {currentLabel}
+                  <b className="mt-0.5 block text-[11px] font-bold tabular-nums text-ll-ink">
+                    {formatWon(findAmount(closingBalance))}
+                  </b>
+                </span>
+              </span>
+            )}
           </button>
 
           {accounts.map((acc) => {
@@ -133,7 +162,7 @@ export default function AccountBalanceShelf({
                 key={acc.id}
                 type="button"
                 aria-pressed={isSelected}
-                aria-label={`${acc.name}, 시작 ${formatWon(findAmount(openingBalance, acc.id))}, ${currentLabel} ${formatWon(findAmount(closingBalance, acc.id))}`}
+                aria-label={cardAriaLabel(acc.name, acc.id)}
                 onClick={() => onSelectAccount(isSelected ? "" : acc.id)}
                 className={[
                   "min-h-[44px] shrink-0 rounded-2xl border-[1.5px] border-ll-ink/16 bg-ll-paper px-3 py-2.5 text-left shadow-[0_2px_5px_rgba(32,40,58,0.07)]",
@@ -148,20 +177,29 @@ export default function AccountBalanceShelf({
                   </span>
                   {isSelected && <span className="shrink-0 text-[9px] font-bold">선택됨</span>}
                 </span>
-                <span className="grid grid-cols-2 gap-1.5">
+                {hideOpeningBalance ? (
                   <span className="block text-[9px] text-ll-pencil">
-                    시작
-                    <b className="mt-0.5 block text-[11px] font-bold tabular-nums text-ll-ink">
-                      {formatWon(findAmount(openingBalance, acc.id))}
-                    </b>
-                  </span>
-                  <span className="block text-[9px] text-ll-pencil">
-                    {currentLabel}
+                    현재 잔액
                     <b className="mt-0.5 block text-[11px] font-bold tabular-nums text-ll-ink">
                       {formatWon(findAmount(closingBalance, acc.id))}
                     </b>
                   </span>
-                </span>
+                ) : (
+                  <span className="grid grid-cols-2 gap-1.5">
+                    <span className="block text-[9px] text-ll-pencil">
+                      시작
+                      <b className="mt-0.5 block text-[11px] font-bold tabular-nums text-ll-ink">
+                        {formatWon(findAmount(openingBalance, acc.id))}
+                      </b>
+                    </span>
+                    <span className="block text-[9px] text-ll-pencil">
+                      {currentLabel}
+                      <b className="mt-0.5 block text-[11px] font-bold tabular-nums text-ll-ink">
+                        {formatWon(findAmount(closingBalance, acc.id))}
+                      </b>
+                    </span>
+                  </span>
+                )}
               </button>
             );
           })}

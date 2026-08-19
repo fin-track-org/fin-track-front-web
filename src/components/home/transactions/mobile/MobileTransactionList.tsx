@@ -30,6 +30,13 @@ interface MobileTransactionListProps {
   /** 전체 페이지 로드가 끝난 뒤에만 표시할 기간 시작 잔액(§9 — hasNextPage===false일 때만). */
   openingBalanceAmount?: number;
   openingBalanceDate: string;
+  /** 검색·필터 조회 범위가 "전체 기간"일 때 true — 의미 없는 기간 시작 잔액 북마크를
+   * 표시하지 않는다(DECISION_013, IMPLEMENTATION_BRIEF_012 §7). */
+  hideOpeningBookmark?: boolean;
+  /** 검색·필터 결과 모드가 아닐 때만 true(QA_REVIEW_027 P1) — false면 카드의 거래 후
+   * 전체/계좌 잔액, 이체의 출금 후/입금 후 잔액을 전부 감춘다(필터로 빠진 중간 거래가
+   * 있으면 부정확해지므로). */
+  showRunningBalances: boolean;
 }
 
 /**
@@ -51,6 +58,8 @@ export default function MobileTransactionList({
   isFetchingNextPage,
   openingBalanceAmount,
   openingBalanceDate,
+  hideOpeningBookmark = false,
+  showRunningBalances,
 }: MobileTransactionListProps) {
   const groupedByDate = useMemo(() => {
     const map = new Map<string, Transaction[]>();
@@ -131,6 +140,7 @@ export default function MobileTransactionList({
                   transaction={t}
                   selectedAccountId={selectedAccountId}
                   onClick={() => onViewDetail(t)}
+                  showRunningBalances={showRunningBalances}
                 />
               ))}
             </ReceiptCard>
@@ -144,8 +154,9 @@ export default function MobileTransactionList({
         <p className="py-3 text-center text-xs text-ll-pencil">지난 거래를 불러오는 중...</p>
       )}
 
-      {/* §9 — 무한 페이지가 남아 있으면 시작 잔액을 미리 노출하지 않는다. */}
-      {!hasNextPage && (
+      {/* §9 — 무한 페이지가 남아 있으면 시작 잔액을 미리 노출하지 않는다. 조회 범위가
+          "전체 기간"이면 의미 있는 시작 시점 자체가 없으므로 아예 표시하지 않는다(DECISION_013). */}
+      {!hasNextPage && !hideOpeningBookmark && (
         <div className="mx-1 mt-3 flex items-center justify-between gap-3 rounded-xl border-[1.5px] border-dashed border-ll-ink bg-ll-cream px-3.5 py-2.5">
           <span className="text-[11px] leading-snug text-ll-ink">
             {openingBalanceDate} 시작 잔액

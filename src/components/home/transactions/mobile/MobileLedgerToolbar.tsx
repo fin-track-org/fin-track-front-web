@@ -12,6 +12,11 @@ interface MobileLedgerToolbarProps {
   activeFilterChips: { key: string; label: string; onRemove: () => void }[];
   hasActiveFilters: boolean;
   onResetFilters: () => void;
+  /** 검색어/카테고리/유형 조건이 하나 이상 적용된 상태(DECISION_013 "결과 모드"). 이 값이
+   * true일 때만 조회 범위 칩과 "조건 수정"/"검색·필터 종료" 버튼을 보여준다. */
+  isSearchResultMode: boolean;
+  /** 결과 모드의 조회 범위 칩 문구(예: "전체 기간", "현재 기간 · 8/17~8/23", "8/1~8/15"). */
+  searchRangeLabel: string;
   isExcelView: boolean;
   onChangeIsExcelView: (isExcel: boolean) => void;
   viewMode: ViewMode;
@@ -39,6 +44,8 @@ export default function MobileLedgerToolbar({
   activeFilterChips,
   hasActiveFilters,
   onResetFilters,
+  isSearchResultMode,
+  searchRangeLabel,
   isExcelView,
   onChangeIsExcelView,
   viewMode,
@@ -69,10 +76,21 @@ export default function MobileLedgerToolbar({
         </button>
       </div>
 
-      {/* 활성 필터 칩(QA_REVIEW_024 §4) — 시트가 같은 화면 state를 직접 갱신하므로 실제로
-          작동한다. 최대 3개까지만 노출하고, 전체 해제는 "초기화" 링크로 한다. */}
+      {/* 검색·필터 결과 모드 헤더(DECISION_013 "결과 모드", IMPLEMENTATION_BRIEF_012 §8) —
+          시트가 같은 화면 state를 직접 갱신하므로 실제로 작동한다. 조회 범위 칩(제거 불가,
+          누르면 시트를 열어 범위를 수정) + 조건 칩(최대 3개, 개별 제거) + "조건 수정"/
+          "검색·필터 종료"를 보여준다. */}
       {hasActiveFilters && (
         <div className="flex flex-wrap items-center gap-1.5 px-4 pt-2.5">
+          {isSearchResultMode && (
+            <button
+              type="button"
+              onClick={onOpenSearchFilter}
+              className="inline-flex items-center gap-1 rounded-full border border-ll-ink/30 bg-ll-butter px-2.5 py-1 text-[11px] font-bold text-ll-ink"
+            >
+              🗓 {searchRangeLabel}
+            </button>
+          )}
           {activeFilterChips.map((chip) => (
             <button
               key={chip.key}
@@ -84,17 +102,26 @@ export default function MobileLedgerToolbar({
               <span aria-hidden="true" className="text-ll-pencil">×</span>
             </button>
           ))}
-          <button
-            type="button"
-            onClick={onResetFilters}
-            className="ml-auto text-[11px] font-bold text-ll-pencil underline underline-offset-2"
-          >
-            필터 초기화
-          </button>
+          <div className="ml-auto flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={onOpenSearchFilter}
+              className="text-[11px] font-bold text-ll-ink underline underline-offset-2"
+            >
+              조건 수정
+            </button>
+            <button
+              type="button"
+              onClick={onResetFilters}
+              className="text-[11px] font-bold text-ll-pencil underline underline-offset-2"
+            >
+              검색·필터 종료
+            </button>
+          </div>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-0.5 rounded-2xl bg-ll-cream p-0.5 mx-4 mt-3">
+      <div className={`grid grid-cols-2 gap-0.5 rounded-2xl bg-ll-cream p-0.5 mx-4 mt-3 ${isSearchResultMode ? "mb-3" : ""}`}>
         <button
           type="button"
           onClick={() => onChangeIsExcelView(false)}
@@ -113,44 +140,50 @@ export default function MobileLedgerToolbar({
         </button>
       </div>
 
-      <div className="px-4 pb-2.5 pt-2.5">
-        <div className="grid grid-cols-4 gap-1">
-          {RANGE_TABS.map(({ mode, label }) => (
+      {/* QA_REVIEW_027 P2 — 결과 모드에서는 일반 장부 기간 조작부(일/주/월/기간, 이전/다음)를
+          숨긴다. 실제 검색 결과는 `appliedSearchRange`만 참조해 이 버튼들을 눌러도 아무 효과가
+          없었고, 클릭 자체가 배경의 일반 장부 viewMode/currentDate를 조용히 바꿔버렸다. 조회
+          범위 변경은 위 범위 칩 또는 "조건 수정"으로 필터 시트를 열어서만 하게 한다. */}
+      {!isSearchResultMode && (
+        <div className="px-4 pb-2.5 pt-2.5">
+          <div className="grid grid-cols-4 gap-1">
+            {RANGE_TABS.map(({ mode, label }) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onChangeViewMode(mode)}
+                aria-pressed={viewMode === mode}
+                className={`min-h-[32px] rounded-md border text-[11px] font-bold ${
+                  viewMode === mode ? "border-ll-ink bg-ll-ink text-ll-paper" : "border-ll-ink/16 bg-ll-paper text-ll-ink"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-1.5 grid grid-cols-[40px_1fr_40px] items-center text-center">
             <button
-              key={mode}
               type="button"
-              onClick={() => onChangeViewMode(mode)}
-              aria-pressed={viewMode === mode}
-              className={`min-h-[32px] rounded-md border text-[11px] font-bold ${
-                viewMode === mode ? "border-ll-ink bg-ll-ink text-ll-paper" : "border-ll-ink/16 bg-ll-paper text-ll-ink"
-              }`}
+              onClick={onPrev}
+              disabled={viewMode === "custom"}
+              aria-label="이전 기간"
+              className="flex min-h-[40px] items-center justify-center rounded-full text-ll-ink disabled:opacity-30"
             >
-              {label}
+              <ChevronLeft className="h-5 w-5" />
             </button>
-          ))}
+            <strong className="truncate text-sm font-bold text-ll-ink">{dateDisplayString}</strong>
+            <button
+              type="button"
+              onClick={onNext}
+              disabled={viewMode === "custom"}
+              aria-label="다음 기간"
+              className="flex min-h-[40px] items-center justify-center rounded-full text-ll-ink disabled:opacity-30"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-        <div className="mt-1.5 grid grid-cols-[40px_1fr_40px] items-center text-center">
-          <button
-            type="button"
-            onClick={onPrev}
-            disabled={viewMode === "custom"}
-            aria-label="이전 기간"
-            className="flex min-h-[40px] items-center justify-center rounded-full text-ll-ink disabled:opacity-30"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <strong className="truncate text-sm font-bold text-ll-ink">{dateDisplayString}</strong>
-          <button
-            type="button"
-            onClick={onNext}
-            disabled={viewMode === "custom"}
-            aria-label="다음 기간"
-            className="flex min-h-[40px] items-center justify-center rounded-full text-ll-ink disabled:opacity-30"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
+      )}
     </>
   );
 }

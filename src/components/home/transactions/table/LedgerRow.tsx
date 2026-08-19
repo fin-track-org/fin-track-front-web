@@ -13,10 +13,17 @@ interface Props {
   style?: React.CSSProperties;
   currentAccountId?: string;
   isExcelView?: boolean;
+  /** false면 "거래 후 잔액"/"계좌 잔액" 열을 "—"로 표시한다(QA_REVIEW_027 P1 — 검색·필터
+   * 결과처럼 일부 거래만 담긴 목록에서는 계산 자체를 하지 않으므로 값이 원래 없다). */
+  showRunningBalances?: boolean;
+  /** false면 드래그 핸들 버튼 자체를 렌더링하지 않는다(QA_REVIEW_028 P1 — 검색·필터 결과의
+   * 일부 거래만으로 순서를 바꾸면 화면에 없는 같은 날짜 거래가 서버에서 밀려날 위험이 있어,
+   * 핸들을 아예 없애 드래그를 시작할 방법 자체를 막는다). */
+  showDragHandle?: boolean;
 }
 
 const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
-  { transaction, onEdit, onDelete, dragHandleAttributes, dragHandleListeners, style, currentAccountId, isExcelView = true },
+  { transaction, onEdit, onDelete, dragHandleAttributes, dragHandleListeners, style, currentAccountId, isExcelView = true, showRunningBalances = true, showDragHandle = true },
   ref,
 ) {
   const isExpense = transaction.type === "EXPENSE";
@@ -29,16 +36,18 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
     >
       {/* 드래그 핸들 */}
       <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1 md:py-1.5 w-6 md:w-8 text-center hidden md:table-cell" : "pl-3 pr-0 py-4 w-8"}`}>
-        <button
-          {...dragHandleAttributes}
-          {...dragHandleListeners}
-          className={`cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1 rounded transition-colors ${isExcelView ? "inline-block" : ""}`}
-          style={{ touchAction: 'pan-y' }}
-          title="드래그하여 순서 변경"
-          aria-label="순서 변경"
-        >
-          <GripVertical className="w-4 h-4" />
-        </button>
+        {showDragHandle && (
+          <button
+            {...dragHandleAttributes}
+            {...dragHandleListeners}
+            className={`cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1 rounded transition-colors ${isExcelView ? "inline-block" : ""}`}
+            style={{ touchAction: 'pan-y' }}
+            title="드래그하여 순서 변경"
+            aria-label="순서 변경"
+          >
+            <GripVertical className="w-4 h-4" />
+          </button>
+        )}
       </td>
 
       <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5 text-center text-gray-700" : "px-6 py-4 text-gray-700"} whitespace-nowrap text-[10px] md:text-sm hidden md:table-cell`}>
@@ -92,10 +101,16 @@ const LedgerRow = forwardRef<HTMLTableRowElement, Props>(function LedgerRow(
         }
       })()}
       <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4"} whitespace-nowrap text-right text-[10px] md:text-sm font-bold text-gray-700`}>
-        {transaction.runningTotalBalance !== undefined ? `${transaction.runningTotalBalance.toLocaleString()}원` : "-"}
+        {!showRunningBalances
+          ? "—"
+          : transaction.runningTotalBalance !== undefined
+            ? `${transaction.runningTotalBalance.toLocaleString()}원`
+            : "-"}
       </td>
       <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1 md:py-1.5" : "px-6 py-4"} whitespace-nowrap text-right text-[10px] md:text-sm font-bold text-sky-700 bg-sky-50/30`}>
-        {transaction.runningLinkedAccountBalance !== undefined ? (
+        {!showRunningBalances ? (
+          "—"
+        ) : transaction.runningLinkedAccountBalance !== undefined ? (
           <div className="flex flex-col gap-1 items-end">
             <span className="text-gray-500">{transaction.runningAccountBalance !== undefined ? `${transaction.runningAccountBalance.toLocaleString()}원` : "-"}</span>
             <span>{`${transaction.runningLinkedAccountBalance.toLocaleString()}원`}</span>

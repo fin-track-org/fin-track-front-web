@@ -23,7 +23,7 @@ import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
 import { fetchTransactions, getDrafts, reorderTransactions, createTransfer, updateTransfer } from "@/src/lib/api/transaction/transactions";
 import { getAccounts } from "@/src/lib/api/accountApi";
-import { getOpeningBalance, getClosingBalance } from "@/src/lib/api/balanceApi";
+import { getOpeningBalance, getClosingBalance, type BalanceRes } from "@/src/lib/api/balanceApi";
 import { useToast } from "@/src/hook/useToast";
 import { useUserSettings } from "@/src/hook/useUserSettings";
 import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
@@ -102,6 +102,29 @@ export default function TransactionPage() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedCategoryCodes, setSelectedCategoryCodes] = useState<string[]>([]);
 
+  // 검색·필터 결과 모드(DECISION_013, IMPLEMENTATION_BRIEF_012 §3) — 검색어/유형/카테고리
+  // 조건이 하나 이상 적용된 상태를 뜻한다. 아래 balance/transaction query들이 이 값을
+  // 참조하므로 관련 filter state 바로 옆에서 먼저 계산해 둔다.
+  const activeFilterCount =
+    selectedCategoryIds.length +
+    selectedCategoryCodes.length +
+    (searchTerm.trim() ? 1 : 0) +
+    (selectedType !== "ALL" ? 1 : 0);
+  const hasActiveFilters = activeFilterCount > 0;
+
+  // 검색·필터 결과의 조회 범위(DECISION_013 "조회 범위 선택지") — 일반 장부 기간과는
+  // 별개의 state다. 시트를 새로 열 때 기본값은 항상 "전체 기간".
+  const [appliedSearchRange, setAppliedSearchRange] = useState<SearchRange>({ mode: "all" });
+  // 검색·필터 결과 모드에 처음 진입하기 직전의 일반 장부 상태 snapshot(§9 "복귀 규칙").
+  // 결과 모드를 종료하거나 마지막 조건이 사라지면 이 값으로 복원한다.
+  const [ledgerSnapshot, setLedgerSnapshot] = useState<{
+    viewMode: "daily" | "weekly" | "monthly" | "custom";
+    currentDate: Date;
+    customStart: string;
+    customEnd: string;
+    selectedAccountId: string;
+  } | null>(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
@@ -147,6 +170,11 @@ export default function TransactionPage() {
 
   // lg(1024px) 미만 여부 — 기존 모바일 홈과 동일한 breakpoint(IMPLEMENTATION_BRIEF_011 §3).
   const isMobile = useIsMobileViewport();
+
+  // 데스크톱은 검색·필터 적용이 별도 페이지로 이동하므로 위 filter state들을 절대 건드리지
+  // 않는다(그래서 desktop에서는 hasActiveFilters가 항상 false다) — isMobile로 한 번 더
+  // 명시적으로 가둬 결과 모드 전용 UI/쿼리 분기가 데스크톱에 영향을 주지 않게 한다.
+  const isSearchResultMode = isMobile === true && hasActiveFilters;
 
   // 새 거래용 defaultValues
   const [modalDefaultValues, setModalDefaultValues] = useState<
@@ -238,6 +266,45 @@ export default function TransactionPage() {
     // monthly
     return `${year}년 ${month}월`;
   }, [viewMode, currentDate, startDate, endDate]);
+
+  // "8/17~8/23"처럼 짧은 mm/dd 범위 문자열 — 검색·필터 결과 범위 칩과 "현재 보고 있는
+  // 기간" radio 라벨에 쓴다(IMPLEMENTATION_BRIEF_012 §4 예시 문구).
+  const formatShortRange = (start: string, end: string) => {
+    const fmt = (d: string) => {
+      const [, m, day] = d.split("-");
+      return `${parseInt(m, 10)}/${parseInt(day, 10)}`;
+    };
+    return `${fmt(start)}~${fmt(end)}`;
+  };
+
+  const currentLedgerRange = useMemo(
+    () => ({ startDate, endDate, label: formatShortRange(startDate, endDate) }),
+    [startDate, endDate],
+  );
+
+  // 검색·필터 결과에 실제 적용된 조회 범위 — 결과 모드가 아니면 항상 일반 장부 기간을
+  // 그대로 쓴다(§6 "일반 장부: 기존 계산 날짜 전달"). ASC(데스크톱/모바일 엑셀)와
+  // DESC(모바일 편하게 보기) query, 잔액 query가 모두 이 값 하나만 참조한다.
+  const effectiveRange = useMemo((): { mode: "ledger" | "all" | "current" | "custom"; startDate?: string; endDate?: string } => {
+    if (!isSearchResultMode) return { mode: "ledger", startDate, endDate };
+    if (appliedSearchRange.mode === "all") return { mode: "all", startDate: undefined, endDate: undefined };
+    return { mode: appliedSearchRange.mode, startDate: appliedSearchRange.startDate, endDate: appliedSearchRange.endDate };
+  }, [isSearchResultMode, appliedSearchRange, startDate, endDate]);
+
+  const isEffectiveRangeAll = effectiveRange.mode === "all";
+
+  // QA_REVIEW_027 P2 — 검색·필터 결과 모드에서는 거래 후 잔액(러닝 밸런스)을 표시하지 않는다
+  // (필터로 빠진 중간 거래가 있으면 부정확해지므로, §1 참고). 카드·엑셀 컴포넌트에 명시적으로
+  // 내려주는 prop이다 — 값 자체가 `undefined`인 것과 별개로 "왜 안 보이는지" UI가 알 수 있게 한다.
+  const showRunningBalances = !isSearchResultMode;
+
+  // 결과 헤더의 범위 칩 문구(§8) — appliedSearchRange를 snapshot 그대로 표시한다(렌더마다
+  // 일반 장부 state를 다시 참조하지 않는다, §3 "current를 적용할 때는... 값으로 복사한다").
+  const searchRangeLabel = useMemo(() => {
+    if (appliedSearchRange.mode === "all") return "전체 기간";
+    if (appliedSearchRange.mode === "current") return `현재 기간 · ${appliedSearchRange.label}`;
+    return formatShortRange(appliedSearchRange.startDate, appliedSearchRange.endDate);
+  }, [appliedSearchRange]);
 
   /* ----------------------------------------------------------------------- */
   /* 카테고리 조회 api */
@@ -425,15 +492,20 @@ export default function TransactionPage() {
     }
   }, [showSavingsAccount, selectedAccountId, savingsAccountIds]);
 
-  /* 잔액 조회 (장부 뷰) */
+  /* 잔액 조회 (장부 뷰) — effectiveRange를 참조하므로 결과 모드에서는 검색 범위 날짜를,
+   * 아니면 일반 장부 날짜를 그대로 쓴다. "전체 기간"(isEffectiveRangeAll)에서는 의미 있는
+   * 시작 시점이 없으므로 아예 호출하지 않는다(DECISION_013 금지 사항 "전체 기간에
+   * opening balance API 호출"). */
   const { data: openingBalance, isLoading: isOpeningLoading, isError: isOpeningError, refetch: refetchOpening } = useQuery({
-    queryKey: ["openingBalance", startDate, selectedAccountId],
-    queryFn: () => getOpeningBalance(startDate, selectedAccountId),
+    queryKey: ["openingBalance", effectiveRange.startDate ?? "", selectedAccountId],
+    queryFn: () => getOpeningBalance(effectiveRange.startDate ?? "", selectedAccountId),
+    enabled: !isEffectiveRangeAll,
   });
 
   const { data: closingBalance, isLoading: isClosingLoading, isError: isClosingError, refetch: refetchClosing } = useQuery({
-    queryKey: ["closingBalance", endDate, selectedAccountId],
-    queryFn: () => getClosingBalance(endDate, selectedAccountId),
+    queryKey: ["closingBalance", effectiveRange.endDate ?? "", selectedAccountId],
+    queryFn: () => getClosingBalance(effectiveRange.endDate ?? "", selectedAccountId),
+    enabled: !isEffectiveRangeAll,
   });
 
   // 필터링된 시작 잔액(저축·투자 제외 반영) — ledgerBalance.ts로 뺀 순수 함수 재사용.
@@ -448,28 +520,60 @@ export default function TransactionPage() {
     [closingBalance, showSavingsAccount, savingsAccountIds],
   );
 
+  /* 결제수단별 "현재" 잔액 조회 — "전체 기간" 검색 결과의 유일한 잔액 출처다(§7 "기존
+   * getDashboardBalances()가 현재 계좌별 breakdown을 제공한다면 이를 재사용"). 날짜와
+   * 무관하게 항상 지금 시점의 실제 잔액이라 opening 개념 자체가 필요 없다. */
+  const {
+    data: balanceData,
+    isLoading: isBalanceLoading,
+    isError: isBalanceError,
+    refetch: refetchBalanceData,
+  } = useQuery({
+    queryKey: ["dashboardBalances"],
+    queryFn: () => getDashboardBalances(),
+    retry: false,
+  });
+
+  const dashboardBalanceAsBalanceRes = useMemo<BalanceRes | undefined>(() => {
+    if (!balanceData) return undefined;
+    return {
+      totalAmount: balanceData.totalBalance,
+      accounts: balanceData.paymentMethods.map((p) => ({ accountId: p.accountId, amount: p.balance })),
+    };
+  }, [balanceData]);
+
   /* 잔액 선반(모바일 전용) — selectedAccountId로 이미 범위가 좁혀진 openingBalance/closingBalance와
    * 달리, 선반은 항상 "전체 결제수단" 기준의 개별 계좌 breakdown이 필요하다. selectedAccountId가
    * 비어있을 때는 위 openingBalance/closingBalance가 이미 전체 breakdown이라 그대로 재사용하고,
-   * 특정 계좌가 선택된 경우에만 별도로 "전체" 잔액을 조회한다(불필요한 중복 호출 방지). */
-  const needsShelfAllAccountsQuery = isMobile === true && selectedAccountId !== "";
+   * 특정 계좌가 선택된 경우에만 별도로 "전체" 잔액을 조회한다(불필요한 중복 호출 방지).
+   * "전체 기간"에서는 이 두 query도 필요 없다 — dashboardBalanceAsBalanceRes가 이미 전체
+   * 계좌 breakdown이라 그대로 재사용한다. */
+  const needsShelfAllAccountsQuery = isMobile === true && selectedAccountId !== "" && !isEffectiveRangeAll;
 
   const { data: shelfOpeningAll, isLoading: isShelfOpeningAllLoading, isError: isShelfOpeningAllError, refetch: refetchShelfOpeningAll } = useQuery({
-    queryKey: ["openingBalance", startDate, ""],
-    queryFn: () => getOpeningBalance(startDate, ""),
+    queryKey: ["openingBalance", effectiveRange.startDate ?? "", ""],
+    queryFn: () => getOpeningBalance(effectiveRange.startDate ?? "", ""),
     enabled: needsShelfAllAccountsQuery,
   });
   const { data: shelfClosingAll, isLoading: isShelfClosingAllLoading, isError: isShelfClosingAllError, refetch: refetchShelfClosingAll } = useQuery({
-    queryKey: ["closingBalance", endDate, ""],
-    queryFn: () => getClosingBalance(endDate, ""),
+    queryKey: ["closingBalance", effectiveRange.endDate ?? "", ""],
+    queryFn: () => getClosingBalance(effectiveRange.endDate ?? "", ""),
     enabled: needsShelfAllAccountsQuery,
   });
 
-  const shelfOpeningBalanceRaw = selectedAccountId === "" ? openingBalance : shelfOpeningAll;
-  const shelfClosingBalanceRaw = selectedAccountId === "" ? closingBalance : shelfClosingAll;
-  const isShelfLoading = selectedAccountId === "" ? (isOpeningLoading || isClosingLoading) : (isShelfOpeningAllLoading || isShelfClosingAllLoading);
-  const isShelfError = selectedAccountId === "" ? (isOpeningError || isClosingError) : (isShelfOpeningAllError || isShelfClosingAllError);
+  const shelfOpeningBalanceRaw = isEffectiveRangeAll ? undefined : (selectedAccountId === "" ? openingBalance : shelfOpeningAll);
+  const shelfClosingBalanceRaw = isEffectiveRangeAll ? dashboardBalanceAsBalanceRes : (selectedAccountId === "" ? closingBalance : shelfClosingAll);
+  const isShelfLoading = isEffectiveRangeAll
+    ? isBalanceLoading
+    : (selectedAccountId === "" ? (isOpeningLoading || isClosingLoading) : (isShelfOpeningAllLoading || isShelfClosingAllLoading));
+  const isShelfError = isEffectiveRangeAll
+    ? isBalanceError
+    : (selectedAccountId === "" ? (isOpeningError || isClosingError) : (isShelfOpeningAllError || isShelfClosingAllError));
   const retryShelf = () => {
+    if (isEffectiveRangeAll) {
+      refetchBalanceData();
+      return;
+    }
     if (selectedAccountId === "") {
       refetchOpening();
       refetchClosing();
@@ -488,15 +592,11 @@ export default function TransactionPage() {
     [shelfClosingBalanceRaw, showSavingsAccount, savingsAccountIds],
   );
 
-  /* 결제수단별 잔액 조회 */
-  const {
-    data: balanceData,
-    isLoading: isBalanceLoading,
-  } = useQuery({
-    queryKey: ["dashboardBalances"],
-    queryFn: () => getDashboardBalances(),
-    retry: false,
-  });
+  // NOTE(QA_REVIEW_027 P1): 검색·필터 결과 모드에서는 거래 후 잔액을 아예 계산하지 않는다
+  // (아래 `transactions`/`mobileEasyTransactions`) — 그래서 여기서 "전체 기간 결과 모드의
+  // DESC 역산 seed"로 쓰던 `filteredDashboardBalance`는 더 이상 필요 없다. 잔액 선반은
+  // `dashboardBalanceAsBalanceRes`(저축 필터 전 raw 값)를 직접 쓰고 `shelfClosingBalance`
+  // useMemo가 그 필터를 적용한다 — 중복 계산이라 제거했다.
 
   type TransactionCursor = {
     cursorDate: string | null;
@@ -521,7 +621,7 @@ export default function TransactionPage() {
     isError: isTransactionsError,
     error: transactionsError,
   } = useInfiniteQuery({
-    queryKey: ["transactions", "ASC", searchTerm, selectedCategoryIds, selectedCategoryCodes, selectedAccountId, startDate, endDate],
+    queryKey: ["transactions", "ASC", searchTerm, selectedCategoryIds, selectedCategoryCodes, selectedAccountId, effectiveRange.mode, effectiveRange.startDate, effectiveRange.endDate],
     enabled: !isMobileEasyView,
     initialPageParam: {
       cursorDate: null,
@@ -535,8 +635,8 @@ export default function TransactionPage() {
         categoryCodes:
           selectedCategoryCodes.length > 0 ? selectedCategoryCodes : undefined,
         accountId: selectedAccountId || undefined,
-        startDate,
-        endDate,
+        startDate: effectiveRange.startDate,
+        endDate: effectiveRange.endDate,
         size: 20,
         sortDirection: "ASC",
         cursorDate: pageParam.cursorDate ?? undefined,
@@ -562,7 +662,7 @@ export default function TransactionPage() {
     error: descTransactionsError,
     refetch: refetchDescTransactions,
   } = useInfiniteQuery({
-    queryKey: ["transactions", "DESC", searchTerm, selectedCategoryIds, selectedCategoryCodes, selectedAccountId, startDate, endDate],
+    queryKey: ["transactions", "DESC", searchTerm, selectedCategoryIds, selectedCategoryCodes, selectedAccountId, effectiveRange.mode, effectiveRange.startDate, effectiveRange.endDate],
     enabled: isMobileEasyView,
     initialPageParam: {
       cursorDate: null,
@@ -576,8 +676,8 @@ export default function TransactionPage() {
         categoryCodes:
           selectedCategoryCodes.length > 0 ? selectedCategoryCodes : undefined,
         accountId: selectedAccountId || undefined,
-        startDate,
-        endDate,
+        startDate: effectiveRange.startDate,
+        endDate: effectiveRange.endDate,
         size: 20,
         sortDirection: "DESC",
         cursorDate: pageParam.cursorDate ?? undefined,
@@ -603,20 +703,33 @@ export default function TransactionPage() {
   );
 
   // 잔액 누적 계산(ASC 정방향) — ledgerBalance.ts로 뺀 순수 함수. 동작은 이전과 동일하다.
+  //
+  // QA_REVIEW_027 P1: `calculateForwardBalances`/`calculateReverseBalances`는 전달받은 배열이
+  // 그 기간의 "모든" 거래라는 전제에서만 정확하다. 검색·필터 결과 모드(`isSearchResultMode`)의
+  // `rawTransactions`는 검색어/카테고리/유형으로 걸러진 "일부" 거래라 중간에 빠진 거래가
+  // 있으면 러닝 밸런스가 실제 장부와 달라진다 — opening/closing seed가 맞아도 소용없다. 그래서
+  // 결과 모드에서는 계산 함수를 아예 호출하지 않고 원본 거래를 그대로 반환한다(가짜 값을 만든
+  // 뒤 UI에서만 가리는 대신, 데이터 자체에 `runningTotalBalance` 등을 넣지 않는다 — 아래
+  // `MobileTransactionCard`/`LedgerRow`의 `showRunningBalances` prop이 이를 명시적으로 감춘다).
+  // "전체 기간"(isEffectiveRangeAll)은 항상 결과 모드에서만 나오는 값이라(§ effectiveRange
+  // 정의) 이 분기가 먼저 걸려 자연히 처리된다 — 별도 0-seed 분기가 더 이상 필요 없다.
   const transactions = useMemo(() => {
-    if (!openingBalance || rawTransactions.length === 0) return rawTransactions;
-
+    if (rawTransactions.length === 0) return rawTransactions;
+    if (isSearchResultMode) return rawTransactions;
+    if (!openingBalance) return rawTransactions;
     const openingTotal = filteredOpeningBalance?.totalAmount ?? 0;
     return calculateForwardBalances(openingTotal, openingBalance.accounts ?? [], rawTransactions, balanceCalcOptions);
-  }, [rawTransactions, openingBalance, filteredOpeningBalance, balanceCalcOptions]);
+  }, [rawTransactions, openingBalance, filteredOpeningBalance, balanceCalcOptions, isSearchResultMode]);
 
   // 잔액 역산(DESC 역방향) — 모바일 편하게 보기 전용. 종료 잔액에서 최신 거래부터 되돌린다.
+  // 위와 같은 이유로 검색·필터 결과 모드에서는 계산하지 않는다.
   const mobileEasyTransactions = useMemo(() => {
-    if (!closingBalance || rawTransactionsDesc.length === 0) return rawTransactionsDesc;
-
+    if (rawTransactionsDesc.length === 0) return rawTransactionsDesc;
+    if (isSearchResultMode) return rawTransactionsDesc;
+    if (!closingBalance) return rawTransactionsDesc;
     const closingTotal = filteredClosingBalance?.totalAmount ?? 0;
     return calculateReverseBalances(closingTotal, closingBalance.accounts ?? [], rawTransactionsDesc, balanceCalcOptions);
-  }, [rawTransactionsDesc, closingBalance, filteredClosingBalance, balanceCalcOptions]);
+  }, [rawTransactionsDesc, closingBalance, filteredClosingBalance, balanceCalcOptions, isSearchResultMode]);
 
   /* 임시 보관함 조회 */
   const {
@@ -986,56 +1099,76 @@ export default function TransactionPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }, []);
   // 오늘이 조회 기간에 포함되면 "현재", 완전히 지난 기간이면 "종료"(DECISION_012 "잔액 문구").
-  const showCurrentLabel = todayStr >= startDate && todayStr <= endDate;
+  // 결과 모드에서는 effectiveRange(검색 범위)를 기준으로 판단한다.
+  const showCurrentLabel =
+    todayStr >= (effectiveRange.startDate ?? startDate) && todayStr <= (effectiveRange.endDate ?? endDate);
 
-  const activeFilterCount =
-    selectedCategoryIds.length +
-    selectedCategoryCodes.length +
-    (searchTerm.trim() ? 1 : 0) +
-    (selectedType !== "ALL" ? 1 : 0);
-  const hasActiveFilters = activeFilterCount > 0;
-  const resetAllFilters = () => {
+  // 검색·필터 결과 모드 종료(DECISION_013 §9 "종료·복원") — 조건을 모두 비우고 조회 범위를
+  // 초기화한 뒤, 진입 전 snapshot이 있으면 일반 장부 상태를 그대로 되돌린다. 결제수단
+  // 선택도 결과 탐색용 임시 상태로 보고 함께 복원한다.
+  const exitSearchResultMode = useCallback(() => {
     setSearchTerm("");
     setSelectedType("ALL");
     setSelectedCategoryIds([]);
     setSelectedCategoryCodes([]);
-  };
+    setAppliedSearchRange({ mode: "all" });
+    if (ledgerSnapshot) {
+      setViewMode(ledgerSnapshot.viewMode);
+      setCurrentDate(ledgerSnapshot.currentDate);
+      setCustomStart(ledgerSnapshot.customStart);
+      setCustomEnd(ledgerSnapshot.customEnd);
+      setSelectedAccountId(ledgerSnapshot.selectedAccountId);
+    }
+    setLedgerSnapshot(null);
+  }, [ledgerSnapshot]);
 
-  // 모바일 상단 활성 필터 칩(QA_REVIEW_024 §4) — 최대 3개까지만 노출하고, 각 칩은 그
-  // 필터만 개별 해제한다. count 배지는 `activeFilterCount` 전체 값을 그대로 쓴다.
+  // 모바일 상단 활성 필터 칩(QA_REVIEW_024 §4, DECISION_013 §8) — 최대 3개까지만 노출하고,
+  // 각 칩은 그 필터만 개별 해제한다. 단, 그 칩을 지우면 남는 조건이 0개가 되는 경우(=마지막
+  // 조건 제거)라면 결과 모드 전체를 종료해 snapshot을 복원한다(§9 "마지막 검색·필터 조건이
+  // 제거되면 결과 모드를 종료"). count 배지는 `activeFilterCount` 전체 값을 그대로 쓴다.
   const activeFilterChips = useMemo(() => {
     const chips: { key: string; label: string; onRemove: () => void }[] = [];
+    const makeRemove = (clear: () => void, ownCount: number) => () => {
+      if (isSearchResultMode && activeFilterCount - ownCount <= 0) {
+        exitSearchResultMode();
+      } else {
+        clear();
+      }
+    };
     if (searchTerm.trim()) {
-      chips.push({ key: "search", label: `"${searchTerm.trim()}"`, onRemove: () => setSearchTerm("") });
+      chips.push({ key: "search", label: `"${searchTerm.trim()}"`, onRemove: makeRemove(() => setSearchTerm(""), 1) });
     }
     if (selectedType !== "ALL") {
       chips.push({
         key: "type",
         label: selectedType === "INCOME" ? "수입만" : "지출만",
-        onRemove: () => setSelectedType("ALL"),
+        onRemove: makeRemove(() => setSelectedType("ALL"), 1),
       });
     }
     if (selectedCategoryIds.length > 0) {
       chips.push({
         key: "categories",
         label: `카테고리 ${selectedCategoryIds.length}개`,
-        onRemove: () => setSelectedCategoryIds([]),
+        onRemove: makeRemove(() => setSelectedCategoryIds([]), selectedCategoryIds.length),
       });
     }
     if (selectedCategoryCodes.length > 0) {
       chips.push({
         key: "codes",
         label: `이체·저축 등 ${selectedCategoryCodes.length}개`,
-        onRemove: () => setSelectedCategoryCodes([]),
+        onRemove: makeRemove(() => setSelectedCategoryCodes([]), selectedCategoryCodes.length),
       });
     }
     return chips.slice(0, 3);
-  }, [searchTerm, selectedType, selectedCategoryIds, selectedCategoryCodes]);
+  }, [searchTerm, selectedType, selectedCategoryIds, selectedCategoryCodes, isSearchResultMode, activeFilterCount, exitSearchResultMode]);
 
+  // 기간 시작 잔액 북마크 라벨 — 결과 모드에서는 effectiveRange(검색 범위)의 시작일을 쓴다.
+  // "전체 기간"은 어차피 hideOpeningBookmark로 아예 감춰지므로 값 자체는 의미가 없다.
   const openingBalanceDateLabel = useMemo(() => {
-    const [, m, d] = startDate.split("-");
+    const base = effectiveRange.startDate ?? startDate;
+    const [, m, d] = base.split("-");
     return `${parseInt(m, 10)}월 ${parseInt(d, 10)}일`;
-  }, [startDate]);
+  }, [effectiveRange.startDate, startDate]);
 
   // isMobile 판별 전에는 모바일/데스크톱 어느 트리도 마운트하지 않는다 — 잘못된 쪽으로
   // 확정 짓고 렌더하면 QA_REVIEW_020 P1-1과 같은 문제(반대쪽 화면이 잠깐 보이는 것)가
@@ -1265,6 +1398,8 @@ export default function TransactionPage() {
                   onOpenSearchFilter={() => setIsSearchModalOpen(true)}
                   activeFilterCount={activeFilterCount}
                   activeFilterChips={activeFilterChips}
+                  isSearchResultMode={isSearchResultMode}
+                  searchRangeLabel={searchRangeLabel}
                   isExcelView={isExcelView}
                   onChangeIsExcelView={(isExcel) => changeLedgerTheme(isExcel ? "EXCEL" : "DEFAULT")}
                   viewMode={viewMode}
@@ -1287,19 +1422,23 @@ export default function TransactionPage() {
                   showSavingsAccount={showSavingsAccount}
                   onToggleSavings={handleToggleSavingsAccount}
                   showCurrentLabel={showCurrentLabel}
+                  hideOpeningBalance={isEffectiveRangeAll}
+                  balanceNotice={isEffectiveRangeAll ? "잔액은 검색 조건과 무관한 실제 계좌 잔액이에요" : undefined}
                   easyTransactions={mobileEasyTransactions}
                   isEasyLoading={isDescTransactionsLoading && !isFetchingNextDescPage}
                   isEasyError={isDescTransactionsError}
                   easyErrorMessage={(descTransactionsError as Error | null)?.message}
                   onRetryEasy={() => refetchDescTransactions()}
                   hasActiveFilters={hasActiveFilters}
-                  onResetFilters={resetAllFilters}
+                  onResetFilters={exitSearchResultMode}
                   onViewDetail={setDetailTransaction}
                   loadMoreRef={loadMoreDescRef}
                   hasNextPage={!!hasNextDescPage}
                   isFetchingNextPage={isFetchingNextDescPage}
                   openingBalanceAmount={typeof filteredOpeningBalance === "number" ? filteredOpeningBalance : filteredOpeningBalance?.totalAmount}
                   openingBalanceDate={openingBalanceDateLabel}
+                  hideOpeningBookmark={isEffectiveRangeAll}
+                  showRunningBalances={showRunningBalances}
                   excelTransactions={transactions}
                   isExcelLoading={isTransactionsLoading && !isFetchingNextPage}
                   excelErrorMessage={pageError?.message || null}
@@ -1411,18 +1550,19 @@ export default function TransactionPage() {
       />
 
       {/* 검색 바텀 시트 — 모바일은 같은 화면 state를 직접 갱신하고(QA_REVIEW_024 §4 권장안),
-          데스크톱은 기존처럼 별도 검색 결과 페이지로 이동한다(동작 변경 없음). 모바일은 기간
-          UI를 시트에서 아예 숨긴다(QA_REVIEW_025 §P2) — 상단 일/주/월/기간 도구가 기간의
-          유일한 진입점이라, 시트에도 남겨두면 "기간을 안 건드리고 다른 필터만 적용"과 "전체
-          기간으로 초기화"를 구분할 상태가 없어 사용자 지정 기간이 의도치 않게 계속 남는다. */}
+          데스크톱은 기존처럼 별도 검색 결과 페이지로 이동한다(동작 변경 없음). 모바일은
+          `mobileSearchRange`/`currentLedgerRange`를 넘겨 조회 범위 radio group을 쓴다
+          (DECISION_013, IMPLEMENTATION_BRIEF_012 §4) — QA_REVIEW_025 대응으로 썼던
+          `hideDateRange`(기간 UI를 그냥 숨기는 임시 구조)는 제거했다. */}
       <SearchFilterBottomSheet
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
         accounts={accounts}
         rawCategories={rawCategories}
         hideAccountSelect={isMobile === true}
-        hideDateRange={isMobile === true}
         applyButtonLabel={isMobile === true ? "필터 적용" : "검색 결과 보기"}
+        mobileSearchRange={isMobile === true ? (isSearchResultMode ? appliedSearchRange : { mode: "all" }) : undefined}
+        currentLedgerRange={isMobile === true ? currentLedgerRange : undefined}
         initialFilters={
           isMobile === true
             ? {
@@ -1433,17 +1573,35 @@ export default function TransactionPage() {
               }
             : undefined
         }
-        onApply={(filters) => {
+        onApply={(filters, mobileRange) => {
           if (isMobile) {
             // 모바일: 같은 화면의 ASC/DESC query가 바로 갱신되도록 기존 state를 직접 바꾼다.
             // 결제수단은 잔액 선반이 기본 선택기이므로(시트의 select는 hideAccountSelect로
-            // 숨겼다) selectedAccountId는 건드리지 않는다. 기간도 시트에서 숨겼으므로(위
-            // hideDateRange) filters.startDate/endDate는 항상 빈 값이라 여기서 읽지 않는다 —
-            // 기간은 오직 상단 일/주/월/기간 도구(viewMode/customStart/customEnd)만 바꾼다.
+            // 숨겼다) selectedAccountId는 건드리지 않는다(§7 "결제수단 선택은 검색 조건으로
+            // 계산하지 않는다").
+            const willHaveActiveFilters =
+              filters.searchTerm.trim() !== "" ||
+              filters.selectedType !== "ALL" ||
+              filters.selectedCategoryIds.length > 0 ||
+              filters.selectedCategoryCodes.length > 0;
+
+            if (!willHaveActiveFilters) {
+              // 검색 조건이 전혀 없으면 범위만으로 결과 모드에 진입하지 않는다(§5). 이미
+              // 결과 모드였다면 마지막 조건이 사라진 것과 같으므로 완전히 종료한다.
+              if (isSearchResultMode) exitSearchResultMode();
+              return;
+            }
+
+            // 처음 진입할 때만 일반 장부 상태를 snapshot으로 저장한다(§9 "복귀 규칙").
+            if (!isSearchResultMode) {
+              setLedgerSnapshot({ viewMode, currentDate, customStart, customEnd, selectedAccountId });
+            }
+
             setSearchTerm(filters.searchTerm);
             setSelectedType(filters.selectedType);
             setSelectedCategoryIds(filters.selectedCategoryIds);
             setSelectedCategoryCodes(filters.selectedCategoryCodes);
+            if (mobileRange) setAppliedSearchRange(mobileRange);
             return;
           }
 

@@ -78,3 +78,13 @@ interface ApiResponse<T> {
   message: string;
   data: T;
 }
+
+/**
+ * 모바일 검색·필터 결과의 조회 범위(DECISION_013, IMPLEMENTATION_BRIEF_012 §3).
+ * 일반 장부의 `viewMode`(일/주/월/사용자 지정)와는 별개의 상태다 — 검색·필터를 적용할 때만
+ * 쓰이고, 검색·필터 종료 시 일반 장부 상태로 되돌아간다.
+ */
+type SearchRange =
+  | { mode: "all" }
+  | { mode: "current"; startDate: string; endDate: string; label: string }
+  | { mode: "custom"; startDate: string; endDate: string };

@@ -21,24 +21,32 @@ interface SearchFilterBottomSheetProps {
     startDate?: string;
     endDate?: string;
   };
-  onApply: (filters: {
-    searchTerm: string;
-    selectedAccountId: string;
-    selectedType: "ALL" | "EXPENSE" | "INCOME";
-    selectedCategoryIds: string[];
-    selectedCategoryCodes: string[];
-    startDate: string;
-    endDate: string;
-  }) => void;
+  onApply: (
+    filters: {
+      searchTerm: string;
+      selectedAccountId: string;
+      selectedType: "ALL" | "EXPENSE" | "INCOME";
+      selectedCategoryIds: string[];
+      selectedCategoryCodes: string[];
+      startDate: string;
+      endDate: string;
+    },
+    /** `mobileSearchRange`가 넘어온 호출에서만 채워진다(IMPLEMENTATION_BRIEF_012 §4).
+     * 데스크톱 호출부는 이 두 번째 인자를 그냥 무시하면 된다. */
+    mobileRange?: SearchRange,
+  ) => void;
   /** 모바일에서는 잔액 선반이 결제수단 선택의 기본 진입점이라, 시트 안의 결제수단
    * select를 그대로 두면 서로 다른 결과를 여는 두 선택기가 생긴다(QA_REVIEW_024 §4).
    * true면 이 select를 렌더링하지 않는다. */
   hideAccountSelect?: boolean;
-  /** 모바일은 상단 일/주/월/기간 도구가 기간의 유일한 진입점이다(QA_REVIEW_025 §P2) —
-   * 시트에도 기간 UI를 남겨두면 "빈 값 적용"과 "기간을 건드리지 않고 다른 필터만 적용"을
-   * 구분할 수 없어 사용자 지정 기간이 의도치 않게 계속 유지되는 상태 충돌이 생긴다.
-   * true면 이 시트에서 기간 UI 자체를 렌더링하지 않는다. */
-  hideDateRange?: boolean;
+  /** 넘기면(값이 `undefined`가 아니면) 기존 데스크톱 날짜 UI 대신 모바일 조회 범위
+   * radio group(전체 기간/현재 보고 있는 기간/직접 선택)을 렌더링한다(DECISION_013,
+   * IMPLEMENTATION_BRIEF_012 §4). QA_REVIEW_025 대응으로 썼던 `hideDateRange`(기간 UI를
+   * 그냥 숨기는 임시 구조)는 제거하고 이 radio group으로 대체한다. */
+  mobileSearchRange?: SearchRange;
+  /** "현재 보고 있는 기간" 선택지에 쓸 일반 장부의 현재 조회 기간과 표시용 짧은 라벨
+   * (예: "8/17~8/23"). `mobileSearchRange`가 있을 때만 의미가 있다. */
+  currentLedgerRange?: { startDate: string; endDate: string; label: string };
   /** 적용 버튼 라벨. 데스크톱은 별도 검색 결과 페이지로 이동하므로 기본값을 쓰고,
    * 모바일은 같은 화면에 바로 반영되므로 호출부에서 다른 문구를 넘긴다. */
   applyButtonLabel?: string;
@@ -52,7 +60,8 @@ export default function SearchFilterBottomSheet({
   initialFilters,
   onApply,
   hideAccountSelect = false,
-  hideDateRange = false,
+  mobileSearchRange,
+  currentLedgerRange,
   applyButtonLabel = "검색 결과 보기",
 }: SearchFilterBottomSheetProps) {
   const [searchTerm, setSearchTerm] = useState(initialFilters?.searchTerm || "");
@@ -61,12 +70,23 @@ export default function SearchFilterBottomSheet({
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(initialFilters?.selectedCategoryIds || []);
   const [selectedCategoryCodes, setSelectedCategoryCodes] = useState<string[]>(initialFilters?.selectedCategoryCodes || []);
 
+  // 데스크톱 전용 레거시 날짜 UI(기존 동작, 변경 없음) — `mobileSearchRange`가 오면 대신
+  // 아래 모바일 radio group을 쓴다.
   const [dateRangeMode, setDateRangeMode] = useState<"month" | "custom">("month");
   const [customStart, setCustomStart] = useState(initialFilters?.startDate || "");
   const [customEnd, setCustomEnd] = useState(initialFilters?.endDate || "");
   const [tempStart, setTempStart] = useState("");
   const [tempEnd, setTempEnd] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // 모바일 조회 범위 radio group의 draft state(DECISION_013 "조회 범위 선택지").
+  const [mobileRangeMode, setMobileRangeMode] = useState<"all" | "current" | "custom">("all");
+  const [mobileCustomStart, setMobileCustomStart] = useState("");
+  const [mobileCustomEnd, setMobileCustomEnd] = useState("");
+  const isMobileRange = mobileSearchRange !== undefined;
+  const isMobileRangeValid =
+    mobileRangeMode !== "custom" ||
+    (!!mobileCustomStart && !!mobileCustomEnd && mobileCustomStart <= mobileCustomEnd);
 
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -167,6 +187,20 @@ export default function SearchFilterBottomSheet({
           setCustomEnd("");
         }
       }
+
+      // 모바일 조회 범위 draft를 호출부가 넘긴 현재 적용 범위로 동기화한다(IMPLEMENTATION_BRIEF_012
+      // §10 "결과 모드 중 다시 열기: 현재 적용 범위를 draft 초기값으로 사용" — 결과 모드가
+      // 아니면 호출부가 항상 { mode: "all" }을 넘긴다).
+      if (mobileSearchRange) {
+        setMobileRangeMode(mobileSearchRange.mode);
+        if (mobileSearchRange.mode === "custom") {
+          setMobileCustomStart(mobileSearchRange.startDate);
+          setMobileCustomEnd(mobileSearchRange.endDate);
+        } else {
+          setMobileCustomStart("");
+          setMobileCustomEnd("");
+        }
+      }
     } else if (isVisible) {
       setIsClosing(true);
       const timer = setTimeout(() => {
@@ -175,7 +209,7 @@ export default function SearchFilterBottomSheet({
       }, 250); // wait for exit animation
       return () => clearTimeout(timer);
     }
-  }, [isOpen, initialFilters, isVisible]);
+  }, [isOpen, initialFilters, isVisible, mobileSearchRange]);
 
   const { startDate, endDate } = useMemo(() => {
     if (dateRangeMode === "custom" && customStart && customEnd) {
@@ -293,15 +327,33 @@ export default function SearchFilterBottomSheet({
   }, [rawCategories, selectedType]);
 
   const handleApply = () => {
-    onApply({
-      searchTerm,
-      selectedAccountId,
-      selectedType,
-      selectedCategoryIds,
-      selectedCategoryCodes,
-      startDate,
-      endDate,
-    });
+    if (isMobileRange && !isMobileRangeValid) return; // 버튼도 disabled지만 이중 방어
+
+    const finalMobileRange: SearchRange | undefined = !isMobileRange
+      ? undefined
+      : mobileRangeMode === "all"
+        ? { mode: "all" }
+        : mobileRangeMode === "current"
+          ? {
+              mode: "current",
+              startDate: currentLedgerRange?.startDate ?? "",
+              endDate: currentLedgerRange?.endDate ?? "",
+              label: currentLedgerRange?.label ?? "",
+            }
+          : { mode: "custom", startDate: mobileCustomStart, endDate: mobileCustomEnd };
+
+    onApply(
+      {
+        searchTerm,
+        selectedAccountId,
+        selectedType,
+        selectedCategoryIds,
+        selectedCategoryCodes,
+        startDate,
+        endDate,
+      },
+      finalMobileRange,
+    );
     onClose();
   };
 
@@ -394,9 +446,79 @@ export default function SearchFilterBottomSheet({
 
         <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-5">
           <div className="flex flex-col gap-5">
+            {/* 모바일 조회 범위(DECISION_013) — 전체 기간/현재 보고 있는 기간/직접 선택. 데스크톱
+                레거시 날짜 UI(기존 동작)를 대체한다. */}
+            {isMobileRange && (
+              <fieldset className="rounded-lg border border-gray-200 p-3">
+                <legend className="px-1 text-xs font-semibold text-gray-500">조회 범위</legend>
+                <div className="mt-1 flex flex-col gap-2">
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="radio"
+                      name="mobile-search-range"
+                      checked={mobileRangeMode === "all"}
+                      onChange={() => setMobileRangeMode("all")}
+                      className="h-4 w-4 text-sky-600 focus:ring-sky-500/30"
+                    />
+                    전체 기간
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="radio"
+                      name="mobile-search-range"
+                      checked={mobileRangeMode === "current"}
+                      onChange={() => setMobileRangeMode("current")}
+                      className="h-4 w-4 text-sky-600 focus:ring-sky-500/30"
+                    />
+                    현재 보고 있는 기간{currentLedgerRange ? ` · ${currentLedgerRange.label}` : ""}
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="radio"
+                      name="mobile-search-range"
+                      checked={mobileRangeMode === "custom"}
+                      onChange={() => setMobileRangeMode("custom")}
+                      className="h-4 w-4 text-sky-600 focus:ring-sky-500/30"
+                    />
+                    직접 선택
+                  </label>
+                </div>
+
+                {mobileRangeMode === "custom" && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-semibold text-gray-500">시작일</label>
+                      <input
+                        type="date"
+                        value={mobileCustomStart}
+                        onChange={(e) => setMobileCustomStart(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-semibold text-gray-500">종료일</label>
+                      <input
+                        type="date"
+                        value={mobileCustomEnd}
+                        onChange={(e) => setMobileCustomEnd(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 적용 버튼 비활성화 이유를 텍스트로 전달(§11 "aria-live로 전달"). */}
+                <p aria-live="polite" className="mt-1.5 text-[11px] text-red-600">
+                  {mobileRangeMode === "custom" && !isMobileRangeValid
+                    ? "시작일과 종료일을 모두 선택하고, 시작일이 종료일보다 늦지 않아야 적용할 수 있어요."
+                    : ""}
+                </p>
+              </fieldset>
+            )}
+
             {/* 기간 지정 + 검색 + 결제수단 필터 */}
             <div className="flex flex-col gap-3 md:flex-row">
-              {!hideDateRange && (
+              {!isMobileRange && (
               <div className="relative">
                 <button
                   onClick={handleOpenDatePicker}
@@ -663,7 +785,8 @@ export default function SearchFilterBottomSheet({
         <div className="p-4 md:p-5 border-t border-gray-100 bg-gray-50 shrink-0 pb-8 sm:pb-4 md:pb-5">
           <button
             onClick={handleApply}
-            className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl transition-colors shadow-sm"
+            disabled={isMobileRange && !isMobileRangeValid}
+            className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {applyButtonLabel}
           </button>

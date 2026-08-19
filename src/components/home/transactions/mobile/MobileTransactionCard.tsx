@@ -8,6 +8,12 @@ interface MobileTransactionCardProps {
   /** 전체 조회면 "", 특정 결제수단 조회면 그 계좌 id. */
   selectedAccountId: string;
   onClick: () => void;
+  /** 검색·필터 결과 모드가 아닐 때만 true(QA_REVIEW_027 P1) — false면 거래 후 전체/계좌
+   * 잔액, 이체의 출금 후/입금 후 잔액을 전부 감춘다. 이 시점에는 `transaction`의
+   * `runningTotalBalance`/`runningAccountBalance`/`runningLinkedAccountBalance`도 애초에
+   * 계산되지 않아 항상 `undefined`다(호출부 `TransactionPage.tsx` 참고) — 이 prop은 그
+   * 사실을 UI에 명시적으로 드러낸다. */
+  showRunningBalances: boolean;
 }
 
 const TRANSFER_CODES = new Set(["TRANSFER_EXPENSE", "TRANSFER_INCOME"]);
@@ -22,7 +28,7 @@ const won = (n: number | undefined) => (n === undefined ? "-" : `${n.toLocaleStr
  * 쓰지 않는다 — 특정 계좌를 보고 있을 때 그 규칙이 수입/지출처럼 초록/빨강으로 칠해버리면
  * "이체를 소비처럼 보이게 하지 않는다"는 원칙에 어긋난다. 대신 유형별 고정 색 + 라벨을 쓴다.
  */
-export default function MobileTransactionCard({ transaction: t, selectedAccountId, onClick }: MobileTransactionCardProps) {
+export default function MobileTransactionCard({ transaction: t, selectedAccountId, onClick, showRunningBalances }: MobileTransactionCardProps) {
   const code = t.category?.code;
   const isTransfer = !!t.transferDetail && TRANSFER_CODES.has(code);
   const isSavings = !!t.transferDetail && SAVINGS_CODES.has(code);
@@ -60,12 +66,14 @@ export default function MobileTransactionCard({ transaction: t, selectedAccountI
           <b className="text-ll-ink">{detail.fromAccount.name}</b> → <b className="text-ll-ink">{detail.toAccount.name}</b>
         </p>
         <div className="flex w-full items-center justify-between gap-2 text-[10px] text-ll-pencil">
-          <span>
-            {fromAfter !== undefined && toAfter !== undefined
-              ? `출금 후 ${won(fromAfter)} · 입금 후 ${won(toAfter)}`
-              : `거래 후 ${won(t.runningAccountBalance)}`}
-          </span>
-          <em className="shrink-0 not-italic font-semibold text-ll-periwinkle">
+          {showRunningBalances && (
+            <span>
+              {fromAfter !== undefined && toAfter !== undefined
+                ? `출금 후 ${won(fromAfter)} · 입금 후 ${won(toAfter)}`
+                : `거래 후 ${won(t.runningAccountBalance)}`}
+            </span>
+          )}
+          <em className={`shrink-0 not-italic font-semibold text-ll-periwinkle ${!showRunningBalances ? "ml-auto" : ""}`}>
             {scopedCaption ?? (isSavings ? "소비 아닌 자산 이동" : "전체 자산 변화 없음")}
           </em>
         </div>
@@ -89,7 +97,7 @@ export default function MobileTransactionCard({ transaction: t, selectedAccountI
         </div>
         <div className="flex w-full items-center justify-between gap-2 text-[10px] text-ll-pencil">
           <span>실제 잔액에 맞춤</span>
-          <span>조정 후 {won(t.runningAccountBalance)}</span>
+          {showRunningBalances && <span>조정 후 {won(t.runningAccountBalance)}</span>}
         </div>
       </ReceiptRow>
     );
@@ -115,15 +123,17 @@ export default function MobileTransactionCard({ transaction: t, selectedAccountI
       </div>
       <div className="flex w-full items-center justify-between gap-2 text-[10px] text-ll-pencil">
         <span className="truncate">{t.account?.name}</span>
-        <span className="shrink-0 text-right">
-          계좌 거래 후 {won(t.runningAccountBalance)}
-          {isGlobalView && t.runningTotalBalance !== undefined && (
-            <>
-              <br />
-              전체 거래 후 {won(t.runningTotalBalance)}
-            </>
-          )}
-        </span>
+        {showRunningBalances && (
+          <span className="shrink-0 text-right">
+            계좌 거래 후 {won(t.runningAccountBalance)}
+            {isGlobalView && t.runningTotalBalance !== undefined && (
+              <>
+                <br />
+                전체 거래 후 {won(t.runningTotalBalance)}
+              </>
+            )}
+          </span>
+        )}
       </div>
     </ReceiptRow>
   );

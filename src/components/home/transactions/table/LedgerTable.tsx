@@ -50,6 +50,14 @@ interface Props {
   currentAccountId?: string;
   isExcelView?: boolean;
   openingBalanceAmount?: number;
+  /** false면 거래 후 잔액 관련 열/텍스트를 전부 "—"로 표시한다(QA_REVIEW_027 P1 — 검색·필터
+   * 결과에는 이미 이 값이 계산되지 않은 채로 들어온다, 기본값 true로 데스크톱은 영향 없음). */
+  showRunningBalances?: boolean;
+  /** false면 드래그 핸들을 숨기고 drag-and-drop 순서 변경을 막는다(QA_REVIEW_028 P1 —
+   * 검색·필터 결과에는 같은 날짜의 일부 거래만 담길 수 있어, 그 배열의 id만으로 순서를
+   * 바꾸면 화면에 없는 같은 날짜 거래가 서버에서 밀려날 위험이 있다). 기본값 true로
+   * 일반 장부 엑셀은 영향 없음. */
+  allowReorder?: boolean;
 }
 
 /* ────────────────────────── Sortable wrappers ────────────────────────── */
@@ -60,12 +68,16 @@ function SortableLedgerRow({
   onDelete,
   currentAccountId,
   isExcelView,
+  showRunningBalances,
+  allowReorder = true,
 }: {
   transaction: Transaction;
   onEdit: (t: Transaction) => void;
   onDelete: (id: string) => void;
   currentAccountId?: string;
   isExcelView?: boolean;
+  showRunningBalances?: boolean;
+  allowReorder?: boolean;
 }) {
   const {
     attributes,
@@ -93,9 +105,13 @@ function SortableLedgerRow({
       onEdit={onEdit}
       onDelete={onDelete}
       currentAccountId={currentAccountId}
-      dragHandleAttributes={attributes}
-      dragHandleListeners={listeners}
+      // 검색 결과에서는 handle 자체를 렌더링하지 않고(showDragHandle) dnd-kit 리스너도
+      // 아예 붙이지 않는다 — 드래그를 시작할 수 있는 요소가 화면에 존재하지 않게 한다.
+      dragHandleAttributes={allowReorder ? attributes : undefined}
+      dragHandleListeners={allowReorder ? listeners : undefined}
+      showDragHandle={allowReorder}
       isExcelView={isExcelView}
+      showRunningBalances={showRunningBalances}
     />
   );
 }
@@ -107,6 +123,8 @@ function SortableMobileCard({
   onViewDetail,
   isExcelView,
   currentAccountId,
+  showRunningBalances = true,
+  allowReorder = true,
 }: {
   transaction: Transaction;
   onEdit: (t: Transaction) => void;
@@ -114,6 +132,8 @@ function SortableMobileCard({
   onViewDetail?: (t: Transaction) => void;
   isExcelView?: boolean;
   currentAccountId?: string;
+  showRunningBalances?: boolean;
+  allowReorder?: boolean;
 }) {
   const {
     attributes,
@@ -140,18 +160,22 @@ function SortableMobileCard({
       onClick={onViewDetail ? () => onViewDetail(transaction) : undefined}
       className="items-center gap-1.5 px-3 py-2.5"
     >
-      {/* 드래그 핸들: 보조 기능이라 시각적으로 옅게 처리 */}
-      <button
-        {...attributes}
-        {...listeners}
-        onClick={(e) => e.stopPropagation()}
-        className="shrink-0 cursor-grab active:cursor-grabbing text-gray-200 hover:text-gray-400 self-stretch flex items-center px-0.5 -ml-1"
-        style={{ touchAction: 'pan-y' }}
-        title="드래그하여 순서 변경"
-        aria-label="순서 변경"
-      >
-        <GripVertical className="w-4 h-4" />
-      </button>
+      {/* 드래그 핸들: 보조 기능이라 시각적으로 옅게 처리. 검색·필터 결과에서는 렌더링 자체를
+          하지 않는다(allowReorder=false) — 리스너를 붙일 요소가 없으니 드래그를 시작할 방법도
+          없다(QA_REVIEW_028 P1). */}
+      {allowReorder && (
+        <button
+          {...attributes}
+          {...listeners}
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0 cursor-grab active:cursor-grabbing text-gray-200 hover:text-gray-400 self-stretch flex items-center px-0.5 -ml-1"
+          style={{ touchAction: 'pan-y' }}
+          title="드래그하여 순서 변경"
+          aria-label="순서 변경"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+      )}
 
       <div className="flex flex-1 items-start justify-between gap-2 min-w-0">
         <div className="min-w-0 pt-0.5 flex-1">
@@ -169,16 +193,16 @@ function SortableMobileCard({
                 <span className="flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-gray-600 font-medium border border-gray-200">
                   <span>{getAccountIcon(transaction.transferDetail.fromAccount.type)}</span>
                   {transaction.transferDetail.fromAccount.name}
-                  {transaction.type === "EXPENSE" && transaction.runningAccountBalance !== undefined ? ` (잔액: ${transaction.runningAccountBalance.toLocaleString()}원)` : ""}
-                  {transaction.type === "INCOME" && transaction.runningLinkedAccountBalance !== undefined ? ` (잔액: ${transaction.runningLinkedAccountBalance.toLocaleString()}원)` : ""}
+                  {showRunningBalances && transaction.type === "EXPENSE" && transaction.runningAccountBalance !== undefined ? ` (잔액: ${transaction.runningAccountBalance.toLocaleString()}원)` : ""}
+                  {showRunningBalances && transaction.type === "INCOME" && transaction.runningLinkedAccountBalance !== undefined ? ` (잔액: ${transaction.runningLinkedAccountBalance.toLocaleString()}원)` : ""}
                 </span>
                 <div className="flex items-center gap-1">
                   <span className="text-gray-400 text-[9px]">▶</span>
                   <span className="flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-sky-700 font-medium border border-sky-100">
                     <span>{getAccountIcon(transaction.transferDetail.toAccount.type)}</span>
                     {transaction.transferDetail.toAccount.name}
-                    {transaction.type === "EXPENSE" && transaction.runningLinkedAccountBalance !== undefined ? ` (잔액: ${transaction.runningLinkedAccountBalance.toLocaleString()}원)` : ""}
-                    {transaction.type === "INCOME" && transaction.runningAccountBalance !== undefined ? ` (잔액: ${transaction.runningAccountBalance.toLocaleString()}원)` : ""}
+                    {showRunningBalances && transaction.type === "EXPENSE" && transaction.runningLinkedAccountBalance !== undefined ? ` (잔액: ${transaction.runningLinkedAccountBalance.toLocaleString()}원)` : ""}
+                    {showRunningBalances && transaction.type === "INCOME" && transaction.runningAccountBalance !== undefined ? ` (잔액: ${transaction.runningAccountBalance.toLocaleString()}원)` : ""}
                   </span>
                 </div>
               </div>
@@ -187,7 +211,7 @@ function SortableMobileCard({
                 <span className="flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-gray-700 font-medium">
                   <span>{getAccountIcon(transaction.account.type)}</span>
                   {transaction.account.name}
-                  {transaction.runningAccountBalance !== undefined ? ` (잔액: ${transaction.runningAccountBalance.toLocaleString()}원)` : ""}
+                  {showRunningBalances && transaction.runningAccountBalance !== undefined ? ` (잔액: ${transaction.runningAccountBalance.toLocaleString()}원)` : ""}
                 </span>
               )
             )}
@@ -205,7 +229,7 @@ function SortableMobileCard({
                 </span>
                 <span className="text-gray-300 text-[11px]">|</span>
                 <span className="text-[10px] text-gray-500 font-medium">
-                  총 {transaction.runningTotalBalance?.toLocaleString() ?? "-"}원
+                  총 {showRunningBalances ? (transaction.runningTotalBalance?.toLocaleString() ?? "-") : "—"}원
                 </span>
               </div>
             );
@@ -254,6 +278,8 @@ export default function LedgerTable({
   currentAccountId,
   isExcelView = true,
   openingBalanceAmount = 0,
+  showRunningBalances = true,
+  allowReorder = true,
 }: Props) {
   const [localTransactions, setLocalTransactions] =
     useState<Transaction[]>(transactions);
@@ -301,6 +327,9 @@ export default function LedgerTable({
   }, [localTransactions, currentAccountId]);
 
   const handleDragEnd = (event: DragEndEvent, date?: string) => {
+    // 이중 방어 — 핸들을 숨겨 드래그를 시작할 수 없게 했지만(allowReorder=false), 혹시라도
+    // 이벤트가 들어와도 onReorder는 절대 호출하지 않는다(QA_REVIEW_028 P1).
+    if (!allowReorder) return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -409,6 +438,8 @@ export default function LedgerTable({
                         onDelete={onDelete}
                         onViewDetail={onViewDetail}
                         currentAccountId={currentAccountId}
+                        showRunningBalances={showRunningBalances}
+                        allowReorder={allowReorder}
                       />
                     ))}
                   </ReceiptCard>
@@ -420,10 +451,14 @@ export default function LedgerTable({
         {/* 모바일 뷰 통계 요약 카드 */}
         {!loading && !error && localTransactions.length > 0 && (
           <div className="mt-4 p-3.5 rounded-xl border border-gray-200 bg-gray-50 flex flex-col gap-1.5 shadow-sm">
-            <h3 className="text-[11px] font-bold text-gray-500 uppercase mb-0.5">현재 기간 합계</h3>
+            <h3 className="text-[11px] font-bold text-gray-500 uppercase mb-0.5">
+              {showRunningBalances ? "현재 기간 합계" : "검색 결과 합계"}
+            </h3>
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-gray-600 font-medium">시작 잔액</span>
-              <span className="font-semibold text-gray-900">{openingBalanceAmount.toLocaleString()}원</span>
+              <span className="font-semibold text-gray-900">
+                {showRunningBalances ? `${openingBalanceAmount.toLocaleString()}원` : "—"}
+              </span>
             </div>
             <div className="flex justify-between items-center text-[13px]">
               <span className="text-gray-600 font-medium">총 수입</span>
@@ -436,7 +471,9 @@ export default function LedgerTable({
             <div className="h-px bg-gray-200 my-1.5" />
             <div className="flex justify-between items-center">
               <span className="text-gray-700 font-semibold text-[13px]">최종 잔액</span>
-              <span className="font-bold text-gray-900 text-[14px]">{stats.finalBalance !== undefined ? `${stats.finalBalance.toLocaleString()}원` : "-"}</span>
+              <span className="font-bold text-gray-900 text-[14px]">
+                {!showRunningBalances ? "—" : stats.finalBalance !== undefined ? `${stats.finalBalance.toLocaleString()}원` : "-"}
+              </span>
             </div>
           </div>
         )}
@@ -538,6 +575,8 @@ export default function LedgerTable({
                           onEdit={onEdit}
                           onDelete={onDelete}
                           isExcelView={isExcelView}
+                          showRunningBalances={showRunningBalances}
+                          allowReorder={allowReorder}
                         />
                       ))}
                     </SortableContext>
@@ -547,14 +586,14 @@ export default function LedgerTable({
                 <tfoot>
                   <tr>
                     <td colSpan={2} className={`${isExcelView ? "border border-gray-300 px-4 py-2" : "px-6 py-3"} text-center font-bold text-gray-700 bg-gray-100 hidden md:table-cell`}>
-                      현재 기간 합계
+                      {showRunningBalances ? "현재 기간 합계" : "검색 결과 합계"}
                     </td>
                     <td colSpan={2} className={`${isExcelView ? "border border-gray-300 px-4 py-2" : "px-6 py-3"} text-center font-bold text-gray-700 bg-gray-100 md:hidden`}>
-                      합계
+                      {showRunningBalances ? "합계" : "검색 결과"}
                     </td>
                     <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-3"} text-right font-semibold text-gray-800 bg-gray-50/50`}>
                       <span className="text-[10px] text-gray-500 block">시작 잔액</span>
-                      {openingBalanceAmount.toLocaleString()}원
+                      {showRunningBalances ? `${openingBalanceAmount.toLocaleString()}원` : "—"}
                     </td>
                     <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-3"} text-right font-semibold text-blue-600 bg-blue-50/50`}>
                       <span className="text-[10px] text-blue-400 block">총 수입</span>
@@ -566,7 +605,7 @@ export default function LedgerTable({
                     </td>
                     <td className={`${isExcelView ? "border border-gray-300 px-1 md:px-4 py-2" : "px-6 py-3"} text-right font-bold text-gray-800 bg-gray-100`}>
                       <span className="text-[10px] text-gray-500 block">최종 잔액</span>
-                      {stats.finalBalance !== undefined ? `${stats.finalBalance.toLocaleString()}원` : "-"}
+                      {!showRunningBalances ? "—" : stats.finalBalance !== undefined ? `${stats.finalBalance.toLocaleString()}원` : "-"}
                     </td>
                     <td colSpan={3} className={`${isExcelView ? "border border-gray-300 px-4 py-2" : "px-6 py-3"} bg-gray-100`}></td>
                   </tr>
