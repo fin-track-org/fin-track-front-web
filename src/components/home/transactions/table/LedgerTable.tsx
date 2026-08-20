@@ -538,7 +538,12 @@ export default function LedgerTable({
   // 전용 두 table을 전혀 렌더링하지 않는다(IMPLEMENTATION_BRIEF_015 §9 "모바일 헤더 전용
   // table을 렌더링하지 않음").
   const isMobileLedgerContext = mobileHeaderStickyTop !== undefined;
-  const isMobileHeaderMeasured = isMobileLedgerContext && mobileHeaderStickyTop !== null && mobileHeaderStickyTop !== undefined;
+  // 엑셀 헤더는 모바일 context에서 항상 `position: sticky`다(QA_REVIEW_037 P1-1) — 측정 성공
+  // 여부가 sticky 활성화 자체를 결정하면, `ResizeObserver`의 최초 callback이 늦거나 발생하지
+  // 않는 환경에서 헤더가 계속 일반 block으로 남아 거래 행과 함께 사라진다(사용자가 재현한
+  // 증상). `hasResolvedMobileHeaderTop`은 sticky 여부가 아니라 "아직 올바른 top 값이 없는
+  // 아주 짧은 구간에 헤더를 잠깐 숨길지"만 결정한다(§687 wrapper의 `visibility`).
+  const hasResolvedMobileHeaderTop = mobileHeaderStickyTop !== null && mobileHeaderStickyTop !== undefined;
 
   const [localTransactions, setLocalTransactions] =
     useState<Transaction[]>(transactions);
@@ -675,17 +680,25 @@ export default function LedgerTable({
       // (§2, §11 7번 "장부 마지막을 지나면 헤더도 자연스럽게 사라진다") — 별도 감지 로직이
       // 필요 없다.
       <div>
-        {/* 헤더 전용 table — 조건부 overlay가 아니라 항상 DOM에 존재한다(§4). 측정 전에는
-            sticky를 걸지 않아 top:0으로 잘못 고정되는 깜빡임을 막고, 측정되면 앱바+잔액
-            선반 높이에 고정한다. z-index는 앱바(8) > 잔액 선반(7) > 헤더(6) 순서를 그대로
-            따른다. `width`/`minWidth`를 명시해야 `table-fixed`가 실제로 안정적으로 동작한다
-            (QA_REVIEW_035 P1 — `min-w-max`만으로는 table의 `width` 자체가 `auto`로 남아
-            콘텐츠에 따라 재계산될 수 있었다). 아래 거래 행 table의 실제 접근 가능한 열
-            머리글(스크린리더 전용 thead)이 따로 있으므로, 이 시각적 헤더는 중복 낭독을
-            막기 위해 `aria-hidden`으로 접근성 트리에서 제외한다(QA_REVIEW_035 P2-2). */}
+        {/* 헤더 전용 table — 조건부 overlay가 아니라 항상 DOM에 존재한다(§4). sticky는 측정값과
+            무관하게 항상 걸려 있다(QA_REVIEW_037 P1-1) — 앱바·잔액 선반과 마찬가지로 이
+            헤더도 모바일 엑셀 context에서는 처음부터 세 번째 sticky 층이어야 하고, 측정
+            성공 여부가 그 자체를 좌우해서는 안 된다. 아직 올바른 top 값이 없는 아주 짧은
+            구간에는(§687 `hasResolvedMobileHeaderTop`) top:0으로 잘못 고정된 모습이 잠깐
+            보이는 대신 `visibility: hidden`으로 숨기되 레이아웃 높이는 그대로 차지해(표가
+            밀리지 않게) 값이 들어오는 즉시 올바른 위치에서 나타나게 한다. z-index는
+            앱바(8) > 잔액 선반(7) > 헤더(6) 순서를 그대로 따른다. `width`/`minWidth`를
+            명시해야 `table-fixed`가 실제로 안정적으로 동작한다(QA_REVIEW_035 P1 —
+            `min-w-max`만으로는 table의 `width` 자체가 `auto`로 남아 콘텐츠에 따라 재계산될
+            수 있었다). 아래 거래 행 table의 실제 접근 가능한 열 머리글(스크린리더 전용
+            thead)이 따로 있으므로, 이 시각적 헤더는 중복 낭독을 막기 위해 `aria-hidden`으로
+            접근성 트리에서 제외한다(QA_REVIEW_035 P2-2). */}
         <div
-          className={`${isMobileHeaderMeasured ? "sticky z-[6]" : ""} overflow-hidden border border-gray-300 bg-[#f3f4f6] shadow-sm`}
-          style={isMobileHeaderMeasured ? { top: mobileHeaderStickyTop as number } : undefined}
+          className="sticky z-[6] overflow-hidden border border-gray-300 bg-[#f3f4f6] shadow-sm"
+          style={{
+            top: hasResolvedMobileHeaderTop ? (mobileHeaderStickyTop as number) : 0,
+            visibility: hasResolvedMobileHeaderTop ? "visible" : "hidden",
+          }}
         >
           <table
             ref={mobileHeaderTableRef}
