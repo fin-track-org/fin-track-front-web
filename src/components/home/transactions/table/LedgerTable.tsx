@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
@@ -39,15 +39,10 @@ function formatDateFriendly(dateStr: string) {
   return `${month}월 ${date}일 (${day})`;
 }
 
-/**
- * 원본 `<thead>`와 모바일 복제 헤더가 함께 쓰는 열 정의(IMPLEMENTATION_BRIEF_014 §6 "같은
- * 마크업을 두 군데 직접 복사하지 않는다"). `widths`를 넘기면(복제 헤더 전용) 각 열에 실측한
- * px 폭을 강제로 적용한다 — 원본 표는 명시적 `colgroup` 없이 auto layout을 쓰기 때문에 데이터
- * 행 내용에 따라 실제 렌더 폭이 달라질 수 있고, 별도 `<table>`인 복제 헤더가 그 폭을
- * 그대로 재현하려면 원본을 그대로 측정해 강제하는 쪽이 안전하다(§6 "대안 B — 실제 열 너비
- * 측정"). 원본 호출에는 `widths`를 넘기지 않아 기존 auto layout이 그대로 유지된다.
- */
-function LedgerTableHeaderRow({ isExcelView, widths }: { isExcelView: boolean; widths?: number[] }) {
+/** 데스크톱(및 이 컴포넌트의 기존 반응형 표) 전용 열 정의 — IMPLEMENTATION_BRIEF_015 이후
+ * 모바일은 완전히 별도 구조(`MOBILE_LEDGER_COLUMNS` 이하)를 쓰므로, 이 컴포넌트는 더 이상
+ * 모바일 분기를 갖지 않는다. */
+function LedgerTableHeaderRow({ isExcelView }: { isExcelView: boolean }) {
   const cells = [
     { label: "#", className: `${isExcelView ? "border border-gray-300 px-1 md:px-2 py-1.5 md:py-2 w-6 md:w-8 text-center" : "px-3 py-3 w-8"} text-[10px] md:text-xs font-semibold uppercase hidden md:table-cell` },
     { label: "날짜", className: `${isExcelView ? "border border-gray-300 px-1 md:px-4 py-1.5 md:py-2 text-center" : "px-6 py-3 text-left"} text-[10px] md:text-xs font-semibold uppercase hidden md:table-cell` },
@@ -63,15 +58,226 @@ function LedgerTableHeaderRow({ isExcelView, widths }: { isExcelView: boolean; w
 
   return (
     <tr>
-      {cells.map((cell, i) => (
-        <th
-          key={cell.label}
-          className={cell.className}
-          style={widths ? { width: widths[i], minWidth: widths[i], maxWidth: widths[i] } : undefined}
-        >
+      {cells.map((cell) => (
+        <th key={cell.label} className={cell.className}>
           {cell.label}
         </th>
       ))}
+    </tr>
+  );
+}
+
+/* ────────────────────────── 모바일 엑셀 헤더·본문 분리(IMPLEMENTATION_BRIEF_015) ──────────────────────────
+ * 모바일 엑셀뷰는 데스크톱과 완전히 다른 DOM을 쓴다 — 헤더 전용 table과 거래 행 전용 table을
+ * 분리하고, 둘 다 아래 같은 열 정의(`MOBILE_LEDGER_COLUMNS`)를 `<colgroup>`으로 공유해
+ * 폭을 강제로 일치시킨다. `#`(드래그 핸들)·`날짜` 열은 기존에도 `hidden md:table-cell`로
+ * 모바일에서 보이지 않았으므로 이 정의 자체에 포함하지 않는다(브리프 §6). */
+const ALIGN_CLASS = { left: "text-left", center: "text-center", right: "text-right" } as const;
+
+const MOBILE_LEDGER_COLUMNS = [
+  { key: "category", label: "카테고리", width: 92, align: "center", colorClass: "text-gray-700" },
+  { key: "description", label: "설명", width: 140, align: "left", colorClass: "text-gray-700" },
+  { key: "income", label: "수입", width: 88, align: "right", colorClass: "text-blue-600" },
+  { key: "expense", label: "지출", width: 88, align: "right", colorClass: "text-red-600" },
+  { key: "runningBalance", label: "거래 후 잔액", width: 108, align: "right", colorClass: "text-gray-700" },
+  { key: "accountBalance", label: "계좌 잔액", width: 108, align: "right", colorClass: "text-sky-700" },
+  { key: "account", label: "결제수단", width: 96, align: "left", colorClass: "text-gray-700" },
+  { key: "actions", label: "관리", width: 64, align: "center", colorClass: "text-gray-700" },
+] as const satisfies readonly { key: string; label: string; width: number; align: keyof typeof ALIGN_CLASS; colorClass: string }[];
+
+/** 두 table에 그대로 적용할 명시적 전체 table 폭(QA_REVIEW_035 P1). `table-layout: fixed`는
+ * table 자체의 `width`가 명시돼야 안정적으로 동작한다 — `min-w-max`(=`min-width: max-content`)
+ * 만으로는 `width`가 여전히 `auto`라 콘텐츠에 따라 auto layout처럼 재계산될 수 있다. 각 col
+ * width의 합과 이 값이 항상 일치하도록 `MOBILE_LEDGER_COLUMNS`에서 직접 계산한다 — 별도로
+ * 하드코딩하지 않는다. */
+const MOBILE_LEDGER_TABLE_WIDTH = MOBILE_LEDGER_COLUMNS.reduce((sum, column) => sum + column.width, 0);
+
+/** 헤더 table과 거래 행 table이 함께 렌더링하는 공통 colgroup(§6) — 열 너비를 이 한 곳에서만
+ * 정의한다. `table-layout: fixed`와 함께 써야 지정한 폭이 내용과 무관하게 그대로 적용된다. */
+function MobileLedgerColGroup() {
+  return (
+    <colgroup>
+      {MOBILE_LEDGER_COLUMNS.map((column) => (
+        <col key={column.key} style={{ width: column.width }} />
+      ))}
+    </colgroup>
+  );
+}
+
+/** `srOnly`가 없으면(기본값) 잔액 선반 아래 고정되는 시각적 헤더 table의 내용이다.
+ * `srOnly`면 거래 행 table 안에 넣는 스크린리더 전용 열 머리글이다(QA_REVIEW_035 P2-2) —
+ * 같은 라벨 정의(`MOBILE_LEDGER_COLUMNS`)를 재사용해 두 헤더가 어긋나지 않는다. */
+function MobileLedgerHeaderCells({ srOnly = false }: { srOnly?: boolean }) {
+  return (
+    <tr>
+      {MOBILE_LEDGER_COLUMNS.map((column) => (
+        <th
+          key={column.key}
+          scope="col"
+          className={
+            srOnly
+              ? "sr-only"
+              : `border border-gray-300 px-2 py-1.5 text-[10px] font-semibold uppercase whitespace-nowrap ${ALIGN_CLASS[column.align]} ${column.colorClass}`
+          }
+        >
+          {column.label}
+        </th>
+      ))}
+    </tr>
+  );
+}
+
+/** 거래 행 전용 table의 본문 행 — `LedgerRow`와 같은 유형별 표시 규칙(이체/저축/잔액조정
+ * 구분, 러닝 잔액 숨김 등)을 그대로 따르되, 모바일에서 항상 숨겨져 있던 드래그 핸들·`#`·
+ * 날짜 열은 처음부터 렌더링하지 않는다(§5, §6). 드래그 핸들이 이미 `hidden md:table-cell`로
+ * 모바일에서 보이지도, 포커스할 수도 없었으므로 이 표는 애초에 DnD 컨텍스트로 감싸지
+ * 않는다 — 기존에 동작하던 기능을 제거하는 것이 아니라, 모바일에서 원래도 쓸 수 없던
+ * 진입점을 다시 만들지 않는 것이다(§10 "검색 결과 reorder 비활성화"는 데스크톱에서만
+ * 의미 있는 안전장치였고, 그 로직 자체는 데스크톱 표에 그대로 남아 있다). */
+function MobileLedgerRow({
+  transaction,
+  onEdit,
+  onDelete,
+  currentAccountId,
+  showRunningBalances,
+}: {
+  transaction: Transaction;
+  onEdit: (t: Transaction) => void;
+  onDelete: (id: string) => void;
+  currentAccountId?: string;
+  showRunningBalances: boolean;
+}) {
+  // getTransactionSign/getTransactionColor의 매개변수는 이미 `any`로 선언돼 있어(transactionUtils.ts)
+  // 여기서 추가로 캐스팅할 필요가 없다 — 기존 코드(LedgerRow.tsx 등)의 `as any`는 불필요한
+  // 캐스트였다(이전 라운드에서 확인된 사실, 새 코드에는 반복하지 않는다).
+  const sign = getTransactionSign(transaction, currentAccountId);
+  const colorClass = getTransactionColor(transaction, currentAccountId);
+  const amountStr = Math.abs(transaction.amount).toLocaleString() + "원";
+
+  return (
+    <tr className="hover:bg-gray-50 transition-colors">
+      <td className="border border-gray-300 px-2 py-1.5 text-center whitespace-nowrap overflow-hidden text-ellipsis">
+        <span className="inline-flex items-center font-medium bg-sky-100 text-sky-600 px-2 py-0.5 rounded text-[9px] truncate max-w-full">
+          {transaction.subcategory?.name
+            ? `${transaction.category.name} > ${transaction.subcategory.name}`
+            : transaction.category.name}
+        </span>
+      </td>
+      <td className="border border-gray-300 px-2 py-1.5 text-[10px] text-gray-700">
+        <div className="truncate whitespace-nowrap">{transaction.description}</div>
+      </td>
+      {sign === "+" ? (
+        <>
+          <td className={`border border-gray-300 px-2 py-1.5 whitespace-nowrap text-right text-[10px] font-semibold ${colorClass}`}>
+            +{amountStr}
+          </td>
+          <td className="border border-gray-300 px-2 py-1.5" />
+        </>
+      ) : sign === "-" ? (
+        <>
+          <td className="border border-gray-300 px-2 py-1.5" />
+          <td className={`border border-gray-300 px-2 py-1.5 whitespace-nowrap text-right text-[10px] font-semibold ${colorClass}`}>
+            -{amountStr}
+          </td>
+        </>
+      ) : (
+        <td colSpan={2} className={`border border-gray-300 px-2 py-1.5 whitespace-nowrap text-center text-[10px] font-medium ${colorClass}`}>
+          {amountStr}
+        </td>
+      )}
+      <td className="border border-gray-300 px-2 py-1.5 whitespace-nowrap text-right text-[10px] font-bold text-gray-700">
+        {!showRunningBalances
+          ? "—"
+          : transaction.runningTotalBalance !== undefined
+            ? `${transaction.runningTotalBalance.toLocaleString()}원`
+            : "-"}
+      </td>
+      <td className="border border-gray-300 px-2 py-1.5 whitespace-nowrap text-right text-[10px] font-bold text-sky-700 bg-sky-50/30">
+        {!showRunningBalances ? (
+          "—"
+        ) : transaction.runningLinkedAccountBalance !== undefined ? (
+          <div className="flex flex-col gap-0.5 items-end">
+            <span className="text-gray-500">{transaction.runningAccountBalance !== undefined ? `${transaction.runningAccountBalance.toLocaleString()}원` : "-"}</span>
+            <span>{`${transaction.runningLinkedAccountBalance.toLocaleString()}원`}</span>
+          </div>
+        ) : (
+          transaction.runningAccountBalance !== undefined ? `${transaction.runningAccountBalance.toLocaleString()}원` : "-"
+        )}
+      </td>
+      <td className="border border-gray-300 px-2 py-1.5 text-center whitespace-nowrap text-[10px] text-gray-600 overflow-hidden text-ellipsis">
+        {transaction.transferDetail && transaction.runningLinkedAccountBalance !== undefined ? (
+          <div className="flex flex-col gap-0.5 items-center">
+            <span className="text-gray-500 truncate max-w-[80px]">{getAccountIcon(transaction.transferDetail.fromAccount.type)} {transaction.transferDetail.fromAccount.name}(출금)</span>
+            <span className="font-medium text-sky-700 truncate max-w-[80px]">{getAccountIcon(transaction.transferDetail.toAccount.type)} {transaction.transferDetail.toAccount.name}(입금)</span>
+          </div>
+        ) : transaction.transferDetail ? (
+          <div className="flex items-center gap-0.5 justify-center">
+            <span className="text-gray-500 truncate max-w-[50px]">{getAccountIcon(transaction.transferDetail.fromAccount.type)} {transaction.transferDetail.fromAccount.name}</span>
+            <span className="text-gray-300">→</span>
+            <span className="font-medium px-1 py-0.5 rounded text-[9px] truncate max-w-[50px] text-gray-700 bg-gray-100">{getAccountIcon(transaction.transferDetail.toAccount.type)} {transaction.transferDetail.toAccount.name}</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center">
+            <span className="truncate max-w-[70px]">{getAccountIcon(transaction.account?.type || "")} {transaction.account?.name}</span>
+          </div>
+        )}
+      </td>
+      <td className="border border-gray-300 px-2 py-1.5 text-center whitespace-nowrap">
+        <div className="flex items-center gap-0.5 justify-center">
+          <button
+            onClick={() => onEdit(transaction)}
+            className="p-1 rounded-md hover:bg-yellow-50 text-yellow-600"
+            title="수정"
+            aria-label="수정"
+          >
+            <Pencil className="w-3 h-3" />
+          </button>
+          <button
+            onClick={() => onDelete(transaction.id)}
+            className="p-1 rounded-md hover:bg-red-50 text-red-600"
+            title="삭제"
+            aria-label="삭제"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+/** 모바일 거래 행 table 전용 로딩 skeleton(QA_REVIEW_035 P2-1) — 데스크톱용 `SkeletonRow`는
+ * `#`·날짜를 포함한 10개 `<td>`를 렌더링해 모바일의 8열 colgroup과 맞지 않았다. 열 순서와
+ * 개수를 `MOBILE_LEDGER_COLUMNS`와 동일하게 맞춰, 로딩 중에도 헤더와 skeleton 열이
+ * 일치하고 로딩 완료 시 table 폭이 바뀌지 않게 한다. 데스크톱 `SkeletonRow`는 건드리지
+ * 않았다. */
+function MobileLedgerSkeletonRow() {
+  return (
+    <tr className="animate-pulse">
+      <td className="border border-gray-300 px-2 py-1.5">
+        <div className="h-4 w-14 bg-gray-200 rounded mx-auto" />
+      </td>
+      <td className="border border-gray-300 px-2 py-1.5">
+        <div className="h-4 w-20 bg-gray-200 rounded" />
+      </td>
+      <td className="border border-gray-300 px-2 py-1.5">
+        <div className="h-4 w-12 bg-gray-200 rounded ml-auto" />
+      </td>
+      <td className="border border-gray-300 px-2 py-1.5">
+        <div className="h-4 w-12 bg-gray-200 rounded ml-auto" />
+      </td>
+      <td className="border border-gray-300 px-2 py-1.5">
+        <div className="h-4 w-16 bg-gray-200 rounded ml-auto" />
+      </td>
+      <td className="border border-gray-300 px-2 py-1.5">
+        <div className="h-4 w-16 bg-gray-200 rounded ml-auto" />
+      </td>
+      <td className="border border-gray-300 px-2 py-1.5">
+        <div className="h-4 w-14 bg-gray-200 rounded" />
+      </td>
+      <td className="border border-gray-300 px-2 py-1.5">
+        <div className="h-4 w-8 bg-gray-200 rounded mx-auto" />
+      </td>
     </tr>
   );
 }
@@ -93,22 +299,24 @@ interface Props {
   /** false면 드래그 핸들을 숨기고 drag-and-drop 순서 변경을 막는다(QA_REVIEW_028 P1 —
    * 검색·필터 결과에는 같은 날짜의 일부 거래만 담길 수 있어, 그 배열의 id만으로 순서를
    * 바꾸면 화면에 없는 같은 날짜 거래가 서버에서 밀려날 위험이 있다). 기본값 true로
-   * 일반 장부 엑셀은 영향 없음. */
+   * 일반 장부 엑셀은 영향 없음. 모바일 표는 애초에 드래그 핸들을 렌더링하지 않으므로
+   * 이 prop을 참조하지 않는다(§10 "검색 결과 reorder 비활성화"는 데스크톱 표에서만
+   * 의미가 있었고 계속 그렇다). */
   allowReorder?: boolean;
-  /** 모바일 엑셀 복제 헤더의 top 위치(px, IMPLEMENTATION_BRIEF_014). 데스크톱 호출부는 이
-   * prop 자체를 넘기지 않는다(`undefined`) — 그러면 원본 `<thead>`가 기존 `sticky top-0
-   * z-30` 그대로 유지되고 복제 헤더 로직 자체가 켜지지 않는다. 모바일 호출부는 항상 값을
-   * 넘긴다: 아직 측정 전이면 `null`(복제 헤더를 아예 렌더링하지 않는다), 측정됐으면 실제
-   * px 숫자(잔액 선반 실제 하단 offset)를 넘긴다.
+  /** 모바일 엑셀 헤더 table의 sticky top 위치(px, IMPLEMENTATION_BRIEF_015 §4). 데스크톱
+   * 호출부는 이 prop 자체를 넘기지 않는다(`undefined`) — 그러면 모바일 전용 두 -table
+   * 구조 자체가 렌더링되지 않고 기존 단일 table 구조만 쓴다. 모바일 호출부는 항상 값을
+   * 넘긴다: 아직 측정 전이면 `null`(헤더에 sticky 위치를 아직 적용하지 않는다 — top:0
+   * 깜빡임 방지), 측정됐으면 실제 px 숫자(잔액 선반 실제 하단 offset)를 넘긴다.
    *
-   * REPORT_030~031에서 쓰던 `mobileStickyHeaderTop`(원본 `<thead>` 자체를 모바일에서도
-   * sticky로 고정하던 값)을 대체한다 — IMPLEMENTATION_BRIEF_014은 원본 `<thead>`의 모바일
-   * sticky를 완전히 포기하고, 원본 헤더가 스크롤로 사라졌을 때만 보이는 별도 복제 헤더로
-   * 바꿨다(§4, §11 "제거해야 할 이전 구현 흔적"). */
-  mobileFloatingHeaderTop?: number | null;
+   * REPORT_032~033에서 쓰던 `mobileFloatingHeaderTop`(IntersectionObserver로 조건부
+   * 표시하던 fixed 복제 헤더의 top)을 대체한다 — 이 브리프는 그 구조 전체(fixed 위치,
+   * 원본 헤더 통과 감지, 표 종료 감지, 열 너비 실측 ResizeObserver)를 제거하고, 헤더가
+   * 항상 DOM에 존재하는 별도 table + CSS sticky로 바꿨다(§1, §3). */
+  mobileHeaderStickyTop?: number | null;
 }
 
-/* ────────────────────────── Sortable wrappers ────────────────────────── */
+/* ────────────────────────── Sortable wrappers (데스크톱 전용) ────────────────────────── */
 
 function SortableLedgerRow({
   transaction,
@@ -153,8 +361,6 @@ function SortableLedgerRow({
       onEdit={onEdit}
       onDelete={onDelete}
       currentAccountId={currentAccountId}
-      // 검색 결과에서는 handle 자체를 렌더링하지 않고(showDragHandle) dnd-kit 리스너도
-      // 아예 붙이지 않는다 — 드래그를 시작할 수 있는 요소가 화면에 존재하지 않게 한다.
       dragHandleAttributes={allowReorder ? attributes : undefined}
       dragHandleListeners={allowReorder ? listeners : undefined}
       showDragHandle={allowReorder}
@@ -208,9 +414,6 @@ function SortableMobileCard({
       onClick={onViewDetail ? () => onViewDetail(transaction) : undefined}
       className="items-center gap-1.5 px-3 py-2.5"
     >
-      {/* 드래그 핸들: 보조 기능이라 시각적으로 옅게 처리. 검색·필터 결과에서는 렌더링 자체를
-          하지 않는다(allowReorder=false) — 리스너를 붙일 요소가 없으니 드래그를 시작할 방법도
-          없다(QA_REVIEW_028 P1). */}
       {allowReorder && (
         <button
           {...attributes}
@@ -328,13 +531,14 @@ export default function LedgerTable({
   openingBalanceAmount = 0,
   showRunningBalances = true,
   allowReorder = true,
-  mobileFloatingHeaderTop,
+  mobileHeaderStickyTop,
 }: Props) {
-  // `mobileFloatingHeaderTop`이 넘어온 호출부(모바일)만 복제 헤더 로직을 쓴다 — 데스크톱
-  // 호출부는 이 prop 자체를 넘기지 않으므로 `isMobileFloatingHeaderContext`가 항상 false라
-  // observer가 생성되지도, 마운트되지도 않는다(IMPLEMENTATION_BRIEF_014 §4 "모바일 복제
-  // 헤더 로직이 데스크톱에 마운트되거나 관찰자를 만들지 않게 한다").
-  const isMobileFloatingHeaderContext = mobileFloatingHeaderTop !== undefined;
+  // `mobileHeaderStickyTop`이 넘어온 호출부(모바일)만 헤더·본문 분리 구조를 쓴다 — 데스크톱
+  // 호출부는 이 prop 자체를 넘기지 않으므로 `isMobileLedgerContext`가 항상 false라 모바일
+  // 전용 두 table을 전혀 렌더링하지 않는다(IMPLEMENTATION_BRIEF_015 §9 "모바일 헤더 전용
+  // table을 렌더링하지 않음").
+  const isMobileLedgerContext = mobileHeaderStickyTop !== undefined;
+  const isMobileHeaderMeasured = isMobileLedgerContext && mobileHeaderStickyTop !== null && mobileHeaderStickyTop !== undefined;
 
   const [localTransactions, setLocalTransactions] =
     useState<Transaction[]>(transactions);
@@ -357,135 +561,29 @@ export default function LedgerTable({
     setLocalTransactions(transactions);
   }, [transactions]);
 
-  /* ── 모바일 엑셀 복제 헤더(IMPLEMENTATION_BRIEF_014) ─────────────────────────
-   * 원본 `<thead>`는 모바일에서 sticky를 포기하고 표와 함께 자연스럽게 스크롤한다. 대신
-   * 원본 헤더가 화면(정확히는 복제 헤더가 붙을 기준선) 위로 완전히 지나가 사라졌을 때만,
-   * 잔액 선반 바로 아래에 별도 복제 헤더를 띄운다. */
-  const theadRef = useRef<HTMLTableSectionElement>(null);
-  const tableWrapperRef = useRef<HTMLDivElement>(null);
-  const cloneTableRef = useRef<HTMLTableElement | null>(null);
-  const [columnWidths, setColumnWidths] = useState<number[] | null>(null);
-  const [originalHeaderPassedTop, setOriginalHeaderPassedTop] = useState(false);
-  const [tableVisible, setTableVisible] = useState(false);
+  /* ── 모바일 가로 스크롤 동기화(§7) ──────────────────────────────────────────
+   * 거래 행 wrapper의 scrollLeft를 유일한 기준으로 삼아 헤더 table을 그만큼 translateX한다.
+   * 헤더가 이제 항상 DOM에 존재하므로(§4 "조건부로 나타나는 overlay가 아니다"), 이전
+   * REPORT_033처럼 "복제 헤더가 나중에 마운트되는" 시점을 따로 챙길 필요가 없다 — plain
+   * ref만으로 마운트 시점에 이미 헤더 table이 존재하니 effect의 최초 호출이 곧바로
+   * 반영된다(§7 "헤더는 항상 마운트되므로 조건부 마운트 시점 동기화는 필요 없다"). */
+  const mobileScrollWrapperRef = useRef<HTMLDivElement>(null);
+  const mobileHeaderTableRef = useRef<HTMLTableElement>(null);
 
-  // QA_REVIEW_032 P1 — 복제 <table>이 처음 DOM에 연결되는 순간 원본 wrapper의 현재
-  // scrollLeft를 즉시 반영한다. 원본 헤더가 아직 보이는 동안 미리 가로로 스크롤해 둔
-  // 채로 세로 스크롤해 복제 헤더가 나중에(원본이 사라진 뒤에야) 처음 마운트되면, 그 사이
-  // 새 scroll 이벤트가 없는 한 아래 scroll 리스너 effect는 다시 실행되지 않아 복제 헤더가
-  // 첫 프레임에 scrollLeft=0(첫 열) 위치로 잘못 나타났다 — 표를 조금 움직여야만 정상
-  // 위치로 맞춰지는 재현 가능한 버그였다. object ref 대신 callback ref를 써서, React가
-  // 이 DOM 노드를 붙이는 바로 그 시점에 동기적으로 위치를 맞춘다.
-  const setCloneTableRef = useCallback((node: HTMLTableElement | null) => {
-    cloneTableRef.current = node;
-    if (node && tableWrapperRef.current) {
-      node.style.transform = `translateX(-${tableWrapperRef.current.scrollLeft}px)`;
-    }
-  }, []);
-
-  // 열 너비 실측(§6 "대안 B") — 원본 `<th>` 각각을 관찰해 복제 헤더에 그대로 강제 적용한다.
-  // 열 개수·순서는 항상 고정이라 마운트당 한 번만 관찰을 붙이면 되고, 이후 폭이 바뀌는
-  // 원인(데이터 내용 변화, 뷰포트 폭, 폰트 로딩 등)과 무관하게 ResizeObserver가 계속 반영한다.
   useEffect(() => {
-    if (!isMobileFloatingHeaderContext) return;
-    const theadEl = theadRef.current;
-    if (!theadEl) return;
-    const ths = Array.from(theadEl.querySelectorAll("th"));
-    if (ths.length === 0) return;
-
-    const measure = () => setColumnWidths(ths.map((th) => th.getBoundingClientRect().width));
-    const observer = new ResizeObserver(() => measure());
-    ths.forEach((th) => observer.observe(th));
-    measure();
-
-    return () => observer.disconnect();
-  }, [isMobileFloatingHeaderContext]);
-
-  // 원본 헤더 통과 감지 — IntersectionObserver의 root를 기준선(mobileFloatingHeaderTop)만큼
-  // 위에서 잘라내(`rootMargin`의 음수 top) 원본 `<thead>`가 그 선을 "위로" 지나가는 순간만
-  // 정확히 잡아낸다. `isIntersecting === false`만으로는 표가 아직 화면 아래에 있어 헤더가
-  // 나타나지도 않은 경우와 구분할 수 없어(§5.1), `boundingClientRect.bottom`으로 방향을
-  // 직접 확인한다.
-  useEffect(() => {
-    // 측정 전(`null`)이거나 데스크톱(`undefined`)이면 observer를 만들지 않는다. state는
-    // 일부러 리셋하지 않는다 — `shouldShowFloatingHeader`가 `mobileFloatingHeaderTop`
-    // 자체도 별도 조건으로 검사하므로, 오래된 값이 남아 있어도 최종 표시 여부에는 영향이
-    // 없다(effect 본문에서 곧장 setState를 호출하지 않아 `react-hooks/set-state-in-effect`도
-    // 피한다 — MobileTransactionView.tsx의 선반 높이 측정과 같은 이유).
-    if (!isMobileFloatingHeaderContext || mobileFloatingHeaderTop === null || mobileFloatingHeaderTop === undefined) return;
-    const theadEl = theadRef.current;
-    if (!theadEl) return;
-
-    const threshold = mobileFloatingHeaderTop;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setOriginalHeaderPassedTop(false);
-          return;
-        }
-        const rootTop = entry.rootBounds?.top ?? threshold;
-        // 원본 헤더의 아래 경계가 기준선보다 위(작은 값)면 "위로 지나가서 사라진" 경우다.
-        // 반대로 기준선보다 아래에 있으면 아직 화면 밑에서 올라오는 중이라는 뜻이라 false로
-        // 남긴다.
-        setOriginalHeaderPassedTop(entry.boundingClientRect.bottom <= rootTop);
-      },
-      { root: null, rootMargin: `-${threshold}px 0px 0px 0px`, threshold: 0 },
-    );
-    observer.observe(theadEl);
-
-    return () => observer.disconnect();
-  }, [isMobileFloatingHeaderContext, mobileFloatingHeaderTop]);
-
-  // 표 종료 감지 — 표 wrapper 자체가 뷰포트와 조금이라도 겹치는지만 본다. 스크롤을 내려
-  // 아직 표 영역에 도달하지 않았을 때도, 표의 마지막 행까지 지나쳤을 때도 겹침이 0이 되므로
-  // 두 경우 모두 자연스럽게 "표시하지 않음"으로 처리된다(§5.1 5번, §9 "표의 끝을 지나면").
-  useEffect(() => {
-    if (!isMobileFloatingHeaderContext) return;
-    const el = tableWrapperRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(([entry]) => setTableVisible(entry.isIntersecting), { threshold: 0 });
-    observer.observe(el);
-
-    return () => observer.disconnect();
-  }, [isMobileFloatingHeaderContext]);
-
-  // 가로 스크롤 동기화(§7) — 원본 표의 scrollLeft를 단일 기준으로 삼아 복제 헤더 table을
-  // 그만큼 translateX한다. React state를 거치지 않고 DOM을 직접 조작해 스크롤마다 리렌더가
-  // 일어나지 않게 한다(좌우 떨림 방지). 복제 헤더 자체에는 별도 scroll 리스너를 달지 않는다
-  // (§7 "터치 스크롤을 가로채지 않는다").
-  //
-  // QA_REVIEW_032 P1 — 이 effect의 최초 `syncScroll()` 호출은 복제 `<table>`이 아직
-  // DOM에 없을 때(=`shouldShowFloatingHeader`가 false일 때)는 아무 일도 하지 않는다.
-  // 그래서 "복제 헤더가 실제로 보이는지와 무관하게 항상 최신 위치를 유지해 둔다"고
-  // 가정하면 안 된다 — 최초 마운트 시점의 동기화는 위 `setCloneTableRef` callback ref가
-  // 담당하고, 이 effect는 그 이후 실제로 발생하는 scroll 이벤트만 계속 반영한다.
-  useEffect(() => {
-    if (!isMobileFloatingHeaderContext) return;
-    const wrapperEl = tableWrapperRef.current;
+    if (!isMobileLedgerContext) return;
+    const wrapperEl = mobileScrollWrapperRef.current;
     if (!wrapperEl) return;
 
     const syncScroll = () => {
-      const cloneTable = cloneTableRef.current;
-      if (cloneTable) cloneTable.style.transform = `translateX(-${wrapperEl.scrollLeft}px)`;
+      const headerTable = mobileHeaderTableRef.current;
+      if (headerTable) headerTable.style.transform = `translateX(-${wrapperEl.scrollLeft}px)`;
     };
-    syncScroll();
+    syncScroll(); // 헤더가 항상 마운트돼 있어 최초 호출이 즉시 현재 위치를 반영한다.
     wrapperEl.addEventListener("scroll", syncScroll, { passive: true });
 
     return () => wrapperEl.removeEventListener("scroll", syncScroll);
-  }, [isMobileFloatingHeaderContext]);
-
-  // 최종 표시 여부 — 원본 헤더가 기준선 위로 지나갔고, 표 자체는 아직 화면에 남아 있고,
-  // 로딩/오류/빈 목록이 아니고, top·열 너비 측정이 끝났을 때만 보여준다(§9).
-  const shouldShowFloatingHeader =
-    isMobileFloatingHeaderContext &&
-    mobileFloatingHeaderTop !== null &&
-    mobileFloatingHeaderTop !== undefined &&
-    columnWidths !== null &&
-    originalHeaderPassedTop &&
-    tableVisible &&
-    !loading &&
-    !error &&
-    localTransactions.length > 0;
+  }, [isMobileLedgerContext]);
 
   // Group by date, preserving ascending order
   const groupedByDate = useMemo(() => {
@@ -513,7 +611,8 @@ export default function LedgerTable({
 
   const handleDragEnd = (event: DragEndEvent, date?: string) => {
     // 이중 방어 — 핸들을 숨겨 드래그를 시작할 수 없게 했지만(allowReorder=false), 혹시라도
-    // 이벤트가 들어와도 onReorder는 절대 호출하지 않는다(QA_REVIEW_028 P1).
+    // 이벤트가 들어와도 onReorder는 절대 호출하지 않는다(QA_REVIEW_028 P1). 데스크톱
+    // 표에서만 실제로 호출될 수 있다 — 모바일 표는 DndContext로 감싸지 않는다.
     if (!allowReorder) return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -564,9 +663,159 @@ export default function LedgerTable({
     );
   };
 
+  /* ── 모바일 엑셀뷰: 헤더·본문 분리 구조(IMPLEMENTATION_BRIEF_015) ──────────────────── */
+  if (isMobileLedgerContext) {
+    const mobileTableAriaLabel = "거래 내역 — 카테고리, 설명, 수입, 지출, 거래 후 잔액, 계좌 잔액, 결제수단, 관리 순";
+
+    return (
+      // "모바일 엑셀 장부 영역" — 세로 overflow를 주지 않는다(§4 "상위 장부 영역에는 vertical
+      // overflow: auto/hidden/scroll을 주지 않는다"). 이 영역의 실제 높이(헤더 + 모든 거래
+      // 행)가 헤더의 containing block이 돼, 장부 전체가 스크롤되는 동안 헤더가 머무를 공간을
+      // 충분히 제공한다 — 장부가 끝나면 이 영역 자체가 끝나므로 헤더도 자연히 함께 사라진다
+      // (§2, §11 7번 "장부 마지막을 지나면 헤더도 자연스럽게 사라진다") — 별도 감지 로직이
+      // 필요 없다.
+      <div>
+        {/* 헤더 전용 table — 조건부 overlay가 아니라 항상 DOM에 존재한다(§4). 측정 전에는
+            sticky를 걸지 않아 top:0으로 잘못 고정되는 깜빡임을 막고, 측정되면 앱바+잔액
+            선반 높이에 고정한다. z-index는 앱바(8) > 잔액 선반(7) > 헤더(6) 순서를 그대로
+            따른다. `width`/`minWidth`를 명시해야 `table-fixed`가 실제로 안정적으로 동작한다
+            (QA_REVIEW_035 P1 — `min-w-max`만으로는 table의 `width` 자체가 `auto`로 남아
+            콘텐츠에 따라 재계산될 수 있었다). 아래 거래 행 table의 실제 접근 가능한 열
+            머리글(스크린리더 전용 thead)이 따로 있으므로, 이 시각적 헤더는 중복 낭독을
+            막기 위해 `aria-hidden`으로 접근성 트리에서 제외한다(QA_REVIEW_035 P2-2). */}
+        <div
+          className={`${isMobileHeaderMeasured ? "sticky z-[6]" : ""} overflow-hidden border border-gray-300 bg-[#f3f4f6] shadow-sm`}
+          style={isMobileHeaderMeasured ? { top: mobileHeaderStickyTop as number } : undefined}
+        >
+          <table
+            ref={mobileHeaderTableRef}
+            aria-hidden="true"
+            className="table-fixed border-collapse text-xs"
+            style={{ width: MOBILE_LEDGER_TABLE_WIDTH, minWidth: MOBILE_LEDGER_TABLE_WIDTH }}
+          >
+            <MobileLedgerColGroup />
+            <thead>
+              <MobileLedgerHeaderCells />
+            </thead>
+          </table>
+        </div>
+
+        {/* 거래 행 전용 table — 가로 스크롤은 이 wrapper만 담당한다(§5). 시각적으로는 헤더를
+            중복 렌더링하지 않지만(위 헤더 table이 유일하게 "보이는" 열 머리글이다, §8),
+            스크린리더가 각 셀의 열을 알 수 있도록 이 table 내부에 실제 접근 가능한
+            `<thead>`를 별도로 둔다(QA_REVIEW_035 P2-2) — `sr-only`로 시각적 공간은 차지하지
+            않는다. 열 폭은 `table-layout: fixed` + 명시적 table width + colgroup만으로
+            결정되므로(위 주석 참고) 이 thead의 내용은 폭 계산에 영향을 주지 않는다. */}
+        <div ref={mobileScrollWrapperRef} className="overflow-x-auto bg-white border-x border-b border-gray-200">
+          <table
+            aria-label={mobileTableAriaLabel}
+            className="table-fixed border-collapse border border-gray-300 text-xs"
+            style={{ width: MOBILE_LEDGER_TABLE_WIDTH, minWidth: MOBILE_LEDGER_TABLE_WIDTH }}
+          >
+            <MobileLedgerColGroup />
+            <thead>
+              <MobileLedgerHeaderCells srOnly />
+            </thead>
+
+            {loading && (
+              <tbody>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <MobileLedgerSkeletonRow key={i} />
+                ))}
+              </tbody>
+            )}
+
+            {!loading && error && (
+              <tbody>
+                <tr>
+                  <td colSpan={MOBILE_LEDGER_COLUMNS.length}>
+                    <div className="py-12 flex flex-col items-center text-center">
+                      <p className="text-red-500 font-medium mb-2">데이터를 불러오지 못했어요</p>
+                      <p className="text-sm text-gray-500 mb-4">{error}</p>
+                      <button
+                        onClick={() => window.location.reload()}
+                        className="px-4 py-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 text-sm"
+                      >
+                        다시 시도
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            )}
+
+            {!loading && !error && localTransactions.length === 0 && (
+              <tbody>
+                <tr>
+                  <td colSpan={MOBILE_LEDGER_COLUMNS.length}>
+                    <div className="py-12 text-center text-gray-400">
+                      <p className="mb-1 font-medium text-gray-600">첫 금액을 남기면 이번 달 흐름을 보여드릴게요.</p>
+                      <p className="text-sm">빠른 기록으로 지금 바로 남겨보세요 ✨</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            )}
+
+            {!loading && !error && groupedByDate.map(([date, items]) => (
+              <tbody key={date}>
+                <tr>
+                  <td colSpan={MOBILE_LEDGER_COLUMNS.length} className="border border-gray-300 py-1.5 bg-[#f3f4f6] text-xs font-bold text-gray-500 text-left pl-3">
+                    {formatDateFriendly(date)}
+                  </td>
+                </tr>
+                {items.map((t) => (
+                  <MobileLedgerRow
+                    key={t.id}
+                    transaction={t}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    currentAccountId={currentAccountId}
+                    showRunningBalances={showRunningBalances}
+                  />
+                ))}
+              </tbody>
+            ))}
+
+            {!loading && !error && (
+              <tfoot>
+                <tr>
+                  <td colSpan={2} className="border border-gray-300 px-3 py-2 text-center font-bold text-gray-700 bg-gray-100">
+                    {showRunningBalances ? "현재 기간 합계" : "검색 결과 합계"}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-2 text-right font-semibold text-blue-600 bg-blue-50/50">
+                    <span className="text-[10px] text-blue-400 block">총 수입</span>
+                    +{stats.income.toLocaleString()}원
+                  </td>
+                  <td className="border border-gray-300 px-2 py-2 text-right font-semibold text-red-600 bg-red-50/50">
+                    <span className="text-[10px] text-red-400 block">총 지출</span>
+                    -{stats.expense.toLocaleString()}원
+                  </td>
+                  <td className="border border-gray-300 px-2 py-2 text-right font-bold text-gray-800 bg-gray-100">
+                    <span className="text-[10px] text-gray-500 block">최종 잔액</span>
+                    {!showRunningBalances ? "—" : stats.finalBalance !== undefined ? `${stats.finalBalance.toLocaleString()}원` : "-"}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-2 text-right font-semibold text-gray-800 bg-gray-50/50">
+                    <span className="text-[10px] text-gray-500 block">시작 잔액</span>
+                    {showRunningBalances ? `${openingBalanceAmount.toLocaleString()}원` : "—"}
+                  </td>
+                  <td colSpan={2} className="border border-gray-300 px-3 py-2 bg-gray-100" />
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── 데스크톱: 기존 단일 table 구조(변경 없음) ──────────────────────────────────── */
   return (
     <>
-      {/* ✅ 모바일: 카드 (엑셀 뷰가 아닐 때만 노출) */}
+      {/* ✅ 모바일: 카드 (엑셀 뷰가 아닐 때만 노출) — 이 브랜치는 모바일 호출부가 항상
+          isExcelView를 true로 넘기고, 이제 모바일 엑셀뷰는 위 분기에서 완전히 빠져나가므로
+          실제로는 도달하지 않는 기존 코드다(REPORT_027 이전부터의 사실 — lg/md breakpoint
+          차이로 이미 도달 불가능했다). 제거 대상으로 지시받지 않아 그대로 둔다. */}
       <div className={`${isExcelView ? "hidden" : "md:hidden"} space-y-2.5`}>
         {loading &&
           Array.from({ length: 6 }).map((_, i) => (
@@ -664,29 +913,16 @@ export default function LedgerTable({
         )}
       </div>
 
-      {/* ✅ 데스크탑/공통: 테이블 (엑셀 뷰일 땐 모바일에서도 노출) */}
+      {/* ✅ 데스크탑/공통: 테이블 */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
         modifiers={[restrictToVerticalAxis, restrictToParentElement]}
       >
-        <div
-          ref={tableWrapperRef}
-          className={`${isExcelView ? "block" : "hidden md:block"} bg-white overflow-x-auto border-x border-b border-gray-200`}
-        >
+        <div className={`${isExcelView ? "block" : "hidden md:block"} bg-white overflow-x-auto border-x border-b border-gray-200`}>
           <table className={`w-full ${isExcelView ? "md:min-w-full min-w-max border-collapse border border-gray-300 text-xs md:text-sm" : "min-w-full"}`}>
-            <thead
-              ref={theadRef}
-              className={[
-                // 데스크톱(mobileFloatingHeaderTop 미전달)은 기존 동작 그대로: 항상
-                // sticky top-0 z-30. 모바일은 이제 원본 헤더의 sticky를 완전히 포기한다 —
-                // page scroll을 따라 표와 함께 자연스럽게 사라지고, 대신 아래 복제 헤더가
-                // 그 역할을 대신한다(IMPLEMENTATION_BRIEF_014 §4).
-                !isMobileFloatingHeaderContext ? "sticky top-0 z-30" : "",
-                isExcelView ? "bg-[#f3f4f6] text-gray-700 shadow-sm" : "bg-gray-50 text-gray-500 text-sm shadow-sm",
-              ].join(" ")}
-            >
+            <thead className={`sticky top-0 z-30 ${isExcelView ? "bg-[#f3f4f6] text-gray-700 shadow-sm" : "bg-gray-50 text-gray-500 text-sm shadow-sm"}`}>
               <LedgerTableHeaderRow isExcelView={isExcelView} />
             </thead>
 
@@ -802,28 +1038,6 @@ export default function LedgerTable({
           </table>
         </div>
       </DndContext>
-
-      {/* 모바일 엑셀 복제 헤더(IMPLEMENTATION_BRIEF_014 §8) — 원본 헤더가 기준선 위로 완전히
-          지나갔을 때만 보이는 순수 시각 오버레이다. `aria-hidden`으로 스크린리더가 열 제목을
-          두 번 읽지 않게 하고(§8, §12.12), `pointer-events-none`으로 터치 스크롤을 가로채지
-          않는다(§7). z-index는 앱바(z-8) · 잔액 선반(z-7)보다 낮고 거래 행보다는 높은
-          z-[6]로 REPORT_030이 쓰던 값을 그대로 재사용한다. */}
-      {shouldShowFloatingHeader && (
-        <div
-          aria-hidden="true"
-          className="fixed left-0 right-0 z-[6] overflow-hidden bg-[#f3f4f6] shadow-sm pointer-events-none motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150"
-          style={{ top: mobileFloatingHeaderTop as number }}
-        >
-          <table
-            ref={setCloneTableRef}
-            className="min-w-max table-fixed border-collapse border border-gray-300 text-xs"
-          >
-            <thead>
-              <LedgerTableHeaderRow isExcelView={isExcelView} widths={columnWidths ?? undefined} />
-            </thead>
-          </table>
-        </div>
-      )}
     </>
   );
 }
