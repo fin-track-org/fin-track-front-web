@@ -52,7 +52,7 @@ export default function AddTemplateModal(props: AddTemplateModalProps) {
   // Form State
   // ----------------------------
   const [title, setTitle] = useState<string>(defaultValues?.title ?? "");
-  const [type, setType] = useState<"EXPENSE" | "INCOME" | "TRANSFER">(
+  const [type, setType] = useState<"EXPENSE" | "INCOME">(
     defaultValues?.type ?? "EXPENSE"
   );
 

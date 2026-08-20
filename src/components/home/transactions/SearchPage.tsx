@@ -22,6 +22,7 @@ import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
 import { fetchTransactions, reorderTransactions, createTransfer, updateTransfer } from "@/src/lib/api/transaction/transactions";
 import { getAccounts } from "@/src/lib/api/accountApi";
+import { getTransferAccountIds } from "@/src/lib/transactionEntry";
 import { useToast } from "@/src/hook/useToast";
 import { useUserSettings } from "@/src/hook/useUserSettings";
 
@@ -301,9 +302,8 @@ export default function SearchPage() {
 
     // 공통: 이체 계좌 매핑
     const getTransferIds = () => {
-      const fromId = payload.type === "INCOME" ? payload.toAccountId! : payload.accountId;
-      const toId = payload.type === "INCOME" ? payload.accountId : payload.toAccountId!;
-      return { fromId, toId };
+      const { fromAccountId, toAccountId } = getTransferAccountIds(payload);
+      return { fromId: fromAccountId, toId: toAccountId };
     };
 
     // 공통: 일반 거래 바디 매핑

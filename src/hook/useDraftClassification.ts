@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/src/lib/supabase/client";
 import { createTransfer } from "@/src/lib/api/transaction/transactions";
 import { rememberCategoryChoice } from "@/src/lib/categorySuggestion";
+import { getTransferAccountIds } from "@/src/lib/transactionEntry";
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
@@ -45,13 +46,12 @@ export function useDraftClassification() {
     const isTransferLike = payload.type === "TRANSFER" || payload.isSavings;
 
     if (isTransferLike) {
-      const fromId = payload.type === "INCOME" ? payload.toAccountId! : payload.accountId;
-      const toId = payload.type === "INCOME" ? payload.accountId : payload.toAccountId!;
+      const { fromAccountId, toAccountId } = getTransferAccountIds(payload);
 
       // 1) 이체/저축 쌍 거래를 먼저 만든다. 여기서 실패하면 draft는 그대로 남아 있으므로 안전하다.
       await createTransfer({
-        fromAccountId: fromId,
-        toAccountId: toId,
+        fromAccountId,
+        toAccountId,
         amount: payload.amount,
         date: payload.date,
         description: payload.description || "",

@@ -10,6 +10,7 @@ import { getCategories } from "@/src/lib/api/categoryApi";
 import { getAccounts } from "@/src/lib/api/accountApi";
 import { createClient } from "@/src/lib/supabase/client";
 import { createTransfer } from "@/src/lib/api/transaction/transactions";
+import { getTransferAccountIds } from "@/src/lib/transactionEntry";
 import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
 import AdjustBalanceModal from "@/src/components/AdjustBalanceModal";
 import { useQuestStore } from "@/src/store/useQuestStore";
@@ -168,12 +169,11 @@ export default function GlobalQuickAdd() {
     if (!session) throw new Error("로그인이 필요합니다.");
 
     if (payload.type === "TRANSFER" || payload.isSavings) {
-      const fromId = payload.type === "INCOME" ? payload.toAccountId! : payload.accountId;
-      const toId = payload.type === "INCOME" ? payload.accountId : payload.toAccountId!;
+      const { fromAccountId, toAccountId } = getTransferAccountIds(payload);
 
       await createTransfer({
-        fromAccountId: fromId,
-        toAccountId: toId,
+        fromAccountId,
+        toAccountId,
         amount: payload.amount,
         date: payload.date,
         description: payload.description || "",
