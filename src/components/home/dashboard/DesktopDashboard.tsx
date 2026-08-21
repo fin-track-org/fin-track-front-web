@@ -26,6 +26,7 @@ import { AuthError } from "@/src/lib/api/authError";
 import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
 import { getRecentTransactions } from "@/src/lib/api/dashboard/recent";
 import { useUserSettings } from "@/src/hook/useUserSettings";
+import { StatePanel } from "@/src/components/ledger/StatePanel";
 
 /**
  * lg(1024px) 이상 데스크톱 대시보드. `DashboardPage.tsx`에서 그대로 옮겨온 것으로,
@@ -206,13 +207,34 @@ export default function DesktopDashboard() {
     return <DashboardSkeleton />;
   }
 
-  /* 에러 */
+  /* 에러 — IMPLEMENTATION_BRIEF_017 §6.1: 원문 오류를 그대로 노출하지 않고 다시 시도를
+     제공한다. 쿼리 구성·결합 방식(pageIsError/pageError)은 바꾸지 않았다 — 표시만 바꿨다. */
   if (pageIsError || !summary) {
+    const isSessionExpired = pageError instanceof AuthError;
     return (
-      <div className="py-12 text-center text-red-500">
-        {((summaryError || dailyError || expenseCategoryError) as Error)
-          ?.message ?? "오류가 발생했습니다."}
-      </div>
+      <StatePanel
+        tone="warn"
+        title={isSessionExpired ? "로그인이 만료됐어요" : "홈 화면을 불러오지 못했어요"}
+        description={
+          isSessionExpired
+            ? "다시 로그인하면 이어서 사용할 수 있어요."
+            : "입력한 내용은 그대로 두었어요. 네트워크를 확인하고 다시 시도해 주세요."
+        }
+        action={
+          isSessionExpired
+            ? undefined
+            : {
+                label: "다시 시도",
+                onClick: () => {
+                  queryClient.invalidateQueries({ queryKey: ["dashboardSummary", selectedMonth] });
+                  queryClient.invalidateQueries({ queryKey: ["dashboardDaily", selectedMonth] });
+                  queryClient.invalidateQueries({ queryKey: ["dashboardExpenseCategory", selectedMonth] });
+                  queryClient.invalidateQueries({ queryKey: ["dashboardExpenseAccount", selectedMonth] });
+                  queryClient.invalidateQueries({ queryKey: ["dashboardBalances"] });
+                },
+              }
+        }
+      />
     );
   }
 

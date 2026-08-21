@@ -8,9 +8,7 @@ import {
   Home,
   BookOpen,
   BarChart3,
-  Users,
   User,
-  CreditCard,
   LogOut,
 } from "lucide-react";
 import { createClient } from "@/src/lib/supabase/client";
@@ -24,13 +22,14 @@ export default function DesktopSidebar() {
   const supabase = createClient();
   const pathname = usePathname();
 
+  // IMPLEMENTATION_BRIEF_017 §3.2 — 데스크톱 공개 메뉴도 모바일과 같은 핵심 정보 구조(홈·
+  // 장부·통계·MY)로 맞춘다. 커뮤니티·상점(§3.3)은 1차 배포 공개 메뉴에서 제외한다 — 라우트와
+  // 코드 자체는 지우지 않고 이 배열에서만 뺀다.
   const menuItems = [
-    { icon: Home, label: "대시보드 홈", path: "/home" },
-    { icon: BookOpen, label: "가계부", path: "/home/transactions" },
+    { icon: Home, label: "홈", path: "/home" },
+    { icon: BookOpen, label: "장부", path: "/home/transactions" },
     { icon: BarChart3, label: "통계", path: "/home/statistics" },
-    { icon: Users, label: "커뮤니티", path: "/home/community" },
-    { icon: User, label: "마이페이지", path: "/home/profile" },
-    { icon: CreditCard, label: "결제/포인트샵", path: "/home/shop" },
+    { icon: User, label: "MY", path: "/home/profile" },
   ];
 
   const { data, isLoading, isError, error } = useQuery({

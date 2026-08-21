@@ -35,6 +35,7 @@ import { getDashboardExpenseCategory } from "@/src/lib/api/dashboard/pie";
 import { getCategories } from "@/src/lib/api/categoryApi";
 import { AuthError } from "@/src/lib/api/authError";
 import { formatMonth } from "@/src/utils/date";
+import { StatePanel } from "@/src/components/ledger/StatePanel";
 
 /* ── helpers ── */
 const fmt = (n: number) => n.toLocaleString("ko-KR");
@@ -388,6 +389,7 @@ export default function StatisticsPage() {
     data: summary,
     isLoading: isSummaryLoading,
     error: summaryError,
+    refetch: refetchSummary,
   } = useQuery({
     queryKey: ["dashboardSummary", selectedMonth],
     queryFn: () => getDashboardSummary(selectedMonth),
@@ -398,6 +400,7 @@ export default function StatisticsPage() {
     data: dailyData = [],
     isLoading: isDailyLoading,
     error: dailyError,
+    refetch: refetchDaily,
   } = useQuery({
     queryKey: ["dashboardDaily", selectedMonth],
     queryFn: () => getDashboardDaily(selectedMonth),
@@ -408,6 +411,7 @@ export default function StatisticsPage() {
     data: categoryData = [],
     isLoading: isCategoryLoading,
     error: categoryError,
+    refetch: refetchCategory,
   } = useQuery({
     queryKey: ["dashboardExpenseCategory", selectedMonth],
     queryFn: () => getDashboardExpenseCategory(selectedMonth),
@@ -444,11 +448,34 @@ export default function StatisticsPage() {
     );
   }
 
+  // IMPLEMENTATION_BRIEF_017 §6.1 — Supabase·API 원문 오류를 그대로 노출하지 않고, 사용자가
+  // 할 수 있는 행동(다시 시도, 또는 세션 만료 시 로그인 이동 — 위 effect가 이미 처리)을
+  // 안내한다. 데이터 로딩·계산 로직 자체는 건드리지 않았다 — StatePanel은 기존 결과를
+  // 감싸기만 한다.
   if (pageError || !summary) {
+    const isSessionExpired = pageError instanceof AuthError;
     return (
-      <div className="py-12 text-center text-red-500">
-        {(pageError as Error)?.message ?? "오류가 발생했습니다."}
-      </div>
+      <StatePanel
+        tone="warn"
+        title={isSessionExpired ? "로그인이 만료됐어요" : "통계를 불러오지 못했어요"}
+        description={
+          isSessionExpired
+            ? "다시 로그인하면 이어서 사용할 수 있어요."
+            : "입력한 내용은 그대로 두었어요. 네트워크를 확인하고 다시 시도해 주세요."
+        }
+        action={
+          isSessionExpired
+            ? undefined
+            : {
+                label: "다시 시도",
+                onClick: () => {
+                  refetchSummary();
+                  refetchDaily();
+                  refetchCategory();
+                },
+              }
+        }
+      />
     );
   }
 
@@ -458,7 +485,11 @@ export default function StatisticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900">통계</h1>
+            {/* IMPLEMENTATION_BRIEF_017 §4.1 — 모바일에서는 공통 MobileTopBar가 이미
+                "통계" 제목을 그리므로 여기서는 숨긴다. 데스크톱은 이 h1이 유일한 페이지
+                제목이라 그대로 유지한다(§4.1 "데스크톱의 페이지 제목은 기존 콘텐츠 구조를
+                유지할 수 있다"). */}
+            <h1 className="hidden text-2xl font-bold text-gray-900 lg:block">통계</h1>
             <span className="px-2.5 py-0.5 text-xs font-medium text-sky-600 bg-sky-50 rounded-full flex items-center">
               ✨ 곧 더 유용한 통계가 추가될 예정이에요
             </span>

@@ -60,7 +60,13 @@ export default function MobileLedgerToolbar({
         className="sticky top-0 z-[8] flex items-center justify-between border-b border-ll-ink/12 bg-ll-paper/97 px-4 backdrop-blur-sm"
         style={{ height: MOBILE_TOOLBAR_APPBAR_HEIGHT_PX }}
       >
-        <h1 className="text-lg font-black text-ll-ink">거래내역</h1>
+        {/* IMPLEMENTATION_BRIEF_017 §4.1 — 공통 MobileTopBar가 이제 이 pathname(/home/
+            transactions)의 제목("거래내역")을 그린다. 이 h1은 원래 이 bar의 폭·높이를
+            잡아주던 요소라 지우면 검색 버튼 위치와 sticky 높이(MOBILE_TOOLBAR_APPBAR_
+            HEIGHT_PX, 잔액 선반·엑셀 헤더 offset 계산의 기준)가 흔들린다. 그래서 DOM·레이아웃
+            폭은 그대로 두고 시각적으로만 숨긴다(`invisible`은 자리를 차지하되 안 보이고,
+            접근성 트리에서도 빠져 스크린리더가 두 번 읽지 않는다). */}
+        <h1 className="invisible text-lg font-black text-ll-ink" aria-hidden="true">거래내역</h1>
         <button
           type="button"
           onClick={onOpenSearchFilter}
