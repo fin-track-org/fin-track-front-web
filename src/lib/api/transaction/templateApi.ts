@@ -3,9 +3,15 @@ import { AuthError } from "@/src/lib/api/authError";
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
+/**
+ * IMPLEMENTATION_BRIEF_016 §9 "자주 사용하는 거래 정책" — 템플릿은 일반 수입·지출만
+ * 지원한다. 백엔드 TransactionTemplateReq.type도 TransactionType(INCOME/EXPENSE만)이라
+ * "TRANSFER"는 실제로 저장할 수 없는 죽은 값이었다(생성 UI도 애초에 이 값을 만든 적이
+ * 없다) — 프론트 타입을 실제 서버 계약과 맞춘다.
+ */
 export interface TransactionTemplatePayload {
   title: string;
-  type: "INCOME" | "EXPENSE" | "TRANSFER";
+  type: "INCOME" | "EXPENSE";
   amount: number;
   categoryId?: string;
   subcategoryId?: string;

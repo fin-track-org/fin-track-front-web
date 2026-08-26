@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 게으른 가계부 브랜드 색상(IMPLEMENTATION_BRIEF_009 §6). Android 12+ 시스템 splash,
+         상태·내비게이션 바에서 공유한다. -->
+    <color name="ll_paper">#FFFAF0</color>
+    <color name="ll_butter">#F5CA52</color>
+    <color name="ll_ink">#20283A</color>
+</resources>

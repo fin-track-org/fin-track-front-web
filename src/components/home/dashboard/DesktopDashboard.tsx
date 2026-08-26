@@ -1,0 +1,314 @@
+"use client";
+
+import { useState, useMemo, useEffect } from "react";
+import MonthSelector from "./section/MonthSelector";
+import AttendanceBanner from "./section/AttendanceBanner";
+import QuestProgressWidget from "./section/QuestProgressWidget";
+import UnclassifiedNotes from "./section/UnclassifiedNotes";
+import MonthlyCalendar from "./section/MonthlyCalendar";
+import CategoryChart from "./section/CategoryChart";
+import AccountChart from "./section/AccountChart";
+import BudgetBar from "./section/BudgetBar";
+import RecentTransactions from "./section/RecentTransactions";
+import BalanceCard from "./section/BalanceCard";
+import AvailableToSpendCard from "./section/AvailableToSpendCard";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import DashboardSkeleton from "../../skeleton/DashboardSkeleton";
+import { useRouter } from "next/navigation";
+import { formatMonth } from "@/src/utils/date";
+import { getDashboardSummary } from "@/src/lib/api/dashboard/summary";
+import { getDashboardDaily } from "@/src/lib/api/dashboard/daily";
+import { getCategories } from "@/src/lib/api/categoryApi";
+import { getDashboardExpenseCategory } from "@/src/lib/api/dashboard/pie";
+import { getDashboardExpenseAccount } from "@/src/lib/api/dashboard/account";
+import { getAccounts } from "@/src/lib/api/accountApi";
+import { AuthError } from "@/src/lib/api/authError";
+import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
+import { getRecentTransactions } from "@/src/lib/api/dashboard/recent";
+import { useUserSettings } from "@/src/hook/useUserSettings";
+import { StatePanel } from "@/src/components/ledger/StatePanel";
+
+/**
+ * lg(1024px) 이상 데스크톱 대시보드. `DashboardPage.tsx`에서 그대로 옮겨온 것으로,
+ * IMPLEMENTATION_BRIEF_010 §2 절대 원칙 3("기존 데스크톱 화면은 lg 이상에서 보존한다")에
+ * 따라 쿼리 구성·로딩/오류 결합 방식·JSX 구조를 바꾸지 않았다. 모바일 책상형 홈
+ * (`mobile-desk/MobileDeskHome.tsx`)이 별도 컴포넌트로 분리되면서, 이 컴포넌트가 여기 있는
+ * query들을 모바일에서도 함께 실행하지 않도록 두 컴포넌트를 완전히 분리했다
+ * (React Hooks 규칙상 같은 컴포넌트 안에서 `isMobile`로 훅 자체를 건너뛸 수 없다).
+ */
+export default function DesktopDashboard() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { userSetting } = useUserSettings();
+
+  // 날짜
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+
+  // 선택한 날짜 0000-00 형태 변경 포맷 유틸
+  const selectedMonth = useMemo(
+    () => formatMonth(currentMonth),
+    [currentMonth],
+  );
+
+  const [viewType, setViewType] = useState<"chart" | "table">("chart");
+  const [accountViewType, setAccountViewType] = useState<"chart" | "table">("chart");
+
+  /* 카테고리 조회 api */
+  const { data: rawCategories = [] } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => getCategories(),
+  });
+
+  /* 결제수단 조회 api */
+  const { data: rawAccounts = [] } = useQuery({
+    queryKey: ["accounts"],
+    queryFn: () => getAccounts(),
+  });
+
+  /* 결제수단별 잔액 조회 */
+  const {
+    data: balanceData,
+    isLoading: isBalanceLoading,
+  } = useQuery({
+    queryKey: ["dashboardBalances"],
+    queryFn: () => getDashboardBalances(),
+    retry: false,
+  });
+
+  /* Summary 요약 내용 */
+  const {
+    data: summary,
+    isLoading: isSummaryLoading,
+    isError: isSummaryError,
+    error: summaryError,
+  } = useQuery({
+    queryKey: ["dashboardSummary", selectedMonth],
+    queryFn: () => getDashboardSummary(selectedMonth),
+    retry: false,
+  });
+
+  /* 자산 변화 차트 */
+  const {
+    data: dailyData = [],
+    isLoading: isDailyLoading,
+    isError: isDailyError,
+    error: dailyError,
+  } = useQuery({
+    queryKey: ["dashboardDaily", selectedMonth],
+    queryFn: () => getDashboardDaily(selectedMonth),
+    retry: false,
+  });
+
+  /* 카테고리 파이 차트 */
+  const {
+    data: expenseCategoryData = [],
+    isLoading: isExpenseCategoryLoading,
+    isError: isExpenseCategoryError,
+    error: expenseCategoryError,
+  } = useQuery({
+    queryKey: ["dashboardExpenseCategory", selectedMonth],
+    queryFn: () => getDashboardExpenseCategory(selectedMonth),
+    retry: false,
+  });
+
+  /* 결제수단별 파이 차트 */
+  const {
+    data: expenseAccountData = [],
+    isLoading: isExpenseAccountLoading,
+    isError: isExpenseAccountError,
+    error: expenseAccountError,
+  } = useQuery({
+    queryKey: ["dashboardExpenseAccount", selectedMonth],
+    queryFn: () => getDashboardExpenseAccount(selectedMonth),
+    retry: false,
+  });
+
+  /* 카테고리 colorCode 매핑 */
+  const categoryColorByName = useMemo(() => {
+    return Object.fromEntries(rawCategories.map((c) => [c.name, c.colorCode]));
+  }, [rawCategories]);
+
+  /* 결제수단별 색상 매핑 */
+  const accountColors: Record<string, string> = {
+    "CASH": "#10b981",
+    "BANK": "#3b82f6",
+    "CREDIT_CARD": "#f59e0b",
+    "CHECK_CARD": "#8b5cf6",
+    "ETC": "#6b7280",
+  };
+
+  const accountColorByName = useMemo(() => {
+    const colorMap: Record<string, string> = {};
+    rawAccounts.forEach((acc) => {
+      colorMap[acc.name] = accountColors[acc.type] ?? "#9ca3af";
+    });
+    return colorMap;
+  }, [rawAccounts]);
+
+  /* 파이 데이터 매핑 */
+  const pieData = expenseCategoryData.map((item) => ({
+    name: item.category,
+    value: item.amount,
+    percentage: item.percentage,
+    color: categoryColorByName[item.category] ?? "#9ca3af",
+  }));
+
+  /* 결제수단별 파이 데이터 매핑 */
+  const accountPieData = expenseAccountData.map((item) => ({
+    name: item.account,
+    value: item.amount,
+    percentage: item.percentage,
+    color: accountColorByName[item.account] ?? "#9ca3af",
+  }));
+
+  /* 최근 거래 내역 */
+  const { data: recentTransactions = [] } = useQuery({
+    queryKey: ["recentTransactions"],
+    queryFn: () => getRecentTransactions(10),
+  });
+
+  /* 다음 달 이동 버튼 */
+  const handlePreviousMonth = () => {
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1),
+    );
+  };
+
+  /* 이번 달 이동 버튼 */
+  const handleNextMonth = () => {
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1),
+    );
+  };
+
+  const pageIsLoading =
+    isSummaryLoading || isDailyLoading || isExpenseCategoryLoading || isExpenseAccountLoading || isBalanceLoading;
+
+  const pageIsError = isSummaryError || isDailyError || isExpenseCategoryError || isExpenseAccountError;
+
+  const pageError = summaryError || dailyError || expenseCategoryError || expenseAccountError;
+
+  /* 로그인 안되어 있으면 로그인 페이지로 이동 */
+  useEffect(() => {
+    if (pageError instanceof AuthError) {
+      router.replace("/login");
+    }
+  }, [pageError, router]);
+
+  useEffect(() => {
+    if (expenseAccountError instanceof AuthError) {
+      router.replace("/login");
+    }
+  }, [expenseAccountError, router]);
+
+  /* 로딩 */
+  if (pageIsLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  /* 에러 — IMPLEMENTATION_BRIEF_017 §6.1: 원문 오류를 그대로 노출하지 않고 다시 시도를
+     제공한다. 쿼리 구성·결합 방식(pageIsError/pageError)은 바꾸지 않았다 — 표시만 바꿨다. */
+  if (pageIsError || !summary) {
+    const isSessionExpired = pageError instanceof AuthError;
+    return (
+      <StatePanel
+        tone="warn"
+        title={isSessionExpired ? "로그인이 만료됐어요" : "홈 화면을 불러오지 못했어요"}
+        description={
+          isSessionExpired
+            ? "다시 로그인하면 이어서 사용할 수 있어요."
+            : "입력한 내용은 그대로 두었어요. 네트워크를 확인하고 다시 시도해 주세요."
+        }
+        action={
+          isSessionExpired
+            ? undefined
+            : {
+                label: "다시 시도",
+                onClick: () => {
+                  queryClient.invalidateQueries({ queryKey: ["dashboardSummary", selectedMonth] });
+                  queryClient.invalidateQueries({ queryKey: ["dashboardDaily", selectedMonth] });
+                  queryClient.invalidateQueries({ queryKey: ["dashboardExpenseCategory", selectedMonth] });
+                  queryClient.invalidateQueries({ queryKey: ["dashboardExpenseAccount", selectedMonth] });
+                  queryClient.invalidateQueries({ queryKey: ["dashboardBalances"] });
+                },
+              }
+        }
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 0. 출석체크 배너 */}
+      <AttendanceBanner />
+
+      {/* 0-1. 퀘스트 위젯 */}
+      <QuestProgressWidget />
+
+      {/* 0-2. 책상 위 메모 (미분류 거래 → 나중에 분류 진입점) */}
+      <UnclassifiedNotes />
+
+      {/* 1. 월 선택 버튼 */}
+      <MonthSelector
+        currentMonth={currentMonth}
+        onPrev={handlePreviousMonth}
+        onNext={handleNextMonth}
+      />
+
+      {/* 1-1. 오늘/이번 주 사용 가능한 금액 (자산관리 모드 전용 — 계좌 잔액 기반 계산) */}
+      {userSetting?.ledgerMode === "ASSET_MANAGEMENT" && <AvailableToSpendCard />}
+
+      {/* 2. 결제수단별 잔액 카드 */}
+      {userSetting?.ledgerMode === "ASSET_MANAGEMENT" && balanceData && (
+        <BalanceCard
+          totalBalance={balanceData.totalBalance}
+          paymentMethods={balanceData.paymentMethods}
+        />
+      )}
+
+      {/* 3. 달력 + 예산 현황 */}
+      <div className="flex flex-col xl:flex-row xl:items-stretch gap-6">
+        {/* Left - 이번 달 거래 현황 달력 */}
+        <MonthlyCalendar
+          data={dailyData}
+          currentMonth={currentMonth}
+          summary={summary ? {
+            balance: summary.balance,
+            income: summary.income,
+            expense: summary.expense,
+            savingsIncome: summary.savingsIncome,
+            savingsExpense: summary.savingsExpense,
+          } : undefined}
+        />
+
+        {/* Right - 월 예산 및 사용 현황 */}
+        <div className="xl:flex-1 xl:relative">
+          <div className="h-full w-full xl:absolute xl:inset-0">
+            <BudgetBar month={selectedMonth} />
+          </div>
+        </div>
+      </div>
+
+      {/* 4. 카테고리별 지출 + 결제수단별 지출 */}
+      <div className="flex flex-col xl:flex-row gap-6">
+        {/* Left - 카테고리별 지출 */}
+        <CategoryChart
+          data={pieData}
+          viewType={viewType}
+          onChangeView={setViewType}
+        />
+
+        {/* Right - 결제수단별 지출 */}
+        <AccountChart
+          data={accountPieData}
+          viewType={accountViewType}
+          onChangeView={setAccountViewType}
+        />
+      </div>
+
+      {/* 최근 거래 내역 테이블 */}
+      <RecentTransactions data={recentTransactions} />
+    </div>
+  );
+}

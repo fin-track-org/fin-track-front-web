@@ -10,6 +10,7 @@ import { getCategories } from "@/src/lib/api/categoryApi";
 import { getAccounts } from "@/src/lib/api/accountApi";
 import { createClient } from "@/src/lib/supabase/client";
 import { createTransfer } from "@/src/lib/api/transaction/transactions";
+import { getTransferAccountIds } from "@/src/lib/transactionEntry";
 import { getDashboardBalances } from "@/src/lib/api/dashboard/balance";
 import AdjustBalanceModal from "@/src/components/AdjustBalanceModal";
 import { useQuestStore } from "@/src/store/useQuestStore";
@@ -25,11 +26,31 @@ export default function GlobalQuickAdd() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // ----------------------------
+  // 통합 모달 상태
+  // ----------------------------
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "quick">("create");
+
   const { activeQuestCode, stepIndex, nextStep, stopQuest } = useQuestStore();
   const { toast } = useToast();
 
   useEffect(() => {
-    const handleOpen = () => setIsMenuOpen(prev => !prev);
+    // 책상형 모바일 홈의 "빠르게 기록하기"(IMPLEMENTATION_BRIEF_010 §5)는 스피드 다이얼
+    // 메뉴를 거치지 않고 quick 모드 모달을 바로 열어야 한다. 기존 호출자(MobileBottomNav의
+    // "+" 버튼)는 payload 없는 단순 Event로 메뉴만 toggle하므로, CustomEvent의
+    // `detail.mode === "quick"`일 때만 새 동작으로 분기하고 그 외에는 기존 toggle을 그대로
+    // 유지해 하위 호환을 보존한다.
+    const handleOpen = (e: Event) => {
+      const detail = (e as CustomEvent<{ mode?: "quick" }>).detail;
+      if (detail?.mode === "quick") {
+        setIsMenuOpen(false);
+        setModalMode("quick");
+        setIsModalOpen(true);
+        return;
+      }
+      setIsMenuOpen((prev) => !prev);
+    };
     window.addEventListener("open-quick-add", handleOpen);
     return () => window.removeEventListener("open-quick-add", handleOpen);
   }, []);
@@ -41,12 +62,6 @@ export default function GlobalQuickAdd() {
     setIsMenuOpen(false);
     setIsModalOpen(false);
   }, [pathname]);
-
-  // ----------------------------
-  // 통합 모달 상태
-  // ----------------------------
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"create" | "quick">("create");
 
   // 일반 상세 추가를 위한 데이터 조회
   const { data: rawCategories = [] } = useQuery({
@@ -77,13 +92,54 @@ export default function GlobalQuickAdd() {
 
   const { mutateAsync: submitQuickAsync } = useMutation({
     mutationFn: quickAddTransaction,
+    // 낙관적 업데이트: 서버 응답을 기다리지 않고 "나중에 분류" 목록에 바로 반영한다.
+    // (design-package/screens-v1/HANDOFF.md "빠른 기록은 낙관적으로 목록에 반영하며 실패 시 입력값 유지")
+    onMutate: async (payload) => {
+      await queryClient.cancelQueries({ queryKey: ["drafts"] });
+      const previousDrafts = queryClient.getQueryData<DraftTransaction[]>(["drafts"]);
+
+      const optimisticDraft: DraftTransaction = {
+        id: `optimistic-${Date.now()}`,
+        date: payload.date,
+        amount:
+          payload.type === "EXPENSE"
+            ? -Math.abs(payload.amount)
+            : Math.abs(payload.amount),
+        type: payload.type === "INCOME" ? "INCOME" : "EXPENSE",
+        category: null,
+        subcategory: null,
+        description: payload.description,
+        sortOrder: 0,
+        account: null,
+      };
+
+      queryClient.setQueryData<DraftTransaction[]>(["drafts"], (old) => [
+        optimisticDraft,
+        ...(old ?? []),
+      ]);
+
+      return { previousDrafts };
+    },
+    onError: (error, _payload, context) => {
+      // 실패 시 목록을 원래대로 되돌린다. 입력값 자체는 모달이 닫히지 않아 그대로 유지된다.
+      // `previousDrafts`는 빈 배열([])이면 truthy이므로 존재 여부는 undefined 비교로만 판단한다
+      // (DESIGN_QA_01.md P2-1: 캐시가 아예 없던 첫 방문 상태에서는 낙관적 항목이 안 지워지던 문제 수정)
+      if (!context) return;
+      if (context.previousDrafts !== undefined) {
+        queryClient.setQueryData(["drafts"], context.previousDrafts);
+      } else {
+        // 애초에 캐시된 값이 없었다면(첫 조회 전) 방금 낙관적으로 넣은 항목만 지우고
+        // 다음에 실제로 필요할 때 서버에서 새로 받아오도록 쿼리 자체를 제거한다.
+        queryClient.removeQueries({ queryKey: ["drafts"], exact: true });
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["drafts"] });
       queryClient.invalidateQueries({ queryKey: ["recentTransactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboardBalances"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setIsModalOpen(false);
-      toast.success("임시 등록이 완료되었습니다!");
+      toast.success("잘 적어뒀어요. 분류는 나중에 해도 돼요.");
 
       if (activeQuestCode === "FAST_DRAFT" && stepIndex === 2) {
         nextStep(); // 폼 저장 시 즉시 스텝을 3으로 증가시켜 모달 닫힘에 의한 stopQuest 방지
@@ -113,12 +169,11 @@ export default function GlobalQuickAdd() {
     if (!session) throw new Error("로그인이 필요합니다.");
 
     if (payload.type === "TRANSFER" || payload.isSavings) {
-      const fromId = payload.type === "INCOME" ? payload.toAccountId! : payload.accountId;
-      const toId = payload.type === "INCOME" ? payload.accountId : payload.toAccountId!;
+      const { fromAccountId, toAccountId } = getTransferAccountIds(payload);
 
       await createTransfer({
-        fromAccountId: fromId,
-        toAccountId: toId,
+        fromAccountId,
+        toAccountId,
         amount: payload.amount,
         date: payload.date,
         description: payload.description || "",

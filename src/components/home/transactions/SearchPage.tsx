@@ -22,6 +22,7 @@ import { getCategories, getSubCategories } from "@/src/lib/api/categoryApi";
 import TransactionPageSkeleton from "../../skeleton/TransactionPageSkeleton";
 import { fetchTransactions, reorderTransactions, createTransfer, updateTransfer } from "@/src/lib/api/transaction/transactions";
 import { getAccounts } from "@/src/lib/api/accountApi";
+import { getTransferAccountIds } from "@/src/lib/transactionEntry";
 import { useToast } from "@/src/hook/useToast";
 import { useUserSettings } from "@/src/hook/useUserSettings";
 
@@ -301,9 +302,8 @@ export default function SearchPage() {
 
     // 공통: 이체 계좌 매핑
     const getTransferIds = () => {
-      const fromId = payload.type === "INCOME" ? payload.toAccountId! : payload.accountId;
-      const toId = payload.type === "INCOME" ? payload.accountId : payload.toAccountId!;
-      return { fromId, toId };
+      const { fromAccountId, toAccountId } = getTransferAccountIds(payload);
+      return { fromId: fromAccountId, toId: toAccountId };
     };
 
     // 공통: 일반 거래 바디 매핑
@@ -444,15 +444,21 @@ export default function SearchPage() {
       <div className="w-full max-w-[1920px] mx-auto flex flex-col gap-3 sm:gap-4 lg:p-6 px-1 py-4 sm:p-4">
         {/* 필터 요약 및 돌아가기 툴바 */}
         <section className="flex flex-row items-center gap-2 md:gap-3 bg-white p-2 md:p-3 shadow-sm -mx-4 w-[calc(100%+2rem)] lg:mx-0 lg:w-full rounded-none lg:rounded-xl border-y border-x-0 lg:border border-gray-200">
+          {/* IMPLEMENTATION_REPORT_040 / QA_REVIEW_039 P2 — 모바일(<lg)에서는 공통
+              MobileTopBar가 이 pathname(/home/transactions/search)의 뒤로가기(→
+              /home/transactions)를 이미 그린다(MobileTopBar.tsx의 resolveTopBar).
+              MobileTopBar는 lg에서 사라지므로, 이 본문 뒤로가기와 구분선은 데스크톱
+              (lg 이상)에서만 남겨 같은 목적의 화살표가 두 번 보이지 않게 한다. 검색
+              조건·API·잔액·정렬 로직은 건드리지 않았다. */}
           <Link
             href="/home/transactions"
-            className="flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors shrink-0 md:mr-2"
+            className="hidden items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors shrink-0 lg:flex lg:mr-2"
             title="장부 뷰로 돌아가기"
           >
             <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" strokeWidth={2.5} />
           </Link>
-          
-          <div className="w-px h-6 bg-gray-200 shrink-0 hidden md:block mr-3"></div>
+
+          <div className="hidden w-px h-6 bg-gray-200 shrink-0 lg:block mr-3"></div>
 
           <div className="flex flex-wrap items-center gap-1.5 flex-1 overflow-x-auto no-scrollbar pr-2 py-1">
             {searchTerm && <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium border border-gray-200 whitespace-nowrap">검색어: {searchTerm}</span>}

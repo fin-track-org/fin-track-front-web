@@ -5,6 +5,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, Plus, Check, X, Star, Pencil, Trash2, Wallet, Building2, Landmark, Shapes } from "lucide-react";
 import { getAccounts, createAccount, updateAccount, deleteAccount, setDefaultAccount } from "@/src/lib/api/accountApi";
 import { useUserSettings } from "@/src/hook/useUserSettings";
+import { useAuthErrorRedirect } from "@/src/hook/useAuthErrorRedirect";
+import { AuthError } from "@/src/lib/api/authError";
+import { StatePanel } from "@/src/components/ledger/StatePanel";
 
 const Skeleton = ({ className }: { className?: string }) => (
   <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
@@ -179,10 +182,22 @@ export default function PaymentMethodTab() {
 
   const { userSetting } = useUserSettings();
 
-  const { data: accounts = [], isLoading: isAccountsLoading } = useQuery({
+  const {
+    data: accounts = [],
+    isLoading: isAccountsLoading,
+    isError: isAccountsError,
+    error: accountsError,
+    refetch: refetchAccounts,
+  } = useQuery({
     queryKey: ["accounts"],
     queryFn: getAccounts,
   });
+
+  // IMPLEMENTATION_BRIEF_017 §6.2 "MY의 계정·결제수단 조회 오류" — 이전에는 이 쿼리가
+  // 실패하면 목록이 조용히 빈 배열로 보였다(오류 안내가 아예 없었음). 세션 만료는 기존
+  // 공용 훅(useAuthErrorRedirect)으로 로그인으로 보내고, 그 외 오류는 아래에서 StatePanel로
+  // 안내한다. 조회 함수(getAccounts)나 mutation 로직은 바꾸지 않았다.
+  useAuthErrorRedirect(accountsError);
 
   const { mutate: mutateCreateAccount, isPending: isCreatingAccount } = useMutation({
     mutationFn: createAccount,
@@ -220,8 +235,13 @@ export default function PaymentMethodTab() {
     <div className="space-y-6 animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden pb-4">
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-white">
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-sky-500" />
+          {/* IMPLEMENTATION_BRIEF_017 §4.2 — 모바일에서는 ProfileMobileView의 드릴다운
+              헤더가 이미 같은 제목("결제수단 관리")을 보여주므로 여기서는 숨긴다. `invisible`을
+              써서 자리(와 오른쪽 "+추가" 버튼의 정렬)는 그대로 유지하고 시각적·접근성
+              트리에서만 뺀다. 데스크톱은 ProfileDesktopView가 별도 제목을 그리지 않아
+              이 h2가 유일한 제목이라 그대로 보인다. */}
+          <div className="invisible flex items-center gap-2 lg:visible">
+            <CreditCard className="w-5 h-5 text-sky-500" aria-hidden="true" />
             <h2 className="font-bold text-gray-900 text-lg">결제수단 관리</h2>
           </div>
           {!showAccountForm && !editingAccountId && (
@@ -253,7 +273,16 @@ export default function PaymentMethodTab() {
           </div>
         )}
 
-        {isAccountsLoading ? (
+        {isAccountsError && !(accountsError instanceof AuthError) ? (
+          <div className="px-4 py-4 sm:px-6">
+            <StatePanel
+              tone="warn"
+              title="결제수단을 불러오지 못했어요"
+              description="네트워크를 확인하고 다시 시도해 주세요."
+              action={{ label: "다시 시도", onClick: () => refetchAccounts() }}
+            />
+          </div>
+        ) : isAccountsLoading ? (
           <div className="divide-y divide-gray-100 mt-2">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex items-center justify-between px-6 py-5">

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <!-- 상태바·내비게이션 바 색상 정돈(IMPLEMENTATION_BRIEF_009 §6). windowLightNavigationBar는
+         API 27+에서만 적용되고 그 아래에서는 무시된다(compileSdk 36이라 컴파일은 항상 통과). -->
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+        <item name="android:statusBarColor">@color/ll_paper</item>
+        <item name="android:navigationBarColor">@color/ll_paper</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <!-- Android 12+ SplashScreen API(androidx.core:core-splashscreen). paper 배경 + 판다
+         adaptive icon foreground를 시스템 splash로 명시하고, 종료 후 AppTheme.NoActionBar로
+         전환한다(IMPLEMENTATION_BRIEF_009 §5) — 기존처럼 android:background 전체화면
+         드로어블 하나만으로 끝내지 않는다. -->
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ll_paper</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+    </style>
+</resources>

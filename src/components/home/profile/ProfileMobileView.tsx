@@ -88,10 +88,12 @@ export default function ProfileMobileView() {
 
   return (
     <div className="lg:hidden w-[calc(100%+2rem)] -mx-4 -mt-4 pb-24">
-      {/* 타이틀 영역 */}
-      <div className="px-5 py-6 bg-white border-b border-gray-100 mb-2">
-        <h1 className="text-xl font-bold text-gray-900">마이페이지</h1>
-        <p className="text-xs text-gray-500 mt-1">내 프로필과 가계부 환경 설정을 관리하세요.</p>
+      {/* IMPLEMENTATION_BRIEF_017 §4.1 — 공통 MobileTopBar가 이미 이 pathname(/home/profile)의
+          제목("MY")을 그리므로, 여기서 다시 "마이페이지" 제목을 그리지 않는다(§4.1 "최상위
+          모바일 화면에서 같은 제목이 두 번 보이지 않는다"). 안내 문구는 목록 위 여백에서
+          바로 이어지도록 살짝만 남긴다. */}
+      <div className="px-5 pt-4 pb-3">
+        <p className="text-xs text-gray-500">내 프로필과 가계부 환경 설정을 관리하세요.</p>
       </div>
 
       {/* 설정 리스트 메뉴 */}

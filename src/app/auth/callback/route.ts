@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/src/lib/supabase/server';
+import { buildIdentitySyncPayload } from '@/src/lib/auth/identitySyncPayload';
 
 const SPRING_BOOT_URL = process.env.NEXT_PUBLIC_SPRING_BOOT_URL!;
 
@@ -8,10 +9,17 @@ export async function GET(request: Request) {
     const code = searchParams.get('code');
     const next = searchParams.get('next') ?? '/home';
     const action = searchParams.get('action');
+    // provider가 code 없이 오류만 돌려준 경우(설정 문제, 접근 거부 등)를 감지하는 용도.
+    // 존재 여부만 보고 원문 값(error/error_code/error_description)은 그대로 버린다.
+    const hasOAuthErrorSignal = searchParams.has('error') || searchParams.has('error_code');
 
     const host = request.headers.get('host');
     const protocol = request.headers.get('x-forwarded-proto') ?? 'http';
     const actualOrigin = `${protocol}://${host}`;
+
+    // /login으로 돌아갈 때 함께 전달할, 안전한 상태 코드만 담는다.
+    // provider 오류 원문·토큰·code·사용자 정보는 절대 담지 않는다(IMPLEMENTATION_BRIEF_002 §8, QA_REVIEW_006 P1).
+    let loginReason: 'oauth_cancelled' | 'oauth_failed' | 'session_failed' | null = null;
 
     if (code) {
         const supabase = await createClient();
@@ -34,31 +42,9 @@ export async function GET(request: Request) {
 
             // 💡 [핵심 버그 수정]: 'link' 액션 여부와 상관없이 무조건 현재 user.identities를 파싱합니다.
             // (동일 이메일로 가입해 Supabase가 자동 연동(Update)한 경우에도 DB를 최신 상태로 동기화하기 위함)
-            const identities = user.identities ?? [];
-            const linkedProviders = identities.map((id) => id.provider);
-
-            const availableAvatars: Record<string, string> = {};
-            let latestAvatarUrl: string | null = null;
-
-            // 모든 identity를 순회하며 아바타 추출
-            identities.forEach((id) => {
-                const url = id.identity_data?.avatar_url ?? id.identity_data?.picture;
-                if (url) {
-                    availableAvatars[id.provider] = url;
-                    latestAvatarUrl = url;
-                }
-            });
-
-            // PUT 요청 Payload 구성
-            const payload: any = {
-                linkedProviders,
-                availableAvatars
-            };
-            
-            // 마이페이지에서 명시적으로 연동(link)을 누른 경우에만, 프사를 새로 연동한 계정 프사로 덮어씌웁니다.
-            if (action === 'link') {
-                payload.avatarUrl = latestAvatarUrl;
-            }
+            // payload 계산은 Capacitor 앱 전용 콜백과 공유하는 순수 함수를 쓴다(DECISION_006 §4).
+            // 마이페이지에서 명시적으로 연동(link)을 누른 경우에만, 프사를 새로 연동한 계정 프사로 덮어씌운다.
+            const payload = buildIdentitySyncPayload(user, { includeAvatarUrl: action === 'link' });
 
             try {
                 // 백엔드에 최신 소셜 계정 상태 동기화
@@ -87,11 +73,19 @@ export async function GET(request: Request) {
             if (action === 'link') {
                 return NextResponse.redirect(`${actualOrigin}/home/profile`);
             }
+            loginReason = 'session_failed';
         }
     } else if (action === 'link') {
         // code가 없는 경우 (카카오 인증 취소 또는 에러) → 프로필로 복귀
         return NextResponse.redirect(`${actualOrigin}/home/profile`);
+    } else if (hasOAuthErrorSignal) {
+        // provider가 code 없이 오류 신호를 반환한 경우(취소가 아니라 실제 실패) — 원문은 버리고 고정 코드만 전달.
+        loginReason = 'oauth_failed';
+    } else {
+        // 오류 신호도 없이 code만 없는 경우에만 사용자 스스로 취소한 것으로 본다.
+        loginReason = 'oauth_cancelled';
     }
 
-    return NextResponse.redirect(`${actualOrigin}/login`);
+    const loginUrl = loginReason ? `${actualOrigin}/login?reason=${loginReason}` : `${actualOrigin}/login`;
+    return NextResponse.redirect(loginUrl);
 }

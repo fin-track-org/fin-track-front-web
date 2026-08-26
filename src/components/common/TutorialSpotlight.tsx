@@ -53,7 +53,7 @@ const GET_QUEST_STEPS = (isMobile: boolean): Record<string, Step[]> => ({
     },
     {
       target: "#tutorial-draft-tab",
-      content: "상단 메뉴에 알림이 뜬 '임시 보관함' 버튼이 보이시나요? 직접 눌러보세요!",
+      content: "상단 메뉴에 알림이 뜬 '나중에 분류' 버튼이 보이시나요? 직접 눌러보세요!",
       skipBeacon: true,
       placement: "bottom",
       overlayClickAction: false,
@@ -74,7 +74,7 @@ const GET_QUEST_STEPS = (isMobile: boolean): Record<string, Step[]> => ({
   "CATEGORIZE_DRAFT": [
     {
       target: "#tutorial-draft-tab",
-      content: "임시 보관함에 던져둔 내역을 이 탭에서 확인하고 분류할 수 있어요.",
+      content: "나중에 분류에 던져둔 내역을 이 탭에서 확인하고 분류할 수 있어요.",
       skipBeacon: true,
       placement: "bottom",
       overlayClickAction: false,

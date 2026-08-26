@@ -39,4 +39,27 @@ interface AddTransactionModalProps {
   defaultValues?: Partial<CreateTransactionPayload>;
   mode: "create" | "edit" | "confirm-draft" | "quick";
   isTutorialMode?: boolean;
+
+  /**
+   * "나중에 분류" 연속 처리(SequentialCategorizer) 전용 옵션.
+   * 지정하지 않으면 기존 단건 create/edit/confirm-draft/quick 동작과 완전히 동일하다.
+   */
+  /** 지정 시 헤더가 "나중에 분류 · i/N"로 바뀌고, 진행 상황 표시와 전용 푸터가 노출된다. */
+  queueProgress?: { current: number; total: number };
+  /** 큐 모드에서 "나머지는 다음에" 버튼을 노출하고 클릭 시 호출한다. */
+  onSkipRemaining?: () => void;
+  /** false면 onSubmit 성공 후에도 모달을 자동으로 닫거나 입력값을 리셋하지 않는다. (기본 true) */
+  autoCloseOnSubmit?: boolean;
+  /** 큐 항목이 바뀔 때마다 다른 값을 넘기면 180~240ms 전환 애니메이션이 재생된다 (reduced-motion에서 자동 제거). */
+  transitionKey?: string | number;
+  /**
+   * 비동기로 늦게 도착할 수 있는 카테고리 추천값. `defaultValues`와 달리 폼 전체를
+   * 리셋하지 않고, 비어 있고 사용자가 아직 건드리지 않은 필드에만 채워 넣는다.
+   */
+  suggestedValues?: Partial<Pick<CreateTransactionPayload, "categoryId" | "subCategoryId" | "accountId">>;
+  /**
+   * 추천 근거. 자동 선택 안내 문구("지난 기록을 참고해 자동 선택했어요" / "최근 자주 쓴 분류로
+   * 자동 선택했어요")를 고르는 데 쓰인다. 근거가 없으면("none") 아무 안내도 표시하지 않는다.
+   */
+  suggestionBasis?: "memo-history" | "recent-choice" | "frequency" | "none";
 }

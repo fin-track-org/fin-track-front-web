@@ -115,3 +115,42 @@ export const updateLedgerTheme = async (
 
   return result.data;
 };
+
+/**
+ * 첫 설정 온보딩 완료 처리. 전체 건너뛰기도 완료로 취급한다.
+ * 이미 완료된 사용자가 다시 호출해도 기존 완료 시각을 유지한 채 성공한다(멱등).
+ */
+export const completeOnboarding = async (): Promise<UserSettingRes> => {
+  const supabase = createClient();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    throw new AuthError();
+  }
+
+  const response = await fetch(`${SPRING_BOOT_URL}/api/v1/users/me/settings/onboarding/complete`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+
+  if (response.status === 401) {
+    throw new AuthError();
+  }
+
+  if (!response.ok) {
+    throw new Error("첫 설정 완료 처리에 실패했습니다.");
+  }
+
+  const result: ApiResponse<UserSettingRes> = await response.json();
+
+  if (!result.data) {
+    throw new Error("첫 설정 완료 처리 응답이 올바르지 않습니다.");
+  }
+
+  return result.data;
+};

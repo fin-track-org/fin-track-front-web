@@ -13,6 +13,7 @@ export const useUserSettings = () => {
     isLoading,
     isError,
     error,
+    refetch,
   } = useQuery({
     queryKey: USER_SETTING_QUERY_KEY,
     queryFn: fetchMySetting,
@@ -45,6 +46,7 @@ export const useUserSettings = () => {
     isLoading,
     isError,
     error,
+    refetch,
     changeLedgerMode,
     isUpdating,
     changeLedgerTheme,

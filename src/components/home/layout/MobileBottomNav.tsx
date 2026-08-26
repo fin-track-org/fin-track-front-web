@@ -33,7 +33,7 @@ export default function MobileBottomNav() {
           className={`flex flex-col items-center justify-center w-14 h-full gap-1 ${isActive("/home/transactions") ? "text-sky-600" : "text-gray-400 hover:text-gray-600"}`}
         >
           <BookOpen className="w-[22px] h-[22px]" strokeWidth={isActive("/home/transactions") ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">가계부</span>
+          <span className="text-[10px] font-medium">장부</span>
         </Link>
 
         {/* 중앙 빠른 추가 버튼 (Squircle) */}

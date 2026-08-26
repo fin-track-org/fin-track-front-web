@@ -1,272 +1,248 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-"use client"; // 👈 (1) "이 파일은 브라우저에서 동작해야 합니다!"
+"use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import logoImg from "@/public/images/logo.jpg";
-import { useState, useEffect } from "react"; // (2) 리액트 "상태" 관리
-// (3) Supabase 접속기 (경로 수정: '@/' 별칭 대신 상대 경로 사용)
-import { useRouter } from "next/navigation"; // (4) 페이지 이동 기능
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Capacitor } from "@capacitor/core";
 import { createClient } from "@/src/lib/supabase/client";
+import { AuthShell } from "@/src/components/auth/AuthShell";
+import { AuthStatusPanel } from "@/src/components/auth/AuthStatusPanel";
+import { SocialLoginButtons } from "@/src/components/auth/SocialLoginButtons";
+import { StatePanel } from "@/src/components/ledger/StatePanel";
+import { Label } from "@/src/components/ui/label";
+import { getLoginErrorMessage, getOAuthCallbackReasonMessage } from "@/src/lib/authErrorMessages";
+import { startNativeOAuth } from "@/src/lib/auth/nativeOAuth";
 
 export default function LoginPage() {
-  // (5) 이메일, 비밀번호, 에러, 로딩 상태를 관리할 "메모리 박스"
+  // 초기 세션 확인이 끝나기 전에는 폼을 보여주지 않는다(브리프 §5 "이미 로그인된 사용자").
+  const [initializing, setInitializing] = useState(true);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // 🔥 [추가] 이메일 로그인 폼 표시 여부
+
+  // SMTP 미구성으로 이메일 인증 메일이 불안정해, 소셜 로그인을 먼저 유도하기 위해
+  // 이메일 로그인은 토글 뒤에 다시 숨긴다(사용자 명시 지시 — 브리프 §5의 "토글 없이 표시"에서 의도적으로 벗어남).
   const [showEmailLogin, setShowEmailLogin] = useState(false);
 
-  const router = useRouter(); // (6) 페이지 이동 기능 준비
-  const supabase = createClient(); // (7) Supabase 접속기 실행
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [kakaoLoading, setKakaoLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  // 뒤로가기 등으로 캐시된 로그인 페이지에 접근했을 때, 이미 로그인되어 있다면 홈으로 돌려보냅니다.
+  const router = useRouter();
+  const supabase = createClient();
+
+  // 이미 로그인되어 있으면 홈으로 보내고, 아니면 폼을 노출한다.
+  // getUser() 자체가 예외를 던지는 경우(네트워크 오류 등)에도 폼이 영구 로딩 상태로
+  // 멈추지 않도록 반드시 initializing을 해제한다(QA_REVIEW_006 P2).
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        router.replace("/home");
-      }
-    };
-    checkUser();
-  }, [router, supabase]);
+    let active = true;
+    let redirecting = false;
 
-  // (8) "로그인" 버튼을 눌렀을 때 실행될 함수
+    (async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!active) return;
+
+        if (user) {
+          redirecting = true;
+          router.replace("/home");
+          return; // 이동이 끝날 때까지 폼을 보여주지 않는다.
+        }
+      } catch (err) {
+        console.error("[login] initial session check failed:", err);
+        // 세션 확인 자체가 실패해도 로그인 폼은 반드시 보여준다.
+      } finally {
+        if (active && !redirecting) setInitializing(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // `/auth/callback`이 실패 시 전달하는 안전한 reason 코드만 해석한다(원문 오류·토큰 노출 없음).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reason = params.get("reason");
+    if (!reason) return;
+
+    const message = getOAuthCallbackReasonMessage(reason);
+    if (message) setError(message);
+
+    // 새로고침 시 같은 오류가 다시 뜨지 않도록 주소창만 정리한다(라우팅 이벤트 없이).
+    window.history.replaceState(null, "", "/login");
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); // (9) 폼 제출 시 새로고침 방지
-    setError(null); // (10) 이전 에러 메시지 초기화
-    setLoading(true); // (11) 로딩 시작
+    e.preventDefault();
+    setError(null);
+    setEmailLoading(true);
 
     try {
-      // (12) [1단계] Supabase Auth로 이메일/비밀번호 전송
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-      });
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) throw authError;
 
-      // (13) Supabase가 에러를 반환했는지 확인 (예: 비번 틀림)
-      if (authError) {
-        throw new Error(`로그인 실패: ${authError.message}`);
-      }
-
-      // (14) [2단계] 모든 것이 성공! 대시보드로 이동
       router.replace("/home");
-    } catch (err: any) {
-      // (15) 12~14단계 중 에러 발생 시, 여기로 잡혀옴
-      console.error(err);
-      setError(err.message || "알 수 없는 에러가 발생했습니다.");
-    } finally {
-      // (16) 성공하든 실패하든, 로딩 상태 해제
-      setLoading(false);
+    } catch (err) {
+      console.error("[login] email sign-in failed:", err);
+      setError(getLoginErrorMessage(err));
+      setEmailLoading(false);
     }
+    // 성공 시에는 라우팅이 끝날 때까지 버튼을 계속 잠가둔다(setEmailLoading(false) 생략).
   };
 
-  // 🔥 [추가] 카카오 로그인 핸들러 함수
   const handleKakaoLogin = async () => {
     setError(null);
-    setLoading(true);
+    setKakaoLoading(true);
 
     try {
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: "kakao",
-        options: {
-          // 카카오 인증이 끝나면 우리 서비스의 콜백 라우터로 리다이렉트 시킵니다.
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-
-      if (authError) {
-        throw new Error(`카카오 로그인 실패: ${authError.message}`);
+      if (Capacitor.isNativePlatform()) {
+        // Capacitor 앱: 시스템 인증창으로 열고 앱 복귀는 CapacitorOAuthListener가 딥링크로 받는다.
+        await startNativeOAuth("kakao");
+        setKakaoLoading(false); // 브라우저가 열렸을 뿐 로그인이 끝난 게 아니므로 버튼을 다시 쓸 수 있게 한다.
+      } else {
+        const { error: authError } = await supabase.auth.signInWithOAuth({
+          provider: "kakao",
+          options: { redirectTo: `${window.location.origin}/auth/callback` },
+        });
+        if (authError) throw authError;
+        // 성공 시에는 라우팅이 끝날 때까지 버튼을 계속 잠가둔다(setKakaoLoading(false) 생략).
       }
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "카카오 로그인 중 에러가 발생했습니다.");
-      setLoading(false); // OAuth 창으로 이동 실패 시에만 로딩을 풀어줍니다.
+    } catch (err) {
+      console.error("[login] kakao oauth start failed:", err);
+      setError(getLoginErrorMessage(err));
+      setKakaoLoading(false);
     }
   };
 
-  // 🔥 [추가] 구글 로그인 핸들러 함수
   const handleGoogleLogin = async () => {
     setError(null);
-    setLoading(true);
+    setGoogleLoading(true);
 
     try {
-      const { error: authError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-
-      if (authError) {
-        throw new Error(`구글 로그인 실패: ${authError.message}`);
+      if (Capacitor.isNativePlatform()) {
+        await startNativeOAuth("google");
+        setGoogleLoading(false);
+      } else {
+        const { error: authError } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: `${window.location.origin}/auth/callback` },
+        });
+        if (authError) throw authError;
+        // 성공 시에는 라우팅이 끝날 때까지 버튼을 계속 잠가둔다(setGoogleLoading(false) 생략).
       }
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "구글 로그인 중 에러가 발생했습니다.");
-      setLoading(false);
+    } catch (err) {
+      console.error("[login] google oauth start failed:", err);
+      setError(getLoginErrorMessage(err));
+      setGoogleLoading(false);
     }
   };
 
+  if (initializing) {
+    return <AuthStatusPanel title="가계부를 불러오는 중이에요" busy />;
+  }
+
+  const formLocked = emailLoading || kakaoLoading || googleLoading;
+
   return (
-    <div className="min-h-screen flex">
-      {/* ===== 왼쪽 브랜드 패널 (데스크톱 전용) ===== */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-sky-600 to-indigo-700 flex-col justify-between p-12 text-white">
-        <Image src={logoImg} alt="게으른 가계부 로고" className="rounded-lg w-60 h-auto" />
+    <AuthShell
+      brandHeadline="다시 만나서 반가워요"
+      brandDescription="기록해둔 내역부터 이어서 정리해볼까요?"
+      benefits={["미분류는 나중에, 지금은 가볍게 기록", "기록할수록 선명해지는 이번 달 흐름"]}
+    >
+      <h1 className="mb-1 text-2xl font-extrabold text-ll-ink break-keep">다시 만나서 반가워요</h1>
+      <p className="mb-6 text-sm text-ll-pencil break-keep">기록해둔 내역부터 이어서 정리해볼까요?</p>
 
-        <div>
-          <h2 className="text-4xl font-bold leading-tight mb-4">
-            귀찮을수록<br />더 잘 맞는 가계부
-          </h2>
-          <p className="text-sky-200 text-lg mb-10">
-            복잡한 과정은 다 덜어냈습니다.<br />가장 스마트한 나만의 맞춤 가계부
-          </p>
-          <ul className="space-y-4 text-sm text-sky-100">
-            <li className="flex items-start gap-3">
-              <span className="text-sky-300 mt-0.5">✦</span>
-              <span>입력은 가볍게, 분석은 깊고 완벽하게</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-sky-300 mt-0.5">✦</span>
-              <span>예산부터 결제수단별 맞춤 통계까지 한눈에</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="text-sky-300 mt-0.5">✦</span>
-              <span>기록에만 집중할 수 있도록 저희가 다 해드릴게요</span>
-            </li>
-          </ul>
-        </div>
+      <SocialLoginButtons
+        onKakao={handleKakaoLogin}
+        onGoogle={handleGoogleLogin}
+        kakaoLoading={kakaoLoading}
+        googleLoading={googleLoading}
+        disabled={emailLoading}
+      />
 
-        <p className="text-sky-400 text-xs">
-          © {new Date().getFullYear()} 게으른 가계부
-        </p>
+      {/* 소셜/이메일 로그인 공통 에러 영역 — 이메일 폼이 접혀 있어도(토글 전) 카카오·Google
+          실패나 OAuth 콜백 reason 안내가 항상 보이도록 토글 바깥에 둔다. */}
+      {error && <StatePanel tone="warn" title={error} className="mt-4" />}
+
+      <div className="my-6 flex items-center" aria-hidden="true">
+        <div className="h-px flex-grow bg-ll-ink/10" />
+        <span className="mx-4 text-xs font-medium text-ll-pencil">또는</span>
+        <div className="h-px flex-grow bg-ll-ink/10" />
       </div>
 
-      {/* ===== 오른쪽 폼 패널 ===== */}
-      <div className="flex-1 flex items-center justify-center bg-gray-50 px-6 py-12">
-        <div className="w-full max-w-sm">
-          {/* 모바일 전용 로고 */}
-          <div className="lg:hidden text-center mb-8">
-            <Image src="/images/logo.jpg" alt="게으른 가계부 로고" width={200} height={54} className="rounded-lg mx-auto" />
-            <p className="mt-3 text-sm text-gray-500">최소한의 입력으로 최대한의 효율을 ✨</p>
+      {!showEmailLogin ? (
+        <button
+          type="button"
+          onClick={() => setShowEmailLogin(true)}
+          disabled={formLocked}
+          className="flex min-h-[48px] w-full items-center justify-center rounded-xl border border-ll-ink/15 bg-white text-sm font-semibold text-ll-pencil transition-colors hover:bg-ll-cream hover:text-ll-ink disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          이메일로 로그인
+        </button>
+      ) : (
+        <form
+          className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200 space-y-4"
+          onSubmit={handleSubmit}
+        >
+          <div>
+            <Label htmlFor="email" className="mb-1.5 block text-xs font-semibold text-ll-pencil">
+              이메일
+            </Label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={formLocked}
+              placeholder="you@example.com"
+              className="block w-full rounded-xl border border-ll-ink/15 bg-white px-4 py-3 text-base text-ll-ink placeholder-ll-pencil/40 outline-none transition-colors focus-visible:border-ll-tomato focus-visible:ring-2 focus-visible:ring-ll-tomato/30 disabled:opacity-60"
+            />
           </div>
 
-          <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center lg:text-left">3초 만에 시작하기 🚀</h2>
-          <p className="text-sm text-gray-500 mb-8 text-center lg:text-left">가장 빠르고 안전한 카카오 로그인을 추천합니다.</p>
-
-          <div className="space-y-4">
-            {/* 카카오 로그인 버튼 (최우선 강조) */}
-            <button
-              type="button"
-              disabled={loading}
-              onClick={handleKakaoLogin}
-              className="relative w-full flex items-center justify-center gap-3 py-4 px-4 bg-[#FEE500] hover:bg-[#FCD81B] active:bg-[#F0C900] disabled:opacity-50 disabled:cursor-not-allowed text-black/90 font-bold rounded-xl text-base transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FEE500] shadow-md hover:shadow-lg hover:-translate-y-0.5"
-            >
-              <svg className="w-6 h-6 text-black/90" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 3c-4.97 0-9 3.185-9 7.115 0 2.558 1.712 4.8 4.32 6.04-.173.579-.623 2.098-.713 2.42-.113.407.135.402.285.302.119-.079 1.907-1.282 2.662-1.79.79.117 1.606.18 2.446.18 4.97 0 9-3.186 9-7.116C21 6.185 16.97 3 12 3z" />
-              </svg>
-              카카오로 3초 만에 시작하기
-              
-              {/* 추천 뱃지 (Pill 형태) */}
-              <span className="absolute -top-3 -right-2 bg-red-500 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-sm animate-bounce">
-                추천 👍
-              </span>
-            </button>
-
-            {/* 구글 로그인 버튼 */}
-            <button
-              type="button"
-              disabled={loading}
-              onClick={handleGoogleLogin}
-              className="relative w-full flex items-center justify-center gap-3 py-4 px-4 bg-white border border-gray-200 hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 font-bold rounded-xl text-base transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 shadow-sm hover:shadow hover:-translate-y-0.5"
-            >
-              <svg className="w-6 h-6" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-              </svg>
-              Google로 시작하기
-            </button>
-
-            <div className="relative flex py-4 items-center">
-              <div className="flex-grow border-t border-gray-200"></div>
-              <span className="flex-shrink mx-4 text-xs text-gray-400 bg-gray-50 px-2 font-medium">또는</span>
-              <div className="flex-grow border-t border-gray-200"></div>
-            </div>
-
-            {/* 이메일 로그인 토글 영역 */}
-            {!showEmailLogin ? (
-              <button
-                type="button"
-                onClick={() => setShowEmailLogin(true)}
-                className="w-full py-3.5 text-sm text-gray-500 hover:text-gray-800 font-medium rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors shadow-sm"
-              >
-                이메일로 로그인
-              </button>
-            ) : (
-              <form className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm" onSubmit={handleSubmit}>
-                <div>
-                  <label htmlFor="email" className="block text-xs font-semibold text-gray-600 mb-1.5">
-                    이메일
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition-all bg-gray-50 focus:bg-white"
-                    placeholder="you@example.com"
-                    disabled={loading}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="password" className="block text-xs font-semibold text-gray-600 mb-1.5">
-                    비밀번호
-                  </label>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition-all bg-gray-50 focus:bg-white"
-                    placeholder="••••••••"
-                    disabled={loading}
-                  />
-                </div>
-
-                {error && (
-                  <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600 font-medium">
-                    {error}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900"
-                >
-                  {loading ? "로그인 중..." : "로그인"}
-                </button>
-              </form>
-            )}
+          <div>
+            <Label htmlFor="password" className="mb-1.5 block text-xs font-semibold text-ll-pencil">
+              비밀번호
+            </Label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={formLocked}
+              placeholder="비밀번호"
+              className="block w-full rounded-xl border border-ll-ink/15 bg-white px-4 py-3 text-base text-ll-ink placeholder-ll-pencil/40 outline-none transition-colors focus-visible:border-ll-tomato focus-visible:ring-2 focus-visible:ring-ll-tomato/30 disabled:opacity-60"
+            />
           </div>
 
-          <p className="mt-8 text-center text-sm text-gray-500">
-            아직 계정이 없으신가요?{" "}
-            <Link href="/create-account" className="font-bold text-sky-600 hover:text-sky-500 underline underline-offset-2">
-              무료로 가입하기
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+          <button
+            type="submit"
+            disabled={formLocked}
+            aria-busy={emailLoading}
+            className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-ll-ink text-base font-bold text-ll-paper transition-colors hover:bg-ll-ink/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {emailLoading ? "로그인하는 중..." : "이메일로 로그인"}
+          </button>
+        </form>
+      )}
+
+      <p className="mt-8 text-center text-sm text-ll-pencil">
+        아직 계정이 없으신가요?{" "}
+        <Link href="/create-account" className="font-bold text-ll-ink underline underline-offset-2">
+          무료로 가입하기
+        </Link>
+      </p>
+    </AuthShell>
   );
 }
