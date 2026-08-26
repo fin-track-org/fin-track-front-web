@@ -144,6 +144,8 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     mode,
     isTutorialMode,
     queueProgress,
+    onSkip,
+    onPrevious,
     onSkipRemaining,
     autoCloseOnSubmit = true,
     transitionKey,
@@ -169,6 +171,10 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   const dialogContentRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
   const dialogTitleId = "add-transaction-modal-title";
+  // "나중에 분류" 큐 안에서 항목이 바뀔 때 포커스를 옮길 제목(IMPLEMENTATION_BRIEF_018 §12).
+  // 입력 요소가 아니라 제목으로 옮겨서 모바일 키보드가 불필요하게 열리지 않게 한다.
+  const queueTitleRef = useRef<HTMLHeadingElement>(null);
+  const isFirstQueueTransitionRef = useRef(true);
 
   // 상세 등록(신규/수정)에서는 "일반 이체"를 선택할 수 있지만, 빠른 기록·"나중에 분류"·
   // 간편모드에서는 기존과 동일하게 일반 이체를 제공하지 않는다(계좌 이동을 선택하면
@@ -483,6 +489,9 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   useEffect(() => {
     if (open) {
       previouslyFocusedElementRef.current = document.activeElement as HTMLElement | null;
+      // 이번에 새로 열린 세션의 "첫" 항목이다 — 아래 큐 전환 effect가 이 항목까지
+      // 제목으로 다시 포커스를 옮기지 않도록(이미 위에서 첫 입력 요소로 옮겼으므로) 초기화한다.
+      isFirstQueueTransitionRef.current = true;
       const focusTimer = setTimeout(() => {
         const target = dialogContentRef.current?.querySelector<HTMLElement>(
           "input, select, textarea, button",
@@ -494,6 +503,20 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
     previouslyFocusedElementRef.current?.focus?.();
   }, [open]);
+
+  // 접근성(IMPLEMENTATION_BRIEF_018 §12): "나중에 분류" 큐 안에서 항목이 바뀔 때마다
+  // (이전/나중에/기억난 만큼 적고 다음/분류 완료하고 다음 어느 쪽이든) 제목으로 포커스를
+  // 옮긴다. 세션을 새로 여는 첫 항목은 위 effect가 이미 첫 입력 요소로 포커스를 옮겼으므로
+  // 건너뛴다. 입력 요소가 아니라 제목으로 옮겨서 모바일 키보드를 불필요하게 열지 않는다.
+  useEffect(() => {
+    if (!open || !queueProgress) return;
+    if (isFirstQueueTransitionRef.current) {
+      isFirstQueueTransitionRef.current = false;
+      return;
+    }
+    queueTitleRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transitionKey]);
 
   // 접근성: Esc 키로 닫기 (취소와 동일하게 동작)
   useEffect(() => {
@@ -910,7 +933,12 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
               {/* 헤더 */}
             <div className="flex items-center justify-between pb-1">
               <div className="min-w-0">
-                <h2 id={dialogTitleId} className="text-xl font-bold text-gray-800 break-keep">
+                <h2
+                  id={dialogTitleId}
+                  ref={queueTitleRef}
+                  tabIndex={-1}
+                  className="text-xl font-bold text-gray-800 break-keep rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-ll-tomato focus-visible:outline-offset-2"
+                >
                   {queueProgress
                     ? `나중에 분류 · ${queueProgress.current}/${queueProgress.total}`
                     : mode === "edit"
@@ -949,6 +977,25 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
                       </div>
                     )}
                   </div>
+                )}
+                {queueProgress && (
+                  <>
+                    {/* IMPLEMENTATION_BRIEF_018 §9, §12 — 진행 안내는 이 영역 하나만 aria-live로
+                        낭독한다(점/막대는 위에서 이미 장식용으로 aria-hidden 처리). */}
+                    <p aria-live="polite" className="mt-1 text-xs text-ll-pencil break-keep">
+                      {queueProgress.remaining != null ? `${queueProgress.remaining}건 남았어요` : " "}
+                    </p>
+                    {onPrevious && (
+                      <button
+                        type="button"
+                        onClick={onPrevious}
+                        disabled={isSaving}
+                        className="-ml-1 mt-0.5 min-h-[44px] rounded-md px-1 text-xs font-extrabold text-ll-ink hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        ← 이전 기록
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
               <button
@@ -1359,37 +1406,48 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
 
             <div className="sticky bottom-0 bg-gradient-to-t from-white via-white to-white/90 pt-4 pb-[env(safe-area-inset-bottom)] mt-auto z-10">
               {queueProgress ? (
-                // "나중에 분류" 연속 처리 전용 푸터: 나머지는 다음에 / (임시저장) / 저장하고 다음
-                <div className="flex flex-wrap items-center justify-between gap-2.5 w-full">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => (onSkipRemaining ? onSkipRemaining() : onOpenChange(false))}
-                    disabled={isSaving}
-                    className="h-11 text-sm font-bold rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700"
-                  >
-                    나머지는 다음에
-                  </Button>
-                  <div className="flex items-center gap-3 ml-auto">
-                    {onSaveDraft && canSaveDraft && (
-                      <button
-                        type="button"
-                        onClick={handleSaveDraft}
-                        disabled={!canSaveDraft}
-                        className="min-h-[44px] px-2 text-xs font-semibold text-gray-500 underline underline-offset-2 hover:text-gray-700 disabled:opacity-40"
-                      >
-                        {isSaving ? "저장 중..." : "임시저장"}
-                      </button>
-                    )}
+                // "나중에 분류" 연속 처리 전용 푸터(IMPLEMENTATION_BRIEF_018 §10 위계):
+                // 주 CTA(분류 완료하고 다음) + 보조 CTA(나중에) 한 줄, 그 아래 텍스트 행동
+                // (기억난 만큼 적고 다음), 맨 아래 가장 약한 전체 종료(남은 분류는 다음에 할게요).
+                // 같은 크기 버튼 4개를 한 줄에 두지 않는다.
+                <div className="flex flex-col gap-2 w-full">
+                  <div className="flex gap-2.5">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => onSkip?.()}
+                      disabled={isSaving}
+                      className="h-11 w-24 flex-shrink-0 text-sm font-bold rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700"
+                    >
+                      나중에
+                    </Button>
                     <Button
                       type="button"
                       onClick={handleSubmit}
                       disabled={!canSubmit}
-                      className={`h-11 text-sm font-bold rounded-xl ${submitButtonClasses(entryKind)}`}
+                      className={`h-11 flex-1 text-sm font-bold rounded-xl ${submitButtonClasses(entryKind)}`}
                     >
-                      {isSaving ? "저장 중..." : "저장하고 다음 →"}
+                      {isSaving ? "저장 중..." : "분류 완료하고 다음"}
                     </Button>
                   </div>
+                  {onSaveDraft && canSaveDraft && (
+                    <button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      disabled={!canSaveDraft}
+                      className="min-h-[44px] w-full text-xs font-bold text-gray-500 underline underline-offset-2 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {isSaving ? "저장 중..." : "기억난 만큼 적고 다음"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => (onSkipRemaining ? onSkipRemaining() : onOpenChange(false))}
+                    disabled={isSaving}
+                    className="min-h-[36px] w-full text-[11px] font-semibold text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    남은 분류는 다음에 할게요
+                  </button>
                 </div>
               ) : (
                 <div className="flex gap-2.5 sm:gap-2 justify-end w-full">

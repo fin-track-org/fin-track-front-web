@@ -44,9 +44,17 @@ interface AddTransactionModalProps {
    * "나중에 분류" 연속 처리(SequentialCategorizer) 전용 옵션.
    * 지정하지 않으면 기존 단건 create/edit/confirm-draft/quick 동작과 완전히 동일하다.
    */
-  /** 지정 시 헤더가 "나중에 분류 · i/N"로 바뀌고, 진행 상황 표시와 전용 푸터가 노출된다. */
-  queueProgress?: { current: number; total: number };
-  /** 큐 모드에서 "나머지는 다음에" 버튼을 노출하고 클릭 시 호출한다. */
+  /**
+   * 지정 시 헤더가 "나중에 분류 · i/N"로 바뀌고, 진행 상황 표시와 전용 푸터가 노출된다.
+   * `remaining`(IMPLEMENTATION_BRIEF_018 §9 "현재 항목을 제외한 미완료 draft 수")이 있으면
+   * "N건 남았어요" 안내를 함께 표시한다.
+   */
+  queueProgress?: { current: number; total: number; remaining?: number };
+  /** 큐 모드에서 "나중에" 버튼을 노출하고 클릭 시 호출한다. 서버 호출 없이 다음으로 넘긴다. */
+  onSkip?: () => void;
+  /** 지정 시에만 "← 이전 기록" 버튼을 노출한다(이전 미완료 항목이 없으면 prop 자체를 넘기지 않는다). */
+  onPrevious?: () => void;
+  /** 큐 모드에서 "남은 분류는 다음에 할게요" 버튼을 노출하고 클릭 시 호출한다(전체 세션 종료). */
   onSkipRemaining?: () => void;
   /** false면 onSubmit 성공 후에도 모달을 자동으로 닫거나 입력값을 리셋하지 않는다. (기본 true) */
   autoCloseOnSubmit?: boolean;

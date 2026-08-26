@@ -141,7 +141,7 @@ export default function TransactionPage() {
 
   // "나중에 분류" 연속 처리 플로우 (홈의 책상 위 메모와 동일한 컴포넌트를 공유한다)
   const [isSequentialOpen, setIsSequentialOpen] = useState(false);
-  const [sequentialStartIndex, setSequentialStartIndex] = useState(0);
+  const [sequentialStartDraftId, setSequentialStartDraftId] = useState<string | undefined>(undefined);
 
   // 자동 탭 전환 효과 제거 (유저가 직접 나중에 분류 탭을 누르도록 유도)
 
@@ -878,10 +878,10 @@ export default function TransactionPage() {
     setIsModalOpen(true);
   };
 
-  // "나중에 분류" 연속 처리 플로우 열기 (특정 항목부터 시작)
+  // "나중에 분류" 연속 처리 플로우 열기 (특정 항목부터 시작 — draft ID 계약,
+  // IMPLEMENTATION_BRIEF_018 §4)
   const handleOpenSequentialFlow = (draft: DraftTransaction) => {
-    const idx = drafts.findIndex((d) => d.id === draft.id);
-    setSequentialStartIndex(idx >= 0 ? idx : 0);
+    setSequentialStartDraftId(draft.id);
     setIsSequentialOpen(true);
   };
 
@@ -1280,7 +1280,7 @@ export default function TransactionPage() {
                   {drafts.length > 0 && (
                     <button
                       onClick={() => {
-                        setSequentialStartIndex(0);
+                        setSequentialStartDraftId(undefined);
                         setIsSequentialOpen(true);
                       }}
                       className="ml-auto min-h-[36px] rounded-full bg-ll-ink px-3.5 py-1.5 text-xs font-bold text-ll-paper hover:bg-ll-ink/90 md:text-sm"
@@ -1537,7 +1537,7 @@ export default function TransactionPage() {
         open={isSequentialOpen}
         onOpenChange={setIsSequentialOpen}
         drafts={drafts}
-        startIndex={sequentialStartIndex}
+        startDraftId={sequentialStartDraftId}
         categories={rawCategories}
         accounts={accounts}
       />

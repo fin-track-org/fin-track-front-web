@@ -22,7 +22,7 @@ const ROTATIONS = [-1.5, 1, -0.5];
  */
 export default function UnclassifiedNotes() {
   const [flowOpen, setFlowOpen] = useState(false);
-  const [startIndex, setStartIndex] = useState(0);
+  const [startDraftId, setStartDraftId] = useState<string | undefined>(undefined);
 
   const { data: drafts = [], isLoading } = useQuery({
     queryKey: ["drafts"],
@@ -47,8 +47,12 @@ export default function UnclassifiedNotes() {
 
   if (isLoading || drafts.length === 0) return null;
 
-  const openFlow = (index: number) => {
-    setStartIndex(index);
+  // draft ID로 시작 항목을 지정한다(IMPLEMENTATION_BRIEF_018 §4) — 큐가 열릴 때 오래된
+  // 순으로 정렬되므로 index가 아니라 ID라야 사용자가 실제로 누른 항목부터 시작한다.
+  // "N건 정리하기"처럼 전체 큐를 여는 진입점은 id 없이 호출해 정렬된 큐의 첫 항목(가장
+  // 오래된 미완료 항목)부터 시작한다.
+  const openFlow = (id?: string) => {
+    setStartDraftId(id);
     setFlowOpen(true);
   };
 
@@ -63,7 +67,7 @@ export default function UnclassifiedNotes() {
         {remainingCount === 0 && (
           <button
             type="button"
-            onClick={() => openFlow(0)}
+            onClick={() => openFlow()}
             className="text-xs font-semibold text-ll-tomato hover:underline md:text-sm"
           >
             {drafts.length}건 정리
@@ -78,7 +82,7 @@ export default function UnclassifiedNotes() {
             as="button"
             tone={i % 2 === 0 ? "coral" : "mint"}
             rotate={ROTATIONS[i % ROTATIONS.length]}
-            onClick={() => openFlow(i)}
+            onClick={() => openFlow(draft.id)}
             aria-label={`${Math.abs(draft.amount).toLocaleString()}원, ${draft.description || "메모 없음"} 분류하기`}
           >
             <p className="text-sm font-bold text-ll-ink break-keep">
@@ -94,7 +98,7 @@ export default function UnclassifiedNotes() {
           <button
             type="button"
             // "N건 정리하기"는 미리보기에 없는 나머지만이 아니라 전체 N건을 순서대로 처리한다.
-            onClick={() => openFlow(0)}
+            onClick={() => openFlow()}
             className="min-h-[44px] rounded-md border border-dashed border-ll-ink/25 py-2.5 text-xs font-semibold text-ll-pencil hover:bg-ll-cream/60 md:text-sm"
           >
             {drafts.length}건 정리하기 →
@@ -106,7 +110,7 @@ export default function UnclassifiedNotes() {
         open={flowOpen}
         onOpenChange={setFlowOpen}
         drafts={drafts}
-        startIndex={startIndex}
+        startDraftId={startDraftId}
         categories={categories}
         accounts={accounts}
       />

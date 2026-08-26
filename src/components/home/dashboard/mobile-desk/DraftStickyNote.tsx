@@ -24,7 +24,7 @@ interface DraftStickyNoteProps {
  */
 export default function DraftStickyNote({ isOpen, onOpen, onClose }: DraftStickyNoteProps) {
   const [flowOpen, setFlowOpen] = useState(false);
-  const [startIndex, setStartIndex] = useState(0);
+  const [startDraftId, setStartDraftId] = useState<string | undefined>(undefined);
 
   const { data: drafts = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["drafts"],
@@ -48,8 +48,10 @@ export default function DraftStickyNote({ isOpen, onOpen, onClose }: DraftSticky
   const count = drafts.length;
   const first = drafts[0];
 
-  const openFlow = (index: number) => {
-    setStartIndex(index);
+  // draft ID로 시작 항목을 지정한다(IMPLEMENTATION_BRIEF_018 §4) — 큐가 열릴 때 오래된
+  // 순으로 정렬되므로 index가 아니라 ID라야 사용자가 실제로 누른 항목부터 시작한다.
+  const openFlow = (id?: string) => {
+    setStartDraftId(id);
     setFlowOpen(true);
   };
 
@@ -152,11 +154,11 @@ export default function DraftStickyNote({ isOpen, onOpen, onClose }: DraftSticky
         ) : (
           <>
             <div className="border-t-2 border-ll-ink">
-              {preview.map((draft, i) => (
+              {preview.map((draft) => (
                 <button
                   key={draft.id}
                   type="button"
-                  onClick={() => openFlow(i)}
+                  onClick={() => openFlow(draft.id)}
                   className="grid min-h-[58px] w-full grid-cols-[1fr_auto] items-center gap-3 border-b border-ll-ink/20 py-2 text-left"
                 >
                   <div className="min-w-0">
@@ -175,8 +177,9 @@ export default function DraftStickyNote({ isOpen, onOpen, onClose }: DraftSticky
             </div>
             <button
               type="button"
-              // "N건 정리하기"는 항상 index 0부터 전체 큐를 연다(IMPLEMENTATION_BRIEF_010 §6/§19).
-              onClick={() => openFlow(0)}
+              // "N건 정리하기"는 항상 정렬된 큐의 첫 항목(가장 오래된 미완료 항목)부터 연다
+              // (IMPLEMENTATION_BRIEF_010 §6/§19, IMPLEMENTATION_BRIEF_018 §4).
+              onClick={() => openFlow()}
               className="mt-4 min-h-[50px] w-full rounded-2xl bg-ll-ink text-sm font-extrabold text-ll-paper"
             >
               {count}건 정리하기
@@ -189,7 +192,7 @@ export default function DraftStickyNote({ isOpen, onOpen, onClose }: DraftSticky
         open={flowOpen}
         onOpenChange={setFlowOpen}
         drafts={drafts}
-        startIndex={startIndex}
+        startDraftId={startDraftId}
         categories={categories}
         accounts={accounts}
       />
