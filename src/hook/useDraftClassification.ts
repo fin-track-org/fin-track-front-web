@@ -175,6 +175,10 @@ export function useDraftClassification() {
     queryClient.invalidateQueries({ queryKey: ["dashboardBudgetUsage"] });
     queryClient.invalidateQueries({ queryKey: ["dashboardExpenseCategory"] });
     queryClient.invalidateQueries({ queryKey: ["dashboardExpenseAccount"] });
+    // QA_REVIEW_043 P2-1 — IMPLEMENTATION_BRIEF_019에서 새로 생긴 연간 통계 키
+    // (["dashboardAnnual", year], src/hook/useStatisticsData.ts)가 이 목록에 없어서, "나중에
+    // 분류" 확정 직후 연간 탭이 이전 통계를 그대로 보여줄 수 있었다.
+    queryClient.invalidateQueries({ queryKey: ["dashboardAnnual"] });
   }
 
   return { confirmDraft, updateDraftInPlace, deleteDraft, invalidateItemLevel, invalidateDashboards };

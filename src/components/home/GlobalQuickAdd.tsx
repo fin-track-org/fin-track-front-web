@@ -211,6 +211,8 @@ export default function GlobalQuickAdd() {
     queryClient.invalidateQueries({ queryKey: ["dashboardBalances"] });
     queryClient.invalidateQueries({ queryKey: ["dashboardDaily"] });
     queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
+    // QA_REVIEW_043 P2-1과 같은 이유로, 실제 거래를 만드는 이 경로도 연간 통계를 함께 무효화한다.
+    queryClient.invalidateQueries({ queryKey: ["dashboardAnnual"] });
   };
 
   // 마이페이지 등 특정 페이지에서 데스크탑 FAB 버튼만 숨기기 위해
@@ -340,6 +342,9 @@ export default function GlobalQuickAdd() {
           queryClient.invalidateQueries({ queryKey: ["dashboardDaily"] });
           queryClient.invalidateQueries({ queryKey: ["transactions"] });
           queryClient.invalidateQueries({ queryKey: ["recentTransactions"] });
+          // QA_REVIEW_043 P2-1과 같은 이유 — 잔액 조정도 실제 거래라 그 달의 annual.hasTransactions가
+          // 바뀔 수 있다(카테고리는 내부 제외 규칙으로 빠지지만, "거래가 있었는지"는 별도 판단).
+          queryClient.invalidateQueries({ queryKey: ["dashboardAnnual"] });
         }}
       />
     </>
