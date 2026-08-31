@@ -32,6 +32,8 @@ import { AmountInput } from "@/src/components/ledger/AmountInput";
 import { TransactionTypeSegment, type SegmentType } from "@/src/components/ledger/TransactionTypeSegment";
 import {
   buildMoveEntryKind,
+  canApplyCategorySuggestion,
+  consumeCategoryRecommendationOnEntryKindChange,
   deriveEntryKind,
   entryKindToPayloadDirection,
   fromPayloadAccountFields,
@@ -261,11 +263,18 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
    *    기존 계좌를 반대 필드로 암묵적으로 재사용하지 않기 위해서다(§7 "저축하기 ↔ 가져오기").
    *  - 카테고리는 categoryOptions가 계좌 이동일 때 빈 배열이 되므로, 아래 별도 effect가
    *    자동으로 비운다(중복 구현 없음).
+   *  - QA_REVIEW_045 P2: categoryOptions 정리 effect는 카테고리 "값"만 비우고
+   *    recommendationState는 그대로 "auto"로 남긴다. 계좌 이동으로 처음 전환할 때 이미
+   *    적용됐던 추천을 "user"로 소비해 두지 않으면, 같은 항목에서 지출·수입으로 되돌아왔을
+   *    때 추천 재적용 effect가 같은 값을 다시 채운다. 다음 draft 전환은 defaultValues
+   *    effect가 recommendationState를 통째로 "none"으로 리셋하므로 여기서 건드릴 필요가
+   *    없다(consumeCategoryRecommendationOnEntryKindChange).
    */
   const changeEntryKind = (next: EntryKind) => {
     if (entryKind === next) return;
     const directionChanged =
       moveSubKindOf(entryKind) !== moveSubKindOf(next) || savingsDirectionOf(entryKind) !== savingsDirectionOf(next);
+    setRecommendationState((prev) => consumeCategoryRecommendationOnEntryKindChange(entryKind, next, prev));
     setEntryKindRaw(next);
     if (directionChanged) {
       setFromAccountId("");
@@ -595,7 +604,11 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   // 그 필드를 "auto"로 표시해 자동 선택 배지가 뜨도록 한다.
   // (DESIGN_QA_01.md P1-1, 사용자 요청: 자동 선택 필드 시각화)
   useEffect(() => {
-    if (!open || !suggestedValues) return;
+    // 계좌 이동에는 카테고리 개념이 없다. 추천값이 남아 있는 상태에서 계좌 이동으로
+    // 전환했을 때 categoryOptions 정리 effect는 카테고리를 비우고, 이 effect는 추천
+    // 카테고리를 다시 채우는 동작을 반복해 React의 maximum update depth 예외를 만들 수
+    // 있다. 이동 상태에서는 추천 카테고리·소분류를 적용하지 않는다.
+    if (!open || !suggestedValues || !canApplyCategorySuggestion(entryKind)) return;
 
     if (suggestedValues.categoryId && recommendationState.category !== "user" && !category) {
       setCategory(suggestedValues.categoryId);
@@ -615,7 +628,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       setSubCategory(suggestedValues.subCategoryId);
       setRecommendationState((prev) => ({ ...prev, subCategory: "auto" }));
     }
-  }, [open, suggestedValues, category, subCategory, recommendationState]);
+  }, [open, suggestedValues, entryKind, category, subCategory, recommendationState]);
 
   // 기본 결제수단 자동 선택(§6) — 신규 일반 수입·지출에만 적용한다. 우선순위 규칙
   // (1~3순위 "이미 값이 있으면 절대 덮지 않는다" + 4순위 기본 결제수단 + 5순위 최근 추천,

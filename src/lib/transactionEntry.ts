@@ -32,6 +32,49 @@ export function isMoveKind(kind: EntryKind): boolean {
   return kind === "TRANSFER" || kind === "SAVINGS_DEPOSIT" || kind === "SAVINGS_WITHDRAWAL";
 }
 
+/** 카테고리·소분류 추천은 일반 수입·지출에만 적용한다. */
+export function canApplyCategorySuggestion(kind: EntryKind): boolean {
+  return !isMoveKind(kind);
+}
+
+/**
+ * 카테고리/소분류/결제수단이 "추천으로 자동 채워졌는지(auto)", "사용자가 직접
+ * 골랐는지(user)", "아직 아무 일도 없었는지(none)"를 필드별로 추적하는 상태
+ * (AddTransactionModal의 `recommendationState`와 같은 모양).
+ */
+export type RecommendationFieldState = "auto" | "user" | "none";
+export interface CategoryRecommendationState {
+  category: RecommendationFieldState;
+  subCategory: RecommendationFieldState;
+}
+
+/**
+ * 거래 종류를 바꿀 때 카테고리·소분류 추천 상태를 정리한다(QA_REVIEW_045 P2).
+ *
+ * 계좌 이동(TRANSFER/SAVINGS_*)으로 "처음" 전환하는 순간, 이미 자동 적용됐던("auto")
+ * 추천은 "user"로 전환해 재적용을 막는다 — categoryOptions 정리 effect가 카테고리 값
+ * 자체는 비우지만 recommendationState는 그대로 "auto"로 남기 때문에, 손대지 않으면
+ * 나중에 같은 항목에서 지출·수입으로 되돌아왔을 때 canApplyCategorySuggestion이 다시
+ * true가 되면서 같은 추천이 자동으로 재적용된다(useEffect 재적용 가드가
+ * `recommendationState.* !== "user"`만 보기 때문).
+ *
+ * 아직 적용되지 않았던("none") 추천은 손대지 않는다 — 계좌 이동을 눌러봤을 뿐 추천이
+ * 한 번도 채워진 적 없는 항목은, 나중에 정상적으로 첫 적용이 될 수 있어야 한다.
+ * 계좌 이동이 아닌 전환(EXPENSE↔INCOME, 이동 종류 사이 전환, 이동에서 이동으로)에는
+ * 관여하지 않는다 — 이미 "user"로 소비된 상태를 다시 만지지 않기 위해서다.
+ */
+export function consumeCategoryRecommendationOnEntryKindChange<
+  T extends CategoryRecommendationState,
+>(prevKind: EntryKind, nextKind: EntryKind, state: T): T {
+  const enteringMoveKind = !isMoveKind(prevKind) && isMoveKind(nextKind);
+  if (!enteringMoveKind) return state;
+  return {
+    ...state,
+    category: state.category === "auto" ? "user" : state.category,
+    subCategory: state.subCategory === "auto" ? "user" : state.subCategory,
+  };
+}
+
 export function isSavingsKind(
   kind: EntryKind,
 ): kind is "SAVINGS_DEPOSIT" | "SAVINGS_WITHDRAWAL" {

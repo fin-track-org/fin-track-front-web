@@ -13,6 +13,8 @@
 import assert from "node:assert/strict";
 import {
   buildMoveEntryKind,
+  canApplyCategorySuggestion,
+  consumeCategoryRecommendationOnEntryKindChange,
   deriveEntryKind,
   entryKindToPayloadDirection,
   fromPayloadAccountFields,
@@ -31,6 +33,16 @@ let passCount = 0;
 function ok(label: string) {
   console.log(`OK  ${label}`);
   passCount++;
+}
+
+/* 0. 카테고리 추천 적용 범위 ---------------------------------------------- */
+{
+  assert.equal(canApplyCategorySuggestion("EXPENSE"), true);
+  assert.equal(canApplyCategorySuggestion("INCOME"), true);
+  assert.equal(canApplyCategorySuggestion("TRANSFER"), false);
+  assert.equal(canApplyCategorySuggestion("SAVINGS_DEPOSIT"), false);
+  assert.equal(canApplyCategorySuggestion("SAVINGS_WITHDRAWAL"), false);
+  ok("0.계좌 이동에서 카테고리 추천 미적용");
 }
 
 function acc(
@@ -361,6 +373,51 @@ function acc(
   assert.equal(deriveEntryKind({ type: "EXPENSE" }), "EXPENSE");
   assert.equal(deriveEntryKind({ type: "INCOME" }), "INCOME");
   ok("14.템플릿 타입(EXPENSE/INCOME) → EntryKind 매핑");
+}
+
+/* 15. QA_REVIEW_045 P2 — 추천 적용 → 계좌 이동 → 일반 유형 복귀 시 재적용 안 됨 ------------
+ * changeEntryKind가 실제로 호출하는 consumeCategoryRecommendationOnEntryKindChange를
+ * 직접 검증한다(React 렌더링 없이). */
+{
+  // 추천이 이미 적용된("auto") 상태에서 계좌 이동으로 전환하면 "user"로 소비돼,
+  // 같은 항목에서 지출로 되돌아와도(재적용 effect의 `!== "user"` 가드에 걸려) 다시
+  // 채워지지 않는다.
+  const applied = { category: "auto" as const, subCategory: "auto" as const };
+  const enteredMove = consumeCategoryRecommendationOnEntryKindChange("EXPENSE", "TRANSFER", applied);
+  assert.deepEqual(enteredMove, { category: "user", subCategory: "user" });
+  const backToExpense = consumeCategoryRecommendationOnEntryKindChange("TRANSFER", "EXPENSE", enteredMove);
+  // 계좌 이동 → 일반 유형 복귀는 "진입"이 아니므로 이미 소비된 "user" 상태를 그대로 둔다.
+  assert.deepEqual(backToExpense, { category: "user", subCategory: "user" });
+  ok("15a.추천 적용 후 계좌 이동 전환 시 재적용 차단(user로 소비)");
+
+  // 대분류만 자동 적용되고 소분류는 아직 채워지지 않았던 경우, 대분류만 소비되고
+  // 소분류는 "none"으로 유지된다(원래 없던 값을 만들어내지 않는다).
+  const partial = { category: "auto" as const, subCategory: "none" as const };
+  const partialResult = consumeCategoryRecommendationOnEntryKindChange("EXPENSE", "SAVINGS_DEPOSIT", partial);
+  assert.deepEqual(partialResult, { category: "user", subCategory: "none" });
+  ok("15b.대분류만 적용된 상태에서 소분류 none은 그대로 유지");
+
+  // 추천이 한 번도 적용되지 않았던("none") 항목은 계좌 이동을 거쳐도 손대지 않는다 —
+  // 다음에 지출/수입으로 돌아왔을 때 정상적으로 첫 적용이 될 수 있어야 한다.
+  const untouched = { category: "none" as const, subCategory: "none" as const };
+  const stillNone = consumeCategoryRecommendationOnEntryKindChange("INCOME", "SAVINGS_WITHDRAWAL", untouched);
+  assert.deepEqual(stillNone, untouched);
+  ok("15c.추천 미적용 상태는 계좌 이동 전환에도 영향 없음(다음 정상 적용 보존)");
+
+  // 계좌 이동이 아닌 전환(EXPENSE↔INCOME, 이동 종류 사이 전환)에는 관여하지 않는다.
+  const expenseAuto = { category: "auto" as const, subCategory: "none" as const };
+  assert.deepEqual(
+    consumeCategoryRecommendationOnEntryKindChange("EXPENSE", "INCOME", expenseAuto),
+    expenseAuto,
+    "EXPENSE↔INCOME 전환은 추천 상태를 건드리면 안 됩니다",
+  );
+  const moveAuto = { category: "user" as const, subCategory: "user" as const };
+  assert.deepEqual(
+    consumeCategoryRecommendationOnEntryKindChange("TRANSFER", "SAVINGS_DEPOSIT", moveAuto),
+    moveAuto,
+    "이동 종류 사이 전환(이미 계좌 이동 중)은 추천 상태를 건드리면 안 됩니다",
+  );
+  ok("15d.계좌 이동으로의 '첫 진입'이 아닌 전환은 추천 상태 불변");
 }
 
 console.log(`\n${passCount}개 fixture 전부 통과`);
