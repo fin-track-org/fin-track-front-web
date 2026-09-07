@@ -209,36 +209,112 @@ export function buildCategorySuggestion({
   return { basis: "none" };
 }
 
+/** `sanitizeCategorySelection`/`sanitizeSuggestion`이 검증 대상으로 받는 카테고리 최소 모양. */
+export interface CategoryLike {
+  id: string;
+  type: string;
+  code?: string | null;
+}
+
 /**
- * 추천된 categoryId/accountId가 지금 화면에 실제로 선택 가능한지 검증하고,
- * 아니면 제거한다. 검증 기준(DESIGN_QA_02.md P1-2R로 강화됨):
- *  - 카테고리가 현재 로드된 목록에 실제로 존재하는가
- *  - 그 카테고리의 유형이 **지금 작성 중인 거래 유형과 같은가**
- *  - 이체/저축/잔액조정 같은 시스템 카테고리가 아닌가
+ * 세부항목 하나가 실제로 어느 category에 속하는지 나타내는 최소 모양.
+ * `SubCategory`(category.d.ts)의 `categoryId`를 그대로 쓰거나, 호출부가 "지금 이 목록은
+ * 이 category의 것"이라는 걸 알고 있을 때 직접 구성해서 넘긴다.
+ */
+export interface SubCategoryLike {
+  id: string;
+  categoryId: string;
+}
+
+export interface CategorySelectionInput {
+  type: string;
+  categoryId?: string | null;
+  subCategoryId?: string | null;
+}
+
+export interface CategorySelectionResult {
+  categoryId: string;
+  subCategoryId: string;
+}
+
+/**
+ * category/subcategory 선택 하나를 검증하고 정규화하는 단일 규칙
+ * (IMPLEMENTATION_BRIEF_021 §4.1·§4.2 — 추천값과 기존 draft 초기값이 공유한다).
+ *
+ * - category가 없거나, 현재 로드된 목록에 없거나, 유형이 `input.type`과 다르거나,
+ *   이체/저축/잔액조정용 시스템 카테고리면 category와 subcategory를 모두 버린다.
+ * - category는 유효한데 subcategory가 있으면, 그 category의 subcategory 목록을 알고
+ *   있을 때만(`subCategoriesOfCategory`가 주어졌을 때만) 소속을 검증해 다르면 subcategory만
+ *   버린다. 목록을 아직 모르면(`undefined`) 검증을 건너뛰고 값을 그대로 둔다 — 호출부가
+ *   해당 category의 subcategory를 불러온 뒤 같은 함수를 다시 호출해 정리한다. 이 함수 자체는
+ *   어떤 네트워크 요청도 만들지 않는다(§9).
+ * - 같은 입력에는 항상 같은 결과를 반환하는 결정적 순수 함수라, "적용 → 제거 → 재적용"
+ *   경쟁이 구조적으로 생기지 않는다(§4.3) — 호출부는 이 함수의 결과만 state에 반영하면 된다.
+ */
+export function sanitizeCategorySelection(
+  input: CategorySelectionInput,
+  categories: CategoryLike[],
+  subCategoriesOfCategory?: SubCategoryLike[],
+): CategorySelectionResult {
+  const matchedCategory = input.categoryId
+    ? categories.find((c) => c.id === input.categoryId)
+    : undefined;
+  const categoryValid =
+    !!matchedCategory && matchedCategory.type === input.type && !isSystemCategoryCode(matchedCategory.code);
+
+  if (!categoryValid) {
+    return { categoryId: "", subCategoryId: "" };
+  }
+
+  const categoryId = input.categoryId as string;
+  if (!input.subCategoryId) {
+    return { categoryId, subCategoryId: "" };
+  }
+  if (subCategoriesOfCategory === undefined) {
+    return { categoryId, subCategoryId: input.subCategoryId };
+  }
+
+  const subCategoryValid = subCategoriesOfCategory.some(
+    (sc) => sc.id === input.subCategoryId && sc.categoryId === categoryId,
+  );
+  return { categoryId, subCategoryId: subCategoryValid ? input.subCategoryId : "" };
+}
+
+/**
+ * 추천된 categoryId/subCategoryId/accountId가 지금 화면에 실제로 선택 가능한지 검증하고,
+ * 아니면 제거한다. category/subcategory 검증 기준은 `sanitizeCategorySelection`과 같다
+ * (DESIGN_QA_02.md P1-2R가 세운 category 기준 + IMPLEMENTATION_BRIEF_021 §4.1이 추가한
+ * subcategory 소속 검증). account 검증 기준은 그대로다 — 현재 로드된 목록에 실제로 있는가.
  * 대분류가 무효화되면 그에 딸린 소분류 추천과 안내 문구도 함께 버린다.
+ *
+ * `subCategoriesOfCategory`를 주지 않으면(기본값) subcategory 소속 검증은 건너뛴다 —
+ * 호출부가 추천 category의 subcategory 목록을 아직 로드하지 않았을 수 있고, 이 함수는
+ * 그 목록을 얻기 위해 새 요청을 만들지 않는다(§9). 그 경우 subcategory 소속 검증은
+ * 호출부(예: `AddTransactionModal`의 추천 적용 effect)가 이미 로드한 데이터로 별도 수행한다.
  */
 export function sanitizeSuggestion(
   suggestion: CategorySuggestion,
   type: TransactionType,
-  categories: Array<{ id: string; type: string; code?: string | null }>,
+  categories: CategoryLike[],
   accounts: Array<{ id: string }>,
+  subCategoriesOfCategory?: SubCategoryLike[],
 ): CategorySuggestion {
-  const matchedCategory = suggestion.categoryId
-    ? categories.find((c) => c.id === suggestion.categoryId)
-    : undefined;
-  const categoryValid =
-    !!matchedCategory && matchedCategory.type === type && !isSystemCategoryCode(matchedCategory.code);
+  const normalizedCategory = sanitizeCategorySelection(
+    { type, categoryId: suggestion.categoryId, subCategoryId: suggestion.subCategoryId },
+    categories,
+    subCategoriesOfCategory,
+  );
+  const categoryDropped = !!suggestion.categoryId && !normalizedCategory.categoryId;
   const accountValid = !!suggestion.accountId && accounts.some((a) => a.id === suggestion.accountId);
-  const categoryDropped = !!suggestion.categoryId && !categoryValid;
 
-  if (!categoryValid && !accountValid) {
+  if (!normalizedCategory.categoryId && !accountValid) {
     // 추천으로 쓸 만한 값이 하나도 안 남았으면 힌트 문구도 같이 지운다.
     return { basis: categoryDropped ? "none" : suggestion.basis };
   }
 
   return {
-    categoryId: categoryValid ? suggestion.categoryId : undefined,
-    subCategoryId: categoryValid ? suggestion.subCategoryId : undefined,
+    categoryId: normalizedCategory.categoryId || undefined,
+    subCategoryId: normalizedCategory.subCategoryId || undefined,
     accountId: accountValid ? suggestion.accountId : undefined,
     basis: suggestion.basis,
     // 대분류 추천이 버려졌는데 그 근거를 설명하는 힌트를 남겨두면 사용자가 헷갈리므로 함께 지운다.
