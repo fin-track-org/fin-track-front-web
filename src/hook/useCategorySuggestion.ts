@@ -1,9 +1,15 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTransactions } from "@/src/lib/api/transaction/transactions";
 import { getRecentTransactions } from "@/src/lib/api/dashboard/recent";
-import { buildCategorySuggestion, sanitizeSuggestion, CategorySuggestion } from "@/src/lib/categorySuggestion";
+import {
+  buildCategorySuggestion,
+  sanitizeSuggestion,
+  type CategoryLike,
+  type CategorySuggestion,
+} from "@/src/lib/categorySuggestion";
 
 /**
  * "나중에 분류" 화면에서 카테고리/결제수단 추천을 계산하는 훅.
@@ -17,7 +23,7 @@ export function useCategorySuggestion(
   description: string,
   type: TransactionType,
   enabled: boolean,
-  categories: Array<{ id: string; type: string; code?: string | null }> = [],
+  categories: CategoryLike[] = [],
   accounts: Array<{ id: string }> = [],
 ): { suggestion: CategorySuggestion; isLoading: boolean } {
   const trimmedMemo = description.trim();
@@ -46,7 +52,24 @@ export function useCategorySuggestion(
     recentTransactions,
   });
 
-  const suggestion = sanitizeSuggestion(rawSuggestion, type, categories, accounts);
+  // IMPLEMENTATION_BRIEF_021 §4.4 — buildCategorySuggestion·sanitizeSuggestion는 매 렌더
+  // 새 객체를 반환한다. 내용이 같은데도 참조만 달라지면 호출부(AddTransactionModal의 추천
+  // 적용 effect)가 매번 재평가된다. primitive 필드를 dependency로 써서, 실제 추천 값이
+  // 바뀌었을 때만 새 참조를 만든다.
+  const suggestion = useMemo(
+    () => sanitizeSuggestion(rawSuggestion, type, categories, accounts),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      rawSuggestion.categoryId,
+      rawSuggestion.subCategoryId,
+      rawSuggestion.accountId,
+      rawSuggestion.basis,
+      rawSuggestion.hint,
+      type,
+      categories,
+      accounts,
+    ],
+  );
 
   return {
     suggestion,

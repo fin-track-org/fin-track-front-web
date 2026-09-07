@@ -50,6 +50,7 @@ import {
   type EntryKind,
   type MoveSubKind,
 } from "@/src/lib/transactionEntry";
+import { sanitizeCategorySelection } from "@/src/lib/categorySuggestion";
 
 /**
  * 카테고리 자동 선택 안내 문구. 추천 근거별로 구분한다
@@ -407,7 +408,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   const selectedCategoryCode = selectedCategory?.code ?? "";
 
   /* 세부 항목 (소분류) 조회 */
-  const { data: fetchedSubCategories = [] } = useQuery({
+  const { data: fetchedSubCategories = [], isLoading: isSubCategoriesLoading } = useQuery({
     queryKey: ["subCategories", selectedCategoryId],
     queryFn: () => getSubCategories(selectedCategoryId),
     enabled: open && !!selectedCategoryId,
@@ -566,14 +567,23 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     }
   }, [categoryOptions, category]);
 
+  // IMPLEMENTATION_BRIEF_021 §4.1·§4.2 — 지금 선택된 category의 subcategory 목록이
+  // 로드되면, 현재 subCategory가 실제로 그 category 소속인지 다시 검증한다. 목록이 아직
+  // 로딩 중일 때는(`isSubCategoriesLoading`) 검증을 건너뛴다 — category가 막 바뀌어 목록이
+  // 비어 있을 뿐인 순간에 아직 확인되지 않은 값을 성급하게 지우지 않기 위해서다.
   useEffect(() => {
-    const list = mergedSubCategories;
-    const exists = subCategory === "" || list.some((x) => x.id === subCategory);
+    if (!category || subCategory === "" || isSubCategoriesLoading) return;
 
-    if (!exists) {
+    const normalized = sanitizeCategorySelection(
+      { type: payloadDirection.type, categoryId: category, subCategoryId: subCategory },
+      categories,
+      mergedSubCategories.map((sc) => ({ id: sc.id, categoryId: selectedCategoryId })),
+    );
+
+    if (!normalized.subCategoryId) {
       setSubCategory("");
     }
-  }, [mergedSubCategories, subCategory]);
+  }, [category, subCategory, mergedSubCategories, isSubCategoriesLoading, categories, payloadDirection.type, selectedCategoryId]);
 
   // defaultValues(수정 대상·임시저장 복원·"나중에 분류" 큐 항목)가 바뀔 때마다 폼 전체를
   // 새 값으로 리셋한다. 큐의 다음 항목으로 넘어갈 때도 defaultValues 참조가 바뀌므로,
@@ -586,11 +596,27 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       accountId: defaultValues?.accountId,
       toAccountId: defaultValues?.toAccountId,
     });
+    // IMPLEMENTATION_BRIEF_021 §4.2 — defaultValues는 과거에 저장된(또는 서버가 넘겨준)
+    // 값을 그대로 담고 있어, 유형이 바뀐 카테고리나 소속이 다른 세부항목이 들어 있을 수
+    // 있다. 이 값을 그대로 state에 반영하지 않고, 추천값과 같은 규칙(sanitizeCategorySelection)
+    // 으로 먼저 정규화한다 — 카테고리 목록은 이미 로드돼 있어 새 요청 없이 즉시 판단할 수
+    // 있고, 유형이 다르거나 시스템 카테고리면 category·subcategory를 함께 비운다.
+    // subcategory 소속(다른 category 소속인지)은 이 category의 subcategory 목록이 아직
+    // 로드되지 않았을 수 있어 여기서는 건드리지 않고, 아래 subcategory 검증 effect가 목록이
+    // 로드된 뒤 별도로 정리한다.
+    const normalizedCategory = sanitizeCategorySelection(
+      {
+        type: entryKindToPayloadDirection(kind).type,
+        categoryId: defaultValues?.categoryId,
+        subCategoryId: defaultValues?.subCategoryId,
+      },
+      categories,
+    );
 
     setDate(defaultValues?.date ?? todayISODateSeoul());
     setEntryKindRaw(kind);
-    setCategory(defaultValues?.categoryId ?? "");
-    setSubCategory(defaultValues?.subCategoryId ?? "");
+    setCategory(normalizedCategory.categoryId);
+    setSubCategory(normalizedCategory.subCategoryId);
     setFromAccountId(restoredAccounts.fromAccountId);
     setToAccountId(restoredAccounts.toAccountId);
     setDescription(defaultValues?.description ?? "");
@@ -605,7 +631,7 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     // 새 항목(defaultValues)으로 폼이 리셋됐으니, 사용자가 이 항목에서
     // 아직 아무것도 고르지 않은 상태로 되돌린다.
     setRecommendationState({ category: "none", subCategory: "none", account: "none" });
-  }, [open, defaultValues]);
+  }, [open, defaultValues, categories]);
 
   // 늦게 도착하는 추천값(suggestedValues) 적용: 폼을 통째로 리셋하지 않고
   // 지금 비어 있고 사용자가 아직 건드리지 않은("user"가 아닌) 필드에만 채워 넣고,
@@ -618,25 +644,61 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     // 있다. 이동 상태에서는 추천 카테고리·소분류를 적용하지 않는다.
     if (!open || !suggestedValues || !canApplyCategorySuggestion(entryKind)) return;
 
+    // IMPLEMENTATION_BRIEF_021 §4.1·§4.3 — 추천값을 state에 적용하기 전에 먼저 검증한다.
+    // 예전에는 (지금 채워보고 → 정합성 effect가 지워버림)을 반복할 수 있었다: 유형이 다른
+    // category나 소속이 다른 subcategory가 추천으로 들어오면, 여기서는 채우고 아래
+    // category/subcategory 정합성 effect는 지우는데, 이 effect의 조건(`!category`/
+    // `!subCategory`)이 다시 참이 되면서 같은 값을 또 채워 넣어 무한 렌더 루프(React error
+    // #185)로 이어질 수 있었다. 이제는 채우기 전에 검증해 애초에 잘못된 값을 state에
+    // 넣지 않는다 — 거부된 값은 다시 채워 넣을 이유가 없으므로 반복 자체가 생기지 않는다.
     if (suggestedValues.categoryId && recommendationState.category !== "user" && !category) {
-      setCategory(suggestedValues.categoryId);
-      setRecommendationState((prev) => ({ ...prev, category: "auto" }));
+      const normalized = sanitizeCategorySelection(
+        { type: payloadDirection.type, categoryId: suggestedValues.categoryId },
+        categories,
+      );
+      if (normalized.categoryId) {
+        setCategory(normalized.categoryId);
+        setRecommendationState((prev) => ({ ...prev, category: "auto" }));
+      }
     }
     // 소분류 추천은 "지금 적용된 대분류가 추천 대분류와 같을 때만" 적용한다.
     // category가 suggestedValues와 다르면(사용자가 직접 다른 대분류를 골랐거나 아직
     // 추천 대분류가 반영되기 전이면) 엉뚱한 대분류에 남의 소분류가 섞이는 걸 막는다
     // (DESIGN_QA_02.md P1-1R). category를 deps에 넣어 대분류가 늦게 채워진 뒤에도
-    // 이 effect가 다시 평가되도록 한다.
+    // 이 effect가 다시 평가되도록 한다. 소분류 소속 검증은 이 category의 subcategory
+    // 목록이 로드된 뒤에만 한다 — 아직 로딩 중이면 이번 render에는 적용하지 않고, 목록이
+    // 도착하면(`mergedSubCategories`/`isSubCategoriesLoading` 변화로) 이 effect가 다시
+    // 평가돼 그때 적용한다.
     if (
       suggestedValues.subCategoryId &&
       recommendationState.subCategory !== "user" &&
       !subCategory &&
-      category === suggestedValues.categoryId
+      category === suggestedValues.categoryId &&
+      !isSubCategoriesLoading
     ) {
-      setSubCategory(suggestedValues.subCategoryId);
-      setRecommendationState((prev) => ({ ...prev, subCategory: "auto" }));
+      const normalized = sanitizeCategorySelection(
+        { type: payloadDirection.type, categoryId: category, subCategoryId: suggestedValues.subCategoryId },
+        categories,
+        mergedSubCategories.map((sc) => ({ id: sc.id, categoryId: selectedCategoryId })),
+      );
+      if (normalized.subCategoryId) {
+        setSubCategory(normalized.subCategoryId);
+        setRecommendationState((prev) => ({ ...prev, subCategory: "auto" }));
+      }
     }
-  }, [open, suggestedValues, entryKind, category, subCategory, recommendationState]);
+  }, [
+    open,
+    suggestedValues,
+    entryKind,
+    category,
+    subCategory,
+    recommendationState,
+    categories,
+    payloadDirection.type,
+    mergedSubCategories,
+    isSubCategoriesLoading,
+    selectedCategoryId,
+  ]);
 
   // 기본 결제수단 자동 선택(§6) — 신규 일반 수입·지출에만 적용한다. 우선순위 규칙
   // (1~3순위 "이미 값이 있으면 절대 덮지 않는다" + 4순위 기본 결제수단 + 5순위 최근 추천,
