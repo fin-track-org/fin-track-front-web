@@ -176,6 +176,10 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   // "나중에 분류" 큐 안에서 항목이 바뀔 때 포커스를 옮길 제목(IMPLEMENTATION_BRIEF_018 §12).
   // 입력 요소가 아니라 제목으로 옮겨서 모바일 키보드가 불필요하게 열리지 않게 한다.
   const queueTitleRef = useRef<HTMLHeadingElement>(null);
+  // 폼 스크롤 영역(IMPLEMENTATION_BRIEF_020) — 예전에는 이 영역 전체가 draft ID로
+  // key remount돼 항목이 바뀔 때마다 스크롤이 자동으로 맨 위로 돌아갔다. remount를
+  // 제거한 뒤에도 같은 동작을 유지하기 위해 전환 시 명시적으로 스크롤을 초기화한다.
+  const formScrollRef = useRef<HTMLDivElement>(null);
   const isFirstQueueTransitionRef = useRef(true);
 
   // 상세 등록(신규/수정)에서는 "일반 이체"를 선택할 수 있지만, 빠른 기록·"나중에 분류"·
@@ -524,6 +528,10 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
       return;
     }
     queueTitleRef.current?.focus();
+    // 폼 subtree가 더 이상 draft ID로 remount되지 않으므로(IMPLEMENTATION_BRIEF_020),
+    // 이전 항목에서 스크롤해 내려간 위치가 다음 항목에 그대로 남지 않도록 명시적으로
+    // 맨 위로 되돌린다 — remount가 보장하던 기존 동작과 동일하게 유지.
+    formScrollRef.current?.scrollTo({ top: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transitionKey]);
 
@@ -935,16 +943,23 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
           >
 
             <div
-              key={transitionKey}
-              className={`flex-1 overflow-y-auto space-y-6 pb-[calc(1rem+env(safe-area-inset-bottom))] px-1 custom-scrollbar ${
-                transitionKey !== undefined ? "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200" : ""
-              }`}
+              ref={formScrollRef}
+              className="flex-1 overflow-y-auto space-y-6 pb-[calc(1rem+env(safe-area-inset-bottom))] px-1 custom-scrollbar"
             >
               {/* 모바일 손잡이(핸들) */}
               <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-5 sm:hidden" />
 
-              {/* 헤더 */}
-            <div className="flex items-center justify-between pb-1">
+              {/* 헤더 — IMPLEMENTATION_BRIEF_020: 큐 다음 항목 전환 애니메이션(key 기반 remount)은
+                  Select 등 Radix primitive를 포함한 폼 전체가 아니라, 그런 primitive가 전혀 없는
+                  이 제목/진행률 wrapper에만 건다. 폼 전체를 매 전환마다 unmount/mount하면 Radix
+                  ref 합성 함수가 반복 attach/detach되며 React error #185(최대 업데이트 깊이 초과)를
+                  유발할 수 있었다. */}
+            <div
+              key={transitionKey}
+              className={`flex items-center justify-between pb-1 ${
+                transitionKey !== undefined ? "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200" : ""
+              }`}
+            >
               <div className="min-w-0">
                 <h2
                   id={dialogTitleId}
