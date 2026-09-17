@@ -406,3 +406,20 @@ export function resolveAccountAutoFill(input: {
 export function isDraftSaveAllowed(kind: EntryKind): boolean {
   return !isMoveKind(kind);
 }
+
+/* ------------------------------------------------------------------------ */
+/* 일반 이체 노출 조건 (IMPLEMENTATION_BRIEF_022 §3) — 화면/모드별 정책표:               */
+/*   빠른 등록                     : 일반 이체 숨김 (계좌 이동 자체가 노출되지 않음)         */
+/*   나중에 분류 + 자산관리 모드     : 일반 이체 표시                                    */
+/*   나중에 분류 + 간편 모드         : 일반 이체 숨김 (저축·투자만)                        */
+/*   정식 등록/수정 + 자산관리 모드  : 일반 이체 표시                                    */
+/*   정식 등록/수정 + 간편 모드      : 일반 이체 숨김 (저축·투자만)                        */
+/* 즉 "빠른 등록이 아니고 자산관리 모드"이면 항상 일반 이체를 쓸 수 있다 — "나중에 분류"를     */
+/* 일괄 제외하던 과거 조건(mode !== "confirm-draft")은 정책이 아니라 구현 누락이었다.        */
+/* ------------------------------------------------------------------------ */
+
+export type TransactionEntryMode = "create" | "edit" | "confirm-draft" | "quick";
+
+export function canUseTransferInMode(mode: TransactionEntryMode, isSimpleMode: boolean): boolean {
+  return !isSimpleMode && mode !== "quick";
+}

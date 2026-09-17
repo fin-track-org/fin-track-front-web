@@ -14,6 +14,7 @@ import assert from "node:assert/strict";
 import {
   buildMoveEntryKind,
   canApplyCategorySuggestion,
+  canUseTransferInMode,
   consumeCategoryRecommendationOnEntryKindChange,
   deriveEntryKind,
   entryKindToPayloadDirection,
@@ -418,6 +419,28 @@ function acc(
     "이동 종류 사이 전환(이미 계좌 이동 중)은 추천 상태를 건드리면 안 됩니다",
   );
   ok("15d.계좌 이동으로의 '첫 진입'이 아닌 전환은 추천 상태 불변");
+}
+
+/* 16. IMPLEMENTATION_BRIEF_022 §8(1~4) — 일반 이체 노출 조건을 모드×간편모드 조합으로
+ * 직접 실행한다. 실제 AddTransactionModal의 canUseTransfer가 그대로 호출하는 함수다. */
+{
+  // 1) 자산관리 모드 정식 등록에서 일반 이체 가능
+  assert.equal(canUseTransferInMode("create", false), true);
+  assert.equal(canUseTransferInMode("edit", false), true);
+  ok("16a.자산관리 모드 정식 등록/수정에서 일반 이체 가능");
+
+  // 2) 자산관리 모드 confirm-draft(나중에 분류)에서 일반 이체 가능 — 이번 브리프의 핵심 변경.
+  assert.equal(canUseTransferInMode("confirm-draft", false), true);
+  ok("16b.자산관리 모드 '나중에 분류'에서 일반 이체 가능");
+
+  // 3) 간편 모드 confirm-draft에서는 일반 이체 불가(저축·투자만).
+  assert.equal(canUseTransferInMode("confirm-draft", true), false);
+  ok("16c.간편 모드 '나중에 분류'에서 일반 이체 불가");
+
+  // 4) quick(빠른 등록)에서는 자산관리 모드여도 일반 이체(및 계좌 이동 자체)를 쓸 수 없다.
+  assert.equal(canUseTransferInMode("quick", false), false);
+  assert.equal(canUseTransferInMode("quick", true), false);
+  ok("16d.빠른 등록은 자산관리 모드여도 일반 이체 불가");
 }
 
 console.log(`\n${passCount}개 fixture 전부 통과`);
