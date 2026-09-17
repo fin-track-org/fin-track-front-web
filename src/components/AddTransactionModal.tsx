@@ -33,6 +33,7 @@ import { TransactionTypeSegment, type SegmentType } from "@/src/components/ledge
 import {
   buildMoveEntryKind,
   canApplyCategorySuggestion,
+  canUseTransferInMode,
   consumeCategoryRecommendationOnEntryKindChange,
   deriveEntryKind,
   entryKindToPayloadDirection,
@@ -183,11 +184,11 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
   const formScrollRef = useRef<HTMLDivElement>(null);
   const isFirstQueueTransitionRef = useRef(true);
 
-  // 상세 등록(신규/수정)에서는 "일반 이체"를 선택할 수 있지만, 빠른 기록·"나중에 분류"·
-  // 간편모드에서는 기존과 동일하게 일반 이체를 제공하지 않는다(계좌 이동을 선택하면
-  // 저축·투자 방향 선택으로 바로 들어간다). 기존 조건(`!isSimpleMode && mode !== "quick" &&
-  // mode !== "confirm-draft"`)을 그대로 옮긴 것 — 회귀 없음.
-  const canUseTransfer = !isSimpleMode && mode !== "quick" && mode !== "confirm-draft";
+  // 자산관리 모드에서는 빠른 등록을 제외한 모든 화면(정식 등록/수정, "나중에 분류")에서
+  // "일반 이체"를 쓸 수 있다. 간편모드나 빠른 등록에서는 계좌 이동을 선택하면 저축·투자
+  // 방향 선택으로 바로 들어간다(IMPLEMENTATION_BRIEF_022 §3·§4.1 — "나중에 분류"를
+  // 일괄 제외하던 이전 조건은 정책이 아니라 구현 누락이었다).
+  const canUseTransfer = canUseTransferInMode(mode, isSimpleMode);
 
   // ----------------------------
   // 초기값
@@ -942,10 +943,10 @@ export default function AddTransactionModal(props: AddTransactionModalProps) {
     // "계좌 이동" 진입 — 이 세그먼트는 mode === "quick"(빠른 등록)에서는 애초에 노출되지
     // 않는다(DECISION_014 §0, IMPLEMENTATION_BRIEF_016 §3.0·§4.2 — 계좌 이동 draft
     // 백엔드 계약이 없어 빠른 등록에서는 계좌 이동을 아예 제공하지 않는다). 상세 등록·
-    // 나중에 분류에서만 도달한다. 일반 이체를 쓸 수 있으면(자산관리 모드의 상세 등록)
-    // 시안(mobile-transaction-entry-v1.html)의 기본값과 동일하게 일반 이체로 먼저
-    // 진입하고, 일반 이체를 못 쓰는 맥락(나중에 분류·빠른 장부 모드)에서는 항상
-    // 저축·투자로 들어간다.
+    // 나중에 분류에서만 도달한다. 일반 이체를 쓸 수 있으면(자산관리 모드 — 정식 등록/수정,
+    // "나중에 분류" 모두 포함, IMPLEMENTATION_BRIEF_022 §3) 시안(mobile-transaction-entry-v1.html)의
+    // 기본값과 동일하게 일반 이체로 먼저 진입하고, 일반 이체를 못 쓰는 맥락(간편 모드)에서는
+    // 항상 저축·투자로 들어간다.
     if (!canUseTransfer) {
       changeEntryKind(savingsDirection === "WITHDRAWAL" ? "SAVINGS_WITHDRAWAL" : "SAVINGS_DEPOSIT");
       return;
